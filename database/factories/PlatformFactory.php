@@ -17,7 +17,7 @@ class PlatformFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => fake()->unique()->slug(2),
+            'name' => fake()->unique()->word().fake()->unique()->randomNumber(4),
             'base_url' => fake()->url(),
             'is_active' => true,
         ];

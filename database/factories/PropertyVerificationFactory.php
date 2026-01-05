@@ -20,8 +20,8 @@ class PropertyVerificationFactory extends Factory
     {
         return [
             'property_id' => Property::factory(),
-            'phone' => fake()->numerify('+52##########'),
-            'message_sent' => 'Hola, ¿la propiedad en '.fake()->address().' sigue disponible?',
+            'phone' => '+523312'.fake()->numerify('######'),
+            'message_sent' => 'Hola, ¿sigue disponible la propiedad en '.fake()->streetAddress().'?',
             'message_sent_at' => null,
             'response_raw' => null,
             'response_parsed' => null,
@@ -33,7 +33,7 @@ class PropertyVerificationFactory extends Factory
     public function sent(): static
     {
         return $this->state(fn (array $attributes) => [
-            'message_sent_at' => fake()->dateTimeBetween('-7 days', '-1 day'),
+            'message_sent_at' => now(),
             'status' => VerificationStatus::Sent,
         ]);
     }
@@ -45,7 +45,7 @@ class PropertyVerificationFactory extends Factory
             'response_raw' => 'Sí, la propiedad sigue disponible. ¿Le gustaría agendar una visita?',
             'response_parsed' => [
                 'available' => true,
-                'notes' => 'Agent confirmed availability',
+                'notes' => 'Yes, available immediately',
             ],
             'response_at' => fake()->dateTimeBetween('-2 days', 'now'),
             'status' => VerificationStatus::Responded,

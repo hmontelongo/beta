@@ -21,7 +21,30 @@ class ListingFactory extends Factory
      */
     public function definition(): array
     {
-        $operationType = fake()->randomElement(OperationType::cases());
+        $hasRent = fake()->boolean(60);
+        $hasSale = fake()->boolean(40);
+
+        if (! $hasRent && ! $hasSale) {
+            $hasRent = true;
+        }
+
+        $operations = [];
+
+        if ($hasRent) {
+            $operations[] = [
+                'type' => OperationType::Rent->value,
+                'price' => fake()->numberBetween(8, 50) * 1000,
+                'currency' => 'MXN',
+            ];
+        }
+
+        if ($hasSale) {
+            $operations[] = [
+                'type' => OperationType::Sale->value,
+                'price' => fake()->numberBetween(1, 10) * 1000000,
+                'currency' => 'MXN',
+            ];
+        }
 
         return [
             'property_id' => Property::factory(),
@@ -30,18 +53,11 @@ class ListingFactory extends Factory
             'agency_id' => null,
             'external_id' => fake()->unique()->uuid(),
             'original_url' => fake()->url(),
-            'operations' => [
-                [
-                    'type' => $operationType->value,
-                    'price' => $operationType === OperationType::Rent
-                        ? fake()->numberBetween(5000, 50000)
-                        : fake()->numberBetween(500000, 10000000),
-                    'currency' => 'MXN',
-                ],
-            ],
+            'operations' => $operations,
             'raw_data' => [
-                'title' => fake()->sentence(),
+                'title' => 'Departamento en '.fake()->randomElement(['renta', 'venta']),
                 'description' => fake()->paragraphs(2, true),
+                'scraped_at' => now()->subDays(fake()->numberBetween(0, 30))->toIso8601String(),
             ],
             'data_quality' => null,
             'scraped_at' => fake()->dateTimeBetween('-30 days', 'now'),
@@ -54,7 +70,7 @@ class ListingFactory extends Factory
             'operations' => [
                 [
                     'type' => OperationType::Sale->value,
-                    'price' => fake()->numberBetween(500000, 10000000),
+                    'price' => fake()->numberBetween(1, 10) * 1000000,
                     'currency' => 'MXN',
                 ],
             ],
@@ -67,7 +83,7 @@ class ListingFactory extends Factory
             'operations' => [
                 [
                     'type' => OperationType::Rent->value,
-                    'price' => fake()->numberBetween(5000, 50000),
+                    'price' => fake()->numberBetween(8, 50) * 1000,
                     'currency' => 'MXN',
                 ],
             ],
@@ -88,13 +104,13 @@ class ListingFactory extends Factory
         ]);
     }
 
-    public function withDataQualityIssues(): static
+    public function withQualityIssues(): static
     {
         return $this->state(fn (array $attributes) => [
             'data_quality' => [
-                'missing' => ['bedrooms', 'bathrooms'],
-                'suspect' => ['price'],
-                'zero_values' => [],
+                'missing' => fake()->randomElements(['latitude', 'longitude', 'bedrooms', 'bathrooms'], fake()->numberBetween(1, 2)),
+                'suspect' => fake()->optional(0.3)->randomElements(['price'], 1) ?? [],
+                'zero_values' => fake()->optional(0.2)->randomElements(['m2_lot', 'm2_built'], 1) ?? [],
             ],
         ]);
     }

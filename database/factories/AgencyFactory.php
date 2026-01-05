@@ -18,9 +18,9 @@ class AgencyFactory extends Factory
     {
         return [
             'name' => fake()->company(),
-            'phone' => fake()->phoneNumber(),
-            'email' => fake()->companyEmail(),
-            'website' => fake()->url(),
+            'phone' => fake()->optional(0.7)->numerify('+52 33 #### ####'),
+            'email' => fake()->optional(0.8)->companyEmail(),
+            'website' => fake()->optional(0.5)->url(),
             'platform_profiles' => null,
             'properties_count' => 0,
         ];
@@ -28,10 +28,12 @@ class AgencyFactory extends Factory
 
     public function withPlatformProfiles(): static
     {
+        $agencySlug = fake()->slug(2);
+
         return $this->state(fn (array $attributes) => [
             'platform_profiles' => [
-                'inmuebles24' => fake()->url(),
-                'vivanuncios' => fake()->url(),
+                'inmuebles24' => 'https://www.inmuebles24.com/agencia/'.$agencySlug,
+                'vivanuncios' => 'https://www.vivanuncios.com.mx/agencia/'.$agencySlug,
             ],
         ]);
     }

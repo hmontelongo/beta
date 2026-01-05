@@ -61,7 +61,7 @@ class ScrapeJobFactory extends Factory
             'status' => ScrapeJobStatus::Failed,
             'started_at' => fake()->dateTimeBetween('-1 hour', '-30 minutes'),
             'completed_at' => now(),
-            'error_message' => fake()->sentence(),
+            'error_message' => 'Connection timeout after 30 seconds',
         ]);
     }
 
@@ -69,10 +69,9 @@ class ScrapeJobFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'filters' => [
-                'city' => 'Ciudad de México',
-                'property_type' => 'apartment',
-                'min_price' => 500000,
-                'max_price' => 2000000,
+                'city' => 'guadalajara',
+                'type' => 'apartment',
+                'operation' => 'rent',
             ],
         ]);
     }

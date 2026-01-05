@@ -20,8 +20,8 @@ class ListingPhoneFactory extends Factory
     {
         return [
             'listing_id' => Listing::factory(),
-            'phone' => fake()->numerify('+52##########'),
-            'phone_type' => PhoneType::Unknown,
+            'phone' => '+523312'.fake()->numerify('######'),
+            'phone_type' => fake()->randomElement(PhoneType::cases()),
             'contact_name' => fake()->optional(0.5)->name(),
         ];
     }

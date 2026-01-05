@@ -20,15 +20,15 @@ class AgentFactory extends Factory
         return [
             'agency_id' => null,
             'name' => fake()->name(),
-            'phone' => fake()->phoneNumber(),
-            'email' => fake()->safeEmail(),
-            'whatsapp' => fake()->phoneNumber(),
+            'phone' => fake()->optional(0.7)->numerify('+52 33 #### ####'),
+            'email' => fake()->optional(0.8)->safeEmail(),
+            'whatsapp' => fake()->optional(0.6)->numerify('+52 33 #### ####'),
             'platform_profiles' => null,
             'properties_count' => 0,
         ];
     }
 
-    public function forAgency(?Agency $agency = null): static
+    public function withAgency(?Agency $agency = null): static
     {
         return $this->state(fn (array $attributes) => [
             'agency_id' => $agency?->id ?? Agency::factory(),
@@ -39,6 +39,18 @@ class AgentFactory extends Factory
     {
         return $this->state(fn (array $attributes) => [
             'agency_id' => null,
+        ]);
+    }
+
+    public function withPlatformProfiles(): static
+    {
+        $agentSlug = fake()->slug(2);
+
+        return $this->state(fn (array $attributes) => [
+            'platform_profiles' => [
+                'inmuebles24' => 'https://www.inmuebles24.com/agente/'.$agentSlug,
+                'vivanuncios' => 'https://www.vivanuncios.com.mx/agente/'.$agentSlug,
+            ],
         ]);
     }
 }
