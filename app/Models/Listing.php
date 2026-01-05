@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\ListingStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -20,7 +21,9 @@ class Listing extends Model
     protected function casts(): array
     {
         return [
+            'status' => ListingStatus::class,
             'operations' => 'array',
+            'external_codes' => 'array',
             'raw_data' => 'array',
             'data_quality' => 'array',
             'scraped_at' => 'datetime',
@@ -41,6 +44,14 @@ class Listing extends Model
     public function platform(): BelongsTo
     {
         return $this->belongsTo(Platform::class);
+    }
+
+    /**
+     * @return BelongsTo<DiscoveredListing, $this>
+     */
+    public function discoveredListing(): BelongsTo
+    {
+        return $this->belongsTo(DiscoveredListing::class);
     }
 
     /**

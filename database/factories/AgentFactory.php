@@ -17,9 +17,12 @@ class AgentFactory extends Factory
      */
     public function definition(): array
     {
+        $name = fake()->name();
+
         return [
             'agency_id' => null,
-            'name' => fake()->name(),
+            'name' => $name,
+            'normalized_name' => strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $name)),
             'phone' => fake()->optional(0.7)->numerify('+52 33 #### ####'),
             'email' => fake()->optional(0.8)->safeEmail(),
             'whatsapp' => fake()->optional(0.6)->numerify('+52 33 #### ####'),

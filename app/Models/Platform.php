@@ -20,7 +20,16 @@ class Platform extends Model
     {
         return [
             'is_active' => 'boolean',
+            'config' => 'array',
         ];
+    }
+
+    /**
+     * @return HasMany<DiscoveredListing, $this>
+     */
+    public function discoveredListings(): HasMany
+    {
+        return $this->hasMany(DiscoveredListing::class);
     }
 
     /**

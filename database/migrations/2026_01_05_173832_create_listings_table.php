@@ -14,7 +14,7 @@ return new class extends Migration
     {
         Schema::create('listings', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('property_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('property_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('platform_id')->constrained()->cascadeOnDelete();
             $table->foreignId('discovered_listing_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('agent_id')->nullable()->constrained()->nullOnDelete();

@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Enums\PropertyStatus;
+use App\Enums\PropertySubtype;
 use App\Enums\PropertyType;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -68,12 +69,17 @@ class PropertyFactory extends Factory
             'latitude' => fake()->optional(0.7)->randomFloat(7, 20.6, 20.7),
             'longitude' => fake()->optional(0.7)->randomFloat(7, -103.4, -103.3),
             'property_type' => fake()->randomElement(PropertyType::cases()),
+            'property_subtype' => fake()->optional(0.2)->randomElement(PropertySubtype::cases()),
+            'lot_size_m2' => fake()->optional(0.6)->randomFloat(2, 50, 500),
+            'built_size_m2' => fake()->optional(0.8)->randomFloat(2, 40, 300),
             'bedrooms' => fake()->optional(0.9)->numberBetween(1, 5),
             'bathrooms' => fake()->optional(0.9)->numberBetween(1, 4),
             'half_bathrooms' => fake()->optional(0.5)->numberBetween(0, 2),
             'parking_spots' => fake()->optional(0.8)->numberBetween(0, 4),
+            'age_years' => fake()->optional(0.5)->numberBetween(0, 50),
             'amenities' => null,
             'status' => PropertyStatus::Unverified,
+            'confidence_score' => fake()->optional(0.3)->randomFloat(2, 0.5, 1.0),
             'listings_count' => 0,
         ];
     }
@@ -121,6 +127,22 @@ class PropertyFactory extends Factory
                 $this->amenities,
                 fake()->numberBetween(0, 5)
             ),
+        ]);
+    }
+
+    public function penthouse(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'property_type' => PropertyType::Apartment,
+            'property_subtype' => PropertySubtype::Penthouse,
+        ]);
+    }
+
+    public function withSizes(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'lot_size_m2' => fake()->randomFloat(2, 80, 500),
+            'built_size_m2' => fake()->randomFloat(2, 60, 300),
         ]);
     }
 }

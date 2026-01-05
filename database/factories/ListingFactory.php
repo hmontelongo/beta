@@ -2,9 +2,11 @@
 
 namespace Database\Factories;
 
+use App\Enums\ListingStatus;
 use App\Enums\OperationType;
 use App\Models\Agency;
 use App\Models\Agent;
+use App\Models\DiscoveredListing;
 use App\Models\Platform;
 use App\Models\Property;
 use Illuminate\Database\Eloquent\Factories\Factory;
@@ -49,11 +51,14 @@ class ListingFactory extends Factory
         return [
             'property_id' => Property::factory(),
             'platform_id' => Platform::factory(),
+            'discovered_listing_id' => null,
             'agent_id' => null,
             'agency_id' => null,
             'external_id' => fake()->unique()->uuid(),
             'original_url' => fake()->url(),
+            'status' => ListingStatus::Active,
             'operations' => $operations,
+            'external_codes' => null,
             'raw_data' => [
                 'title' => 'Departamento en '.fake()->randomElement(['renta', 'venta']),
                 'description' => fake()->paragraphs(2, true),
@@ -112,6 +117,43 @@ class ListingFactory extends Factory
                 'suspect' => fake()->optional(0.3)->randomElements(['price'], 1) ?? [],
                 'zero_values' => fake()->optional(0.2)->randomElements(['m2_lot', 'm2_built'], 1) ?? [],
             ],
+        ]);
+    }
+
+    public function withDiscoveredListing(?DiscoveredListing $discoveredListing = null): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'discovered_listing_id' => $discoveredListing?->id ?? DiscoveredListing::factory(),
+        ]);
+    }
+
+    public function delisted(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'status' => ListingStatus::Delisted,
+        ]);
+    }
+
+    public function withExternalCodes(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'external_codes' => [
+                'easybroker' => 'EB-'.fake()->randomNumber(6),
+            ],
+        ]);
+    }
+
+    public function unmatched(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'property_id' => null,
+        ]);
+    }
+
+    public function withProperty(?Property $property = null): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'property_id' => $property?->id ?? Property::factory(),
         ]);
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\PropertyStatus;
+use App\Enums\PropertySubtype;
 use App\Enums\PropertyType;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -24,6 +25,9 @@ class Property extends Model
             'latitude' => 'decimal:7',
             'longitude' => 'decimal:7',
             'property_type' => PropertyType::class,
+            'property_subtype' => PropertySubtype::class,
+            'lot_size_m2' => 'decimal:2',
+            'built_size_m2' => 'decimal:2',
             'amenities' => 'array',
             'status' => PropertyStatus::class,
         ];
