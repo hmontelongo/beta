@@ -46,10 +46,12 @@ Options:
   --platform    Platform to scrape (required): inmuebles24
   --url         URL to scrape (required)
   --max         Maximum results for search command (default: 10)
+  --debug       Save HTML and screenshot for debugging
   --help        Show this help message
 
 Examples:
   node src/cli.js single --platform=inmuebles24 --url="https://www.inmuebles24.com/propiedades/..."
+  node src/cli.js single --platform=inmuebles24 --url="..." --debug
   node src/cli.js search --platform=inmuebles24 --url="https://www.inmuebles24.com/departamentos-en-renta-en-guadalajara.html" --max=5
 `);
 }
@@ -61,20 +63,23 @@ async function main() {
   // Parse arguments
   const args = minimist(process.argv.slice(2), {
     string: ['platform', 'url'],
+    boolean: ['debug', 'help'],
     default: {
       max: 10,
+      debug: false,
     },
     alias: {
       p: 'platform',
       u: 'url',
       m: 'max',
+      d: 'debug',
       h: 'help',
     },
   });
 
   // Get command (first positional argument)
   const [command] = args._;
-  const { platform, url, max, help } = args;
+  const { platform, url, max, debug, help } = args;
 
   // Show help if requested
   if (help || !command) {
@@ -122,32 +127,38 @@ async function main() {
     console.error('Launching browser...');
     browser = await launchBrowser();
 
-    // Create scraper instance
-    const scraper = new ScraperClass(browser);
+    // Create scraper instance with options
+    const scraper = new ScraperClass(browser, { debug });
 
     // Execute command
     console.error(`Running ${command} scrape for ${platform}...`);
+    if (debug) {
+      console.error('Debug mode enabled - saving HTML and screenshots');
+    }
     const startTime = Date.now();
 
-    let data;
+    let result;
     if (command === 'single') {
-      data = await scraper.scrapeSingle(url);
+      result = await scraper.scrapeSingle(url);
 
       outputResult({
         status: 'completed',
         platform,
         scraped_at: new Date().toISOString(),
-        data,
+        data: result.data,
+        ...(result.debug && { debug: result.debug }),
+        ...(result.extraction_quality && { extraction_quality: result.extraction_quality }),
       });
     } else if (command === 'search') {
-      data = await scraper.scrapeSearch(url, parseInt(max, 10));
+      result = await scraper.scrapeSearch(url, parseInt(max, 10));
 
       outputResult({
         status: 'completed',
         platform,
         scraped_at: new Date().toISOString(),
-        count: data.length,
-        data,
+        count: result.data.length,
+        data: result.data,
+        ...(result.debug && { debug: result.debug }),
       });
     }
 

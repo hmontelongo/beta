@@ -16,6 +16,7 @@ return new class extends Migration
             $table->string('name')->unique();
             $table->string('base_url');
             $table->boolean('is_active')->default(true);
+            $table->json('config')->nullable();
             $table->timestamps();
         });
     }

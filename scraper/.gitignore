@@ -9,6 +9,7 @@ playwright/.cache/
 # Debug/temp files
 *.log
 .DS_Store
+debug/
 
 # Output files (if we save scraped data locally)
 output/

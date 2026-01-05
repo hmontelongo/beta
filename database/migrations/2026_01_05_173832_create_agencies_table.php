@@ -14,9 +14,11 @@ return new class extends Migration
         Schema::create('agencies', function (Blueprint $table) {
             $table->id();
             $table->string('name');
+            $table->string('normalized_name')->nullable();
             $table->string('phone')->nullable();
             $table->string('email')->nullable();
             $table->string('website')->nullable();
+            $table->string('logo_url')->nullable();
             $table->json('platform_profiles')->nullable();
             $table->unsignedInteger('properties_count')->default(0);
             $table->timestamps();
