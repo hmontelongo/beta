@@ -1,0 +1,12 @@
+{
+  "name": "propdata-scraper",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "scrape": "node src/cli.js"
+  },
+  "dependencies": {
+    "playwright": "^1.40.0",
+    "minimist": "^1.2.8"
+  }
+}

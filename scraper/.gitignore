@@ -1,0 +1,15 @@
+# Dependencies
+node_modules/
+
+# Playwright
+playwright-report/
+test-results/
+playwright/.cache/
+
+# Debug/temp files
+*.log
+.DS_Store
+
+# Output files (if we save scraped data locally)
+output/
+*.json.tmp
