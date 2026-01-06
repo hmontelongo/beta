@@ -5,9 +5,12 @@ namespace App\Jobs;
 use App\Enums\DiscoveredListingStatus;
 use App\Enums\ScrapeJobStatus;
 use App\Enums\ScrapeJobType;
+use App\Events\DiscoveryCompleted;
 use App\Models\DiscoveredListing;
 use App\Models\Platform;
 use App\Models\ScrapeJob;
+use App\Models\ScrapeRun;
+use App\Services\ScrapeOrchestrator;
 use App\Services\ScraperService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -17,17 +20,24 @@ class DiscoverSearchJob implements ShouldQueue
 {
     use Queueable;
 
+    public int $timeout = 180; // 3 minutes for browser scraping
+
+    public int $tries = 3;
+
     public function __construct(
         public int $platformId,
         public string $searchUrl,
+        public ?int $scrapeRunId = null,
     ) {}
 
-    public function handle(ScraperService $scraperService): void
+    public function handle(ScraperService $scraperService, ScrapeOrchestrator $orchestrator): void
     {
         $platform = Platform::findOrFail($this->platformId);
+        $scrapeRun = $this->scrapeRunId ? ScrapeRun::find($this->scrapeRunId) : null;
 
         $scrapeJob = ScrapeJob::create([
             'platform_id' => $this->platformId,
+            'scrape_run_id' => $this->scrapeRunId,
             'target_url' => $this->searchUrl,
             'job_type' => ScrapeJobType::Discovery,
             'status' => ScrapeJobStatus::Running,
@@ -45,8 +55,16 @@ class DiscoverSearchJob implements ShouldQueue
 
             $this->storeListings($platform, $result['listings'], $scrapeJob->id);
 
+            if ($scrapeRun) {
+                $orchestrator->updateStats($scrapeRun, [
+                    'pages_total' => $result['total_pages'],
+                    'pages_done' => 1,
+                    'listings_found' => count($result['listings']),
+                ]);
+            }
+
             for ($page = 2; $page <= $result['total_pages']; $page++) {
-                DiscoverPageJob::dispatch($scrapeJob->id, $this->searchUrl, $page);
+                DiscoverPageJob::dispatch($scrapeJob->id, $this->searchUrl, $page, $this->scrapeRunId);
             }
 
             $scrapeJob->update([
@@ -57,6 +75,10 @@ class DiscoverSearchJob implements ShouldQueue
                     'pages_dispatched' => max(0, $result['total_pages'] - 1),
                 ],
             ]);
+
+            if ($scrapeRun && $result['total_pages'] <= 1) {
+                DiscoveryCompleted::dispatch($scrapeRun);
+            }
         } catch (\Throwable $e) {
             Log::error('Discovery search failed', [
                 'platform_id' => $this->platformId,
@@ -69,6 +91,10 @@ class DiscoverSearchJob implements ShouldQueue
                 'completed_at' => now(),
                 'error_message' => $e->getMessage(),
             ]);
+
+            if ($scrapeRun) {
+                $orchestrator->markFailed($scrapeRun, $e->getMessage());
+            }
 
             throw $e;
         }

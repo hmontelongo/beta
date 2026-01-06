@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "scrape": "node src/cli.js"
+    "scrape": "node src/cli.js",
+    "server": "node src/server.js",
+    "start": "node src/server.js"
   },
   "dependencies": {
     "playwright": "^1.40.0",

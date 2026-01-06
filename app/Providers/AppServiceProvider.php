@@ -2,6 +2,11 @@
 
 namespace App\Providers;
 
+use App\Events\DiscoveryCompleted;
+use App\Events\ScrapingCompleted;
+use App\Listeners\MarkRunCompletedListener;
+use App\Listeners\TransitionToScrapingListener;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -19,6 +24,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        Event::listen(DiscoveryCompleted::class, TransitionToScrapingListener::class);
+        Event::listen(ScrapingCompleted::class, MarkRunCompletedListener::class);
     }
 }

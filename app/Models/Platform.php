@@ -47,4 +47,20 @@ class Platform extends Model
     {
         return $this->hasMany(ScrapeJob::class);
     }
+
+    /**
+     * @return HasMany<SearchQuery, $this>
+     */
+    public function searchQueries(): HasMany
+    {
+        return $this->hasMany(SearchQuery::class);
+    }
+
+    /**
+     * @return HasMany<ScrapeRun, $this>
+     */
+    public function scrapeRuns(): HasMany
+    {
+        return $this->hasMany(ScrapeRun::class);
+    }
 }

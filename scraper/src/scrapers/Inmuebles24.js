@@ -124,7 +124,64 @@ export class Inmuebles24Scraper extends BaseScraper {
   }
 
   /**
+   * Simulate human-like behavior to avoid bot detection
+   */
+  async simulateHumanBehavior(page) {
+    try {
+      // Random mouse movement
+      const viewportSize = page.viewportSize();
+      const x = Math.floor(Math.random() * (viewportSize?.width || 1280));
+      const y = Math.floor(Math.random() * (viewportSize?.height || 800));
+      await page.mouse.move(x, y);
+
+      // Small random scroll
+      await page.evaluate(() => {
+        window.scrollBy(0, Math.floor(Math.random() * 300) + 100);
+      });
+
+      // Random delay
+      await page.waitForTimeout(Math.floor(Math.random() * 1000) + 500);
+    } catch {
+      // Ignore errors in human simulation
+    }
+  }
+
+  /**
+   * Accept cookie consent if present
+   */
+  async acceptCookieConsent(page) {
+    try {
+      // Try multiple cookie consent button selectors
+      const consentSelectors = [
+        'button:has-text("Acepto")',
+        'button:has-text("Aceptar")',
+        '[class*="cookie"] button',
+        '[class*="consent"] button',
+        '[data-qa="cookie-accept"]',
+        '#onetrust-accept-btn-handler',
+      ];
+
+      for (const selector of consentSelectors) {
+        try {
+          const button = await page.$(selector);
+          if (button) {
+            await button.click();
+            await page.waitForTimeout(500);
+            return true;
+          }
+        } catch {
+          continue;
+        }
+      }
+    } catch {
+      // Consent banner not found or already accepted
+    }
+    return false;
+  }
+
+  /**
    * Scrape a search results page
+   * Returns listings AND pagination info in a single request
    */
   async scrapeSearch(url, max = 10) {
     const page = await this.createPage();
@@ -132,24 +189,46 @@ export class Inmuebles24Scraper extends BaseScraper {
     try {
       await page.goto(url, { waitUntil: 'domcontentloaded' });
 
+      // Simulate human behavior before interacting
+      await this.simulateHumanBehavior(page);
+
+      // Accept cookie consent if present (important for avoiding blocking)
+      await this.acceptCookieConsent(page);
+
+      // Wait for content with extended timeout for Cloudflare challenges
       const loaded = await this.waitForSelector(
         page,
         this.config.selectors.pageLoaded,
-        this.config.timeouts.pageLoad
+        this.config.timeouts.pageLoad + 10000 // Extra time for bot challenges
       );
 
       if (!loaded) {
-        throw new Error('Search results did not load');
+        // Try one more time after another scroll
+        await this.simulateHumanBehavior(page);
+        await page.waitForTimeout(3000);
+        const retryLoaded = await this.waitForSelector(
+          page,
+          this.config.selectors.pageLoaded,
+          5000
+        );
+        if (!retryLoaded) {
+          // Save debug screenshot on error
+          await this.saveDebugFiles(page, 'error-search');
+          throw new Error('Search results did not load');
+        }
       }
 
       await page.waitForTimeout(2000);
       const debugInfo = await this.saveDebugFiles(page, 'search');
 
-      const listings = await page.evaluate((maxResults) => {
-        const results = [];
+      // Extract listings AND pagination in a single evaluate call
+      const result = await page.evaluate((maxResults) => {
+        const listings = [];
         const seenUrls = new Set();
 
+        // Find listing cards using multiple selectors
         const cardSelectors = [
+          '[class*="postingCardLayout"]',
           '[data-qa="posting"]',
           '[class*="posting-card"]',
           '[class*="listing-card"]',
@@ -164,7 +243,7 @@ export class Inmuebles24Scraper extends BaseScraper {
         }
 
         for (const card of cards) {
-          if (results.length >= maxResults) break;
+          if (listings.length >= maxResults) break;
 
           const link = card.querySelector('a[href*="/propiedades/"], a[href*="/propiedad/"]');
           if (!link) continue;
@@ -181,7 +260,7 @@ export class Inmuebles24Scraper extends BaseScraper {
           const titleEl = card.querySelector('[data-qa="title"], h2, h3, [class*="title"]');
           const imageEl = card.querySelector('img');
 
-          results.push({
+          listings.push({
             external_id: externalId,
             url: href,
             preview: {
@@ -193,11 +272,68 @@ export class Inmuebles24Scraper extends BaseScraper {
           });
         }
 
-        return results;
+        // Extract pagination info from the same page
+        let totalResults = 0;
+        const countSelectors = [
+          '[data-qa="result-count"]',
+          '[class*="result-count"]',
+          '[class*="ResultsCount"]',
+          'h1',
+        ];
+
+        for (const selector of countSelectors) {
+          const el = document.querySelector(selector);
+          if (el) {
+            const text = el.textContent;
+            const match = text.match(/([\d,\.]+)\s*(propiedades?|inmuebles?|resultados?)/i);
+            if (match) {
+              totalResults = parseInt(match[1].replace(/[,\.]/g, ''), 10);
+              break;
+            }
+          }
+        }
+
+        // Find total pages from pagination
+        let totalPages = 1;
+        const paginationSelectors = [
+          '[data-qa="pagination"] a',
+          '[class*="pagination"] a',
+          'nav[class*="pagination"] a',
+          '.pagination a',
+        ];
+
+        for (const selector of paginationSelectors) {
+          const links = document.querySelectorAll(selector);
+          if (links.length > 0) {
+            let maxPage = 1;
+            links.forEach(link => {
+              const text = link.textContent.trim();
+              const num = parseInt(text, 10);
+              if (!isNaN(num) && num > maxPage) {
+                maxPage = num;
+              }
+            });
+            if (maxPage > 1) {
+              totalPages = maxPage;
+              break;
+            }
+          }
+        }
+
+        // Estimate pages if not found
+        if (totalPages === 1 && totalResults > 20) {
+          totalPages = Math.ceil(totalResults / 20);
+        }
+
+        return {
+          listings,
+          pagination: { totalResults, totalPages },
+        };
       }, max);
 
       return {
-        data: listings,
+        data: result.listings,
+        pagination: result.pagination,
         debug: debugInfo,
       };
     } finally {
@@ -294,11 +430,8 @@ export class Inmuebles24Scraper extends BaseScraper {
       publisher_logo: publisher.logo,
       whatsapp: publisher.whatsapp,
 
-      // Images with position
-      images: images.map((img, idx) => ({
-        url: typeof img === 'string' ? img : img.url,
-        position: idx + 1,
-      })),
+      // Images (just URLs)
+      images: images.map(img => typeof img === 'string' ? img : img.url),
 
       // Amenities (merged from HTML and description)
       amenities: allAmenities,
@@ -658,7 +791,8 @@ export class Inmuebles24Scraper extends BaseScraper {
       const publisherTypeIdMatch = html.match(/'publisherTypeId':\s*'(\d+)'/);
       if (publisherTypeIdMatch) data.publisherTypeId = publisherTypeIdMatch[1];
 
-      const publisherUrlMatch = html.match(/'url':\s*'([^']+)'/);
+      // Publisher URL - look for inmobiliaria/agencia profile URLs specifically
+      const publisherUrlMatch = html.match(/'url':\s*'(\/(?:inmobiliaria|agencia|desarrolladora)[^']+)'/);
       if (publisherUrlMatch) data.publisherUrl = publisherUrlMatch[1];
 
       const publisherLogoMatch = html.match(/'urlLogo':\s*'([^']+)'/);

@@ -1,5 +1,10 @@
 <?php
 
+use App\Livewire\Listings\Index as ListingsIndex;
+use App\Livewire\Listings\Show as ListingsShow;
+use App\Livewire\Platforms\Index as PlatformsIndex;
+use App\Livewire\Platforms\Show as PlatformsShow;
+use App\Livewire\ScrapeRuns\Show as ScrapeRunsShow;
 use App\Livewire\Settings\Appearance;
 use App\Livewire\Settings\Password;
 use App\Livewire\Settings\Profile;
@@ -32,4 +37,12 @@ Route::middleware(['auth'])->group(function () {
             ),
         )
         ->name('two-factor.show');
+
+    Route::get('platforms', PlatformsIndex::class)->name('platforms.index');
+    Route::get('platforms/{platform}', PlatformsShow::class)->name('platforms.show');
+
+    Route::get('listings', ListingsIndex::class)->name('listings.index');
+    Route::get('listings/{listing}', ListingsShow::class)->name('listings.show');
+
+    Route::get('runs/{run}', ScrapeRunsShow::class)->name('runs.show');
 });

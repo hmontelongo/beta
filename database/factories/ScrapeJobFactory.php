@@ -7,6 +7,7 @@ use App\Enums\ScrapeJobType;
 use App\Models\DiscoveredListing;
 use App\Models\Platform;
 use App\Models\ScrapeJob;
+use App\Models\ScrapeRun;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -23,6 +24,7 @@ class ScrapeJobFactory extends Factory
     {
         return [
             'platform_id' => Platform::factory(),
+            'scrape_run_id' => null,
             'discovered_listing_id' => null,
             'parent_id' => null,
             'target_url' => fake()->url(),
@@ -124,6 +126,14 @@ class ScrapeJobFactory extends Factory
                 'listings_discovered' => fake()->numberBetween(10, 50),
                 'duplicates_skipped' => fake()->numberBetween(0, 10),
             ],
+        ]);
+    }
+
+    public function forRun(ScrapeRun $run): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'scrape_run_id' => $run->id,
+            'platform_id' => $run->platform_id,
         ]);
     }
 }

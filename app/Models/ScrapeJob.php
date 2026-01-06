@@ -40,6 +40,14 @@ class ScrapeJob extends Model
     }
 
     /**
+     * @return BelongsTo<ScrapeRun, $this>
+     */
+    public function scrapeRun(): BelongsTo
+    {
+        return $this->belongsTo(ScrapeRun::class);
+    }
+
+    /**
      * @return BelongsTo<DiscoveredListing, $this>
      */
     public function discoveredListing(): BelongsTo

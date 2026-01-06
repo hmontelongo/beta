@@ -5,9 +5,12 @@ namespace App\Jobs;
 use App\Enums\DiscoveredListingStatus;
 use App\Enums\ScrapeJobStatus;
 use App\Enums\ScrapeJobType;
+use App\Events\ScrapingCompleted;
 use App\Models\DiscoveredListing;
 use App\Models\Listing;
 use App\Models\ScrapeJob;
+use App\Models\ScrapeRun;
+use App\Services\ScrapeOrchestrator;
 use App\Services\ScraperService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
@@ -17,13 +20,19 @@ class ScrapeListingJob implements ShouldQueue
 {
     use Queueable;
 
+    public int $timeout = 180; // 3 minutes for browser scraping
+
+    public int $tries = 3;
+
     public function __construct(
         public int $discoveredListingId,
+        public ?int $scrapeRunId = null,
     ) {}
 
-    public function handle(ScraperService $scraperService): void
+    public function handle(ScraperService $scraperService, ScrapeOrchestrator $orchestrator): void
     {
         $discoveredListing = DiscoveredListing::findOrFail($this->discoveredListingId);
+        $scrapeRun = $this->scrapeRunId ? ScrapeRun::find($this->scrapeRunId) : null;
 
         $discoveredListing->update([
             'status' => DiscoveredListingStatus::Queued,
@@ -31,6 +40,7 @@ class ScrapeListingJob implements ShouldQueue
 
         $scrapeJob = ScrapeJob::create([
             'platform_id' => $discoveredListing->platform_id,
+            'scrape_run_id' => $this->scrapeRunId,
             'discovered_listing_id' => $discoveredListing->id,
             'target_url' => $discoveredListing->url,
             'job_type' => ScrapeJobType::Listing,
@@ -67,6 +77,17 @@ class ScrapeListingJob implements ShouldQueue
                     'external_id' => $listing->external_id,
                 ],
             ]);
+
+            if ($scrapeRun) {
+                $stats = $scrapeRun->fresh()->stats ?? [];
+                $orchestrator->updateStats($scrapeRun, [
+                    'listings_scraped' => ($stats['listings_scraped'] ?? 0) + 1,
+                ]);
+
+                if ($orchestrator->checkScrapingComplete($scrapeRun->fresh())) {
+                    ScrapingCompleted::dispatch($scrapeRun->fresh());
+                }
+            }
         } catch (\Throwable $e) {
             Log::error('Listing scrape failed', [
                 'discovered_listing_id' => $this->discoveredListingId,
@@ -85,6 +106,14 @@ class ScrapeListingJob implements ShouldQueue
                 'completed_at' => now(),
                 'error_message' => $e->getMessage(),
             ]);
+
+            // Track failure in run stats
+            if ($scrapeRun) {
+                $stats = $scrapeRun->fresh()->stats ?? [];
+                $orchestrator->updateStats($scrapeRun, [
+                    'listings_failed' => ($stats['listings_failed'] ?? 0) + 1,
+                ]);
+            }
 
             throw $e;
         }
