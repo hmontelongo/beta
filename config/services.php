@@ -38,6 +38,7 @@ return [
     'scraper' => [
         'url' => env('SCRAPER_URL', 'http://localhost:3000'),
         'timeout' => env('SCRAPER_TIMEOUT', 120),
+        'discovery_batch_size' => env('SCRAPER_DISCOVERY_BATCH_SIZE', 5),
     ],
 
 ];
