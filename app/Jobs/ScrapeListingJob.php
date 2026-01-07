@@ -58,17 +58,21 @@ class ScrapeListingJob implements ShouldQueue
         try {
             $data = $scraperService->scrapeListing($discoveredListing->url);
 
-            $listing = Listing::create([
-                'platform_id' => $discoveredListing->platform_id,
-                'discovered_listing_id' => $discoveredListing->id,
-                'external_id' => $data['external_id'] ?? $discoveredListing->external_id,
-                'original_url' => $discoveredListing->url,
-                'operations' => $data['operations'] ?? [],
-                'external_codes' => $data['external_codes'] ?? null,
-                'raw_data' => $data,
-                'data_quality' => $data['data_quality'] ?? null,
-                'scraped_at' => now(),
-            ]);
+            $listing = Listing::updateOrCreate(
+                [
+                    'platform_id' => $discoveredListing->platform_id,
+                    'external_id' => $data['external_id'] ?? $discoveredListing->external_id,
+                ],
+                [
+                    'discovered_listing_id' => $discoveredListing->id,
+                    'original_url' => $discoveredListing->url,
+                    'operations' => $data['operations'] ?? [],
+                    'external_codes' => $data['external_codes'] ?? null,
+                    'raw_data' => $data,
+                    'data_quality' => $data['data_quality'] ?? null,
+                    'scraped_at' => now(),
+                ]
+            );
 
             $discoveredListing->update([
                 'status' => DiscoveredListingStatus::Scraped,
