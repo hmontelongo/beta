@@ -1,97 +1,101 @@
 import { chromium } from 'playwright';
+import { existsSync, mkdirSync } from 'fs';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 
-// Persistent browser context for session reuse
-let persistentContext = null;
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// User agent rotation pool
-const USER_AGENTS = [
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15',
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:121.0) Gecko/20100101 Firefox/121.0',
-];
+// Persistent context - reused across requests
+let currentContext = null;
+
+// Session configuration
+const SESSION_CONFIG = {
+  viewport: { width: 1920, height: 1080 },
+  locale: 'es-MX',
+  timezoneId: 'America/Mexico_City',
+};
 
 /**
- * Launch a Chromium browser instance with stealth settings
+ * Launch a Chromium browser with persistent context
+ * Uses a user data directory for persistent cookies/state
  */
-export async function launchBrowser() {
-  return chromium.launch({
-    headless: true,
+export async function launchBrowser(options = {}) {
+  const headed = options.headless === false;
+  const channel = process.env.BROWSER_CHANNEL || 'chrome';
+  const userDataDir = join(__dirname, '../../.chrome-profile');
+
+  console.log(`[browser] Launching ${headed ? 'headed' : 'headless'} mode, channel: ${channel}`);
+  console.log(`[browser] Using persistent profile: ${userDataDir}`);
+
+  // Ensure user data directory exists
+  if (!existsSync(userDataDir)) {
+    mkdirSync(userDataDir, { recursive: true });
+  }
+
+  // Use launchPersistentContext for persistent cookies/state across sessions
+  const context = await chromium.launchPersistentContext(userDataDir, {
+    headless: !headed,
+    channel: channel,
+    viewport: SESSION_CONFIG.viewport,
+    locale: SESSION_CONFIG.locale,
+    timezoneId: SESSION_CONFIG.timezoneId,
     args: [
-      '--disable-blink-features=AutomationControlled',
-      '--disable-features=IsolateOrigins,site-per-process',
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
-      '--disable-accelerated-2d-canvas',
-      '--disable-gpu',
-      '--window-size=1920,1080',
-      '--start-maximized',
     ],
   });
+
+  currentContext = context;
+
+  // Return an object that mimics browser API
+  return {
+    _context: context,
+    _isPersistent: true,
+    newContext: async () => context,
+    close: async () => context.close(),
+  };
 }
 
 /**
- * Get or create a persistent browser context
+ * Get the persistent browser context
  */
-async function getOrCreateContext(browser) {
-  if (!persistentContext || persistentContext.browser() !== browser) {
-    const userAgent = USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
-
-    persistentContext = await browser.newContext({
-      viewport: { width: 1280, height: 800 },
-      locale: 'es-MX',
-      timezoneId: 'America/Mexico_City',
-      userAgent,
-      // Accept cookies
-      extraHTTPHeaders: {
-        'Accept-Language': 'es-MX,es;q=0.9,en;q=0.8',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Cache-Control': 'no-cache',
-        'Pragma': 'no-cache',
-      },
-      // Permissions
-      permissions: ['geolocation'],
-      geolocation: { latitude: 20.6597, longitude: -103.3496 }, // Guadalajara
-    });
-
-    // Add stealth scripts to context
-    await persistentContext.addInitScript(() => {
-      // Override webdriver detection
-      Object.defineProperty(navigator, 'webdriver', { get: () => false });
-
-      // Override automation flags
-      window.chrome = { runtime: {} };
-
-      // Override plugins
-      Object.defineProperty(navigator, 'plugins', {
-        get: () => [1, 2, 3, 4, 5],
-      });
-
-      // Override languages
-      Object.defineProperty(navigator, 'languages', {
-        get: () => ['es-MX', 'es', 'en'],
-      });
-    });
+export function getContext(browser) {
+  if (browser._isPersistent) {
+    return browser._context;
   }
-
-  return persistentContext;
+  return currentContext;
 }
 
 /**
- * Create a new page with Mexican locale and timezone settings
- * Reuses persistent context to maintain session/cookies
+ * Create a new page with consistent settings
  */
 export async function createPage(browser) {
-  const context = await getOrCreateContext(browser);
+  const context = getContext(browser);
   const page = await context.newPage();
 
-  // Set default timeouts
-  page.setDefaultTimeout(30000);
-  page.setDefaultNavigationTimeout(30000);
+  page.setDefaultTimeout(60000);
+  page.setDefaultNavigationTimeout(60000);
 
   return page;
+}
+
+/**
+ * Add a random delay to appear more human-like
+ */
+export function randomDelay(minMs = 2000, maxMs = 5000) {
+  return Math.floor(Math.random() * (maxMs - minMs)) + minMs;
+}
+
+/**
+ * Calculate exponential backoff delay
+ */
+export function getBackoffDelay(attempts = 0, baseDelayMs = 30000) {
+  if (attempts === 0) return baseDelayMs;
+  // Exponential backoff: 30s, 60s, 120s, max 5min
+  const delay = Math.min(baseDelayMs * Math.pow(2, attempts), 5 * 60 * 1000);
+  console.log(`[backoff] Delay: ${Math.round(delay / 1000)}s (attempts: ${attempts})`);
+  return delay;
 }
 
 /**
@@ -100,9 +104,16 @@ export async function createPage(browser) {
 export async function closeBrowser(browser) {
   if (browser) {
     try {
-      await browser.close();
+      if (browser._isPersistent) {
+        console.log('[browser] Closing persistent browser context');
+        currentContext = null;
+        await browser.close();
+      } else if (currentContext) {
+        await currentContext.close();
+        currentContext = null;
+      }
     } catch (error) {
-      console.error('Error closing browser:', error.message);
+      console.error('[browser] Error closing:', error.message);
     }
   }
 }

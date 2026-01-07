@@ -1,3 +1,8 @@
+# Environment variables (secrets)
+.env
+.env.local
+.env.*.local
+
 # Dependencies
 node_modules/
 
@@ -10,6 +15,15 @@ playwright/.cache/
 *.log
 .DS_Store
 debug/
+
+# Browser session state (cookies, localStorage)
+.browser-state/
+
+# Chrome profile data
+.chrome-profile/
+
+# Browser extensions (local setup)
+extensions/
 
 # Output files (if we save scraped data locally)
 output/

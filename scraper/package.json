@@ -8,7 +8,9 @@
     "start": "node src/server.js"
   },
   "dependencies": {
-    "playwright": "^1.40.0",
-    "minimist": "^1.2.8"
+    "axios": "^1.13.2",
+    "dotenv": "^17.2.3",
+    "minimist": "^1.2.8",
+    "playwright": "^1.40.0"
   }
 }

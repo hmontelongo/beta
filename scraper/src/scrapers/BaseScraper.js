@@ -4,8 +4,9 @@ import { createPage } from '../utils/browser.js';
  * Base scraper class with shared functionality
  */
 export class BaseScraper {
-  constructor(browser) {
+  constructor(browser, options = {}) {
     this.browser = browser;
+    this.forceNewContext = options.forceNewContext || false;
   }
 
   /**
@@ -26,7 +27,7 @@ export class BaseScraper {
    * Create a new page with proper settings
    */
   async createPage() {
-    return createPage(this.browser);
+    return createPage(this.browser, this.forceNewContext);
   }
 
   /**

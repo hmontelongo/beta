@@ -3,6 +3,7 @@ import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { BaseScraper } from './BaseScraper.js';
 import config from '../config/inmuebles24.js';
+import { fetchSearchPage, fetchListingPage } from '../utils/zenrows.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DEBUG_DIR = join(__dirname, '../../debug');
@@ -21,7 +22,7 @@ const PUBLISHER_TYPES = { 1: 'individual', 2: 'agency', 3: 'developer' };
  */
 export class Inmuebles24Scraper extends BaseScraper {
   constructor(browser, options = {}) {
-    super(browser);
+    super(browser, options);
     this.platform = 'inmuebles24';
     this.config = config;
     this.debug = options.debug || false;
@@ -87,26 +88,20 @@ export class Inmuebles24Scraper extends BaseScraper {
   }
 
   /**
-   * Scrape a single listing page
+   * Scrape a single listing page using ZenRows
    */
   async scrapeSingle(url) {
     const page = await this.createPage();
     this.warnings = [];
 
     try {
-      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      console.log('[scraper] Using ZenRows for Cloudflare bypass');
 
-      const loaded = await this.waitForSelector(
-        page,
-        this.config.selectors.pageLoaded,
-        this.config.timeouts.pageLoad
-      );
+      // Fetch HTML via ZenRows
+      const html = await fetchListingPage(url);
 
-      if (!loaded) {
-        throw new Error('Page content did not load - listing may not exist');
-      }
-
-      await page.waitForTimeout(2000);
+      // Load HTML into Playwright page for parsing
+      await page.setContent(html, { waitUntil: 'domcontentloaded' });
 
       const externalId = this.extractExternalId(url);
       const debugInfo = await this.saveDebugFiles(page, externalId);
@@ -124,112 +119,53 @@ export class Inmuebles24Scraper extends BaseScraper {
   }
 
   /**
-   * Simulate human-like behavior to avoid bot detection
-   */
-  async simulateHumanBehavior(page) {
-    try {
-      // Random mouse movement
-      const viewportSize = page.viewportSize();
-      const x = Math.floor(Math.random() * (viewportSize?.width || 1280));
-      const y = Math.floor(Math.random() * (viewportSize?.height || 800));
-      await page.mouse.move(x, y);
-
-      // Small random scroll
-      await page.evaluate(() => {
-        window.scrollBy(0, Math.floor(Math.random() * 300) + 100);
-      });
-
-      // Random delay
-      await page.waitForTimeout(Math.floor(Math.random() * 1000) + 500);
-    } catch {
-      // Ignore errors in human simulation
-    }
-  }
-
-  /**
-   * Accept cookie consent if present
-   */
-  async acceptCookieConsent(page) {
-    try {
-      // Try multiple cookie consent button selectors
-      const consentSelectors = [
-        'button:has-text("Acepto")',
-        'button:has-text("Aceptar")',
-        '[class*="cookie"] button',
-        '[class*="consent"] button',
-        '[data-qa="cookie-accept"]',
-        '#onetrust-accept-btn-handler',
-      ];
-
-      for (const selector of consentSelectors) {
-        try {
-          const button = await page.$(selector);
-          if (button) {
-            await button.click();
-            await page.waitForTimeout(500);
-            return true;
-          }
-        } catch {
-          continue;
-        }
-      }
-    } catch {
-      // Consent banner not found or already accepted
-    }
-    return false;
-  }
-
-  /**
-   * Scrape a search results page
+   * Scrape a search results page using ZenRows
    * Returns listings AND pagination info in a single request
    */
   async scrapeSearch(url, max = 10) {
     const page = await this.createPage();
 
     try {
-      await page.goto(url, { waitUntil: 'domcontentloaded' });
+      console.log('[scraper] Using ZenRows for Cloudflare bypass');
 
-      // Simulate human behavior before interacting
-      await this.simulateHumanBehavior(page);
+      // Fetch HTML via ZenRows
+      const html = await fetchSearchPage(url);
 
-      // Accept cookie consent if present (important for avoiding blocking)
-      await this.acceptCookieConsent(page);
+      // Load HTML into Playwright page for parsing
+      await page.setContent(html, { waitUntil: 'domcontentloaded' });
 
-      // Wait for content with extended timeout for Cloudflare challenges
-      const loaded = await this.waitForSelector(
-        page,
-        this.config.selectors.pageLoaded,
-        this.config.timeouts.pageLoad + 10000 // Extra time for bot challenges
-      );
+      // Extract listings BEFORE any operations that might trigger JS (like screenshots)
+      const baseUrl = new URL(url).origin;
+      const result = await this.extractSearchResults(page, max, baseUrl);
 
-      if (!loaded) {
-        // Try one more time after another scroll
-        await this.simulateHumanBehavior(page);
-        await page.waitForTimeout(3000);
-        const retryLoaded = await this.waitForSelector(
-          page,
-          this.config.selectors.pageLoaded,
-          5000
-        );
-        if (!retryLoaded) {
-          // Save debug screenshot on error
-          await this.saveDebugFiles(page, 'error-search');
-          throw new Error('Search results did not load');
-        }
-      }
+      // Save debug files AFTER extraction (screenshot may trigger JS that modifies DOM)
+      const debugInfo = await this.saveDebugFiles(page, 'search-zenrows');
 
-      await page.waitForTimeout(2000);
-      const debugInfo = await this.saveDebugFiles(page, 'search');
+      return {
+        data: result.listings,
+        pagination: result.pagination,
+        debug: debugInfo,
+      };
+    } finally {
+      await page.close();
+    }
+  }
 
-      // Extract listings AND pagination in a single evaluate call
-      const result = await page.evaluate((maxResults) => {
+  /**
+   * Extract search results from a page
+   * @param {Page} page - Playwright page
+   * @param {number} max - Maximum results to extract
+   * @param {string} baseUrl - Base URL for resolving relative links (optional)
+   */
+  async extractSearchResults(page, max = 10, baseUrl = '') {
+    const result = await page.evaluate(({ maxResults, base }) => {
         const listings = [];
         const seenUrls = new Set();
 
         // Find listing cards using multiple selectors
         const cardSelectors = [
+          '[data-qa^="posting"]',  // Matches "posting PROPERTY", "posting DEVELOPMENT" etc.
           '[class*="postingCardLayout"]',
-          '[data-qa="posting"]',
           '[class*="posting-card"]',
           '[class*="listing-card"]',
           'article[class*="posting"]',
@@ -248,16 +184,26 @@ export class Inmuebles24Scraper extends BaseScraper {
           const link = card.querySelector('a[href*="/propiedades/"], a[href*="/propiedad/"]');
           if (!link) continue;
 
-          const href = link.href.split('?')[0];
+          // Get href attribute directly (works for relative URLs)
+          let href = link.getAttribute('href') || link.href;
+
+          // Handle relative URLs
+          if (href.startsWith('/')) {
+            href = base + href;
+          }
+
+          // Remove query params
+          href = href.split('?')[0];
+
           if (seenUrls.has(href)) continue;
           seenUrls.add(href);
 
           const idMatch = href.match(/(\d{6,})/);
           const externalId = idMatch ? idMatch[1] : null;
 
-          const priceEl = card.querySelector('[data-qa="price"], [class*="price"], [class*="Price"]');
-          const locationEl = card.querySelector('[data-qa="location"], [class*="location"], [class*="address"]');
-          const titleEl = card.querySelector('[data-qa="title"], h2, h3, [class*="title"]');
+          const priceEl = card.querySelector('[data-qa="POSTING_CARD_PRICE"], [data-qa="price"], [class*="price"], [class*="Price"]');
+          const locationEl = card.querySelector('[data-qa="POSTING_CARD_LOCATION"], [data-qa="location"], [class*="location"], [class*="address"]');
+          const titleEl = card.querySelector('[data-qa="POSTING_CARD_DESCRIPTION"], [data-qa="title"], h2, h3, [class*="title"]');
           const imageEl = card.querySelector('img');
 
           listings.push({
@@ -272,34 +218,41 @@ export class Inmuebles24Scraper extends BaseScraper {
           });
         }
 
-        // Extract pagination info from the same page
+        // Extract total results from title tag (e.g., "954 Departamentos en renta...")
         let totalResults = 0;
-        const countSelectors = [
-          '[data-qa="result-count"]',
-          '[class*="result-count"]',
-          '[class*="ResultsCount"]',
-          'h1',
-        ];
+        const titleEl = document.querySelector('title');
+        if (titleEl) {
+          const titleText = titleEl.textContent;
+          // Match pattern: "954 Departamentos" or "1,234 Inmuebles"
+          const titleMatch = titleText.match(/^([\d,\.]+)\s+(departamentos?|inmuebles?|propiedades?|casas?)/i);
+          if (titleMatch) {
+            totalResults = parseInt(titleMatch[1].replace(/[,\.]/g, ''), 10);
+          }
+        }
 
-        for (const selector of countSelectors) {
-          const el = document.querySelector(selector);
-          if (el) {
-            const text = el.textContent;
-            const match = text.match(/([\d,\.]+)\s*(propiedades?|inmuebles?|resultados?)/i);
-            if (match) {
-              totalResults = parseInt(match[1].replace(/[,\.]/g, ''), 10);
-              break;
+        // Fallback: check h1 or other elements
+        if (totalResults === 0) {
+          const countSelectors = ['h1', '[data-qa="result-count"]', '[class*="ResultsCount"]'];
+          for (const selector of countSelectors) {
+            const el = document.querySelector(selector);
+            if (el) {
+              const text = el.textContent;
+              const match = text.match(/([\d,\.]+)\s*(departamentos?|inmuebles?|propiedades?|resultados?)/i);
+              if (match) {
+                totalResults = parseInt(match[1].replace(/[,\.]/g, ''), 10);
+                break;
+              }
             }
           }
         }
 
-        // Find total pages from pagination
+        // Find total pages from pagination links
         let totalPages = 1;
         const paginationSelectors = [
-          '[data-qa="pagination"] a',
+          '[data-qa^="PAGING_"]',
+          '.paging-module__page-item',
+          '[class*="paging"] a',
           '[class*="pagination"] a',
-          'nav[class*="pagination"] a',
-          '.pagination a',
         ];
 
         for (const selector of paginationSelectors) {
@@ -307,6 +260,15 @@ export class Inmuebles24Scraper extends BaseScraper {
           if (links.length > 0) {
             let maxPage = 1;
             links.forEach(link => {
+              // Try data-qa attribute first (e.g., "PAGING_5")
+              const dataQa = link.getAttribute('data-qa');
+              if (dataQa && dataQa.startsWith('PAGING_')) {
+                const num = parseInt(dataQa.replace('PAGING_', ''), 10);
+                if (!isNaN(num) && num > maxPage) {
+                  maxPage = num;
+                }
+              }
+              // Also try text content
               const text = link.textContent.trim();
               const num = parseInt(text, 10);
               if (!isNaN(num) && num > maxPage) {
@@ -320,25 +282,24 @@ export class Inmuebles24Scraper extends BaseScraper {
           }
         }
 
-        // Estimate pages if not found
-        if (totalPages === 1 && totalResults > 20) {
-          totalPages = Math.ceil(totalResults / 20);
+        // Calculate total pages from results if pagination only shows a few pages
+        // Inmuebles24 typically shows ~30 listings per page
+        const LISTINGS_PER_PAGE = 30;
+        if (totalResults > 0) {
+          const calculatedPages = Math.ceil(totalResults / LISTINGS_PER_PAGE);
+          // Use calculated pages if it's higher (pagination may only show first 5 pages)
+          if (calculatedPages > totalPages) {
+            totalPages = calculatedPages;
+          }
         }
 
         return {
           listings,
           pagination: { totalResults, totalPages },
         };
-      }, max);
+      }, { maxResults: max, base: baseUrl });
 
-      return {
-        data: result.listings,
-        pagination: result.pagination,
-        debug: debugInfo,
-      };
-    } finally {
-      await page.close();
-    }
+    return result;
   }
 
   /**

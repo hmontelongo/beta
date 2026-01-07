@@ -1,12 +1,25 @@
 #!/usr/bin/env node
 
+import 'dotenv/config';
 import { createServer } from 'http';
 import { URL } from 'url';
-import { launchBrowser, closeBrowser } from './utils/browser.js';
+import {
+  launchBrowser,
+  closeBrowser,
+  randomDelay,
+  getBackoffDelay,
+} from './utils/browser.js';
+// CapSolver removed - ZenRows handles Cloudflare bypass
+import { isZenRowsConfigured } from './utils/zenrows.js';
 import { Inmuebles24Scraper } from './scrapers/Inmuebles24.js';
 
 const PORT = process.env.PORT || 3000;
-const REQUEST_DELAY_MS = parseInt(process.env.REQUEST_DELAY_MS || '15000', 10); // 15 seconds to avoid bot detection
+// Rate limiting disabled by default - ZenRows handles anti-bot protection
+// Set RATE_LIMIT=true to enable delays between requests
+const RATE_LIMIT_ENABLED = process.env.RATE_LIMIT === 'true';
+const MIN_DELAY_MS = RATE_LIMIT_ENABLED ? parseInt(process.env.MIN_DELAY_MS || '2000', 10) : 0;
+const MAX_DELAY_MS = RATE_LIMIT_ENABLED ? parseInt(process.env.MAX_DELAY_MS || '5000', 10) : 0;
+const HEADED_MODE = process.env.HEADED === 'true'; // Run with visible browser
 
 // Available scrapers
 const SCRAPERS = {
@@ -16,18 +29,25 @@ const SCRAPERS = {
 let browser = null;
 let lastRequestTime = 0;
 let requestQueue = Promise.resolve();
+let isWarmedUp = false;
 
 /**
- * Rate limit requests to avoid being blocked
+ * Rate limit requests (bypassed when RATE_LIMIT_ENABLED is false)
  */
 async function withRateLimit(fn) {
+  // When rate limiting is disabled, execute immediately
+  if (!RATE_LIMIT_ENABLED) {
+    return fn();
+  }
+
   // Queue requests to run sequentially with delay
   requestQueue = requestQueue.then(async () => {
     const now = Date.now();
     const elapsed = now - lastRequestTime;
-    const delay = Math.max(0, REQUEST_DELAY_MS - elapsed);
+    const delay = Math.max(0, randomDelay(MIN_DELAY_MS, MAX_DELAY_MS) - elapsed);
 
     if (delay > 0) {
+      console.log(`[rate-limit] Waiting ${Math.round(delay / 1000)}s before next request...`);
       await new Promise(resolve => setTimeout(resolve, delay));
     }
 
@@ -64,7 +84,7 @@ function getScraperForUrl(url) {
 }
 
 /**
- * Handle /discover endpoint
+ * Handle /discover endpoint with retry on Cloudflare blocking
  * Returns: { total_results, total_pages, listings: [{url, external_id}] }
  */
 async function handleDiscover(req, res, params) {
@@ -92,12 +112,11 @@ async function handleDiscover(req, res, params) {
 
   try {
     const searchResult = await withRateLimit(async () => {
-      const scraper = new scraperInfo.Scraper(browser, { debug: true }); // Enable debug for screenshots
-      // scrapeSearch now returns pagination info along with listings
+      const scraper = new scraperInfo.Scraper(browser, { debug: true });
       return scraper.scrapeSearch(paginatedUrl, 50);
     });
 
-    sendJson(res, {
+    return sendJson(res, {
       total_results: searchResult.pagination?.totalResults || 0,
       total_pages: searchResult.pagination?.totalPages || 1,
       listings: searchResult.data.map(item => ({
@@ -106,7 +125,7 @@ async function handleDiscover(req, res, params) {
       })),
     });
   } catch (error) {
-    console.error(`[discover] Error: ${error.message}`);
+    console.error(`[discover] Failed: ${error.message}`);
     sendError(res, error.message);
   }
 }
@@ -135,9 +154,9 @@ async function handleScrape(req, res, params) {
       return scraper.scrapeSingle(targetUrl);
     });
 
-    sendJson(res, result.data);
+    return sendJson(res, result.data);
   } catch (error) {
-    console.error(`[scrape] Error: ${error.message}`);
+    console.error(`[scrape] Failed: ${error.message}`);
     sendError(res, error.message);
   }
 }
@@ -146,7 +165,12 @@ async function handleScrape(req, res, params) {
  * Handle /health endpoint
  */
 function handleHealth(req, res) {
-  sendJson(res, { status: 'ok', browser: browser ? 'running' : 'stopped' });
+  sendJson(res, {
+    status: 'ok',
+    browser: browser ? 'running' : 'stopped',
+    warmed_up: isWarmedUp,
+    headed_mode: HEADED_MODE,
+  });
 }
 
 /**
@@ -182,17 +206,44 @@ async function handleRequest(req, res) {
  * Start server
  */
 async function start() {
-  console.log('Launching browser...');
-  browser = await launchBrowser();
+  console.log('='.repeat(50));
+  console.log('PropData Scraper Server');
+  console.log('='.repeat(50));
+  console.log(`Mode: ${HEADED_MODE ? 'HEADED (visible browser)' : 'HEADLESS'}`);
+  console.log(`Rate limiting: ${MIN_DELAY_MS / 1000}s - ${MAX_DELAY_MS / 1000}s between requests`);
+
+  // ZenRows status (primary bypass method)
+  if (isZenRowsConfigured()) {
+    console.log('ZenRows: CONFIGURED ✓ (Cloudflare will be bypassed via API)');
+  } else {
+    console.log('ZenRows: NOT CONFIGURED');
+    console.log('  → Set ZENROWS_API_KEY env var to enable Cloudflare bypass');
+    console.log('  → Get API key at: https://www.zenrows.com/');
+  }
+
+  console.log('');
+
+  console.log('[startup] Launching browser...');
+  browser = await launchBrowser({ headless: !HEADED_MODE });
+  console.log('[startup] ZenRows configured - skipping browser warmup');
+  isWarmedUp = true;
 
   const server = createServer(handleRequest);
 
   server.listen(PORT, () => {
+    console.log('');
     console.log(`Scraper server running on http://localhost:${PORT}`);
     console.log('Endpoints:');
     console.log('  GET /discover?url=<search_url>&page=<page>');
     console.log('  GET /scrape?url=<listing_url>');
     console.log('  GET /health');
+    console.log('');
+    console.log('Environment variables:');
+    console.log('  ZENROWS_API_KEY    - ZenRows API key for Cloudflare bypass (required)');
+    console.log('  HEADED=true        - Run with visible browser');
+    console.log('  MIN_DELAY_MS       - Min delay between requests (default: 30000)');
+    console.log('  MAX_DELAY_MS       - Max delay between requests (default: 60000)');
+    console.log('='.repeat(50));
   });
 
   // Graceful shutdown
