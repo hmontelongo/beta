@@ -35,6 +35,7 @@ class Show extends Component
     public function searchQueries()
     {
         return $this->platform->searchQueries()
+            ->with(['activeRun', 'latestRun'])
             ->withCount('scrapeRuns')
             ->orderBy('name')
             ->get();

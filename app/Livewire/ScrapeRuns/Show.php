@@ -11,6 +11,7 @@ use App\Models\ScrapeRun;
 use App\Services\ScrapeOrchestrator;
 use Carbon\CarbonInterval;
 use Flux\Flux;
+use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
@@ -134,7 +135,8 @@ class Show extends Component
             $this->scrapingProgress,
             $this->overallProgress,
             $this->isActive,
-            $this->duration
+            $this->duration,
+            $this->canResume
         );
     }
 
@@ -194,7 +196,7 @@ class Show extends Component
     public function stopRun(): void
     {
         $this->run->update([
-            'status' => ScrapeRunStatus::Failed,
+            'status' => ScrapeRunStatus::Stopped,
             'error_message' => 'Manually stopped by user',
             'completed_at' => now(),
         ]);
@@ -208,8 +210,21 @@ class Show extends Component
                 'completed_at' => now(),
             ]);
 
-        Flux::toast('Run stopped.', variant: 'warning');
+        // Prune queued jobs from database queue
+        $this->pruneQueuedJobs();
+
+        Flux::toast('Run stopped. Pending listings preserved for future scraping.', variant: 'warning');
         $this->refresh();
+    }
+
+    protected function pruneQueuedJobs(): void
+    {
+        // Delete jobs from queue that belong to this run
+        // Jobs have scrapeRunId serialized in their payload
+        DB::table('jobs')
+            ->where('payload', 'like', '%"scrapeRunId";i:'.$this->run->id.';%')
+            ->orWhere('payload', 'like', '%"scrapeRunId":'.$this->run->id.'%')
+            ->delete();
     }
 
     public function restartRun(): void
@@ -228,6 +243,29 @@ class Show extends Component
         Flux::toast('New run started!', variant: 'success');
 
         $this->redirect(route('runs.show', $newRun), navigate: true);
+    }
+
+    public function resumeRun(): void
+    {
+        $orchestrator = app(ScrapeOrchestrator::class);
+        $count = $orchestrator->resumeRun($this->run);
+
+        if ($count === 0) {
+            Flux::toast('No pending listings to resume.', variant: 'warning');
+        } else {
+            Flux::toast("Resumed {$count} listings!", variant: 'success');
+        }
+
+        $this->refresh();
+    }
+
+    #[Computed]
+    public function canResume(): bool
+    {
+        return in_array($this->run->status, [
+            ScrapeRunStatus::Stopped,
+            ScrapeRunStatus::Failed,
+        ]);
     }
 
     public function render(): View

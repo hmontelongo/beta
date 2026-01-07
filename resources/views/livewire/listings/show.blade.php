@@ -19,24 +19,68 @@
         <div class="space-y-6 lg:col-span-2">
             {{-- Images --}}
             @if (!empty($listing->raw_data['images']))
-                <flux:card>
+                @php
+                    $images = collect($listing->raw_data['images'])->map(fn($img) => is_array($img) ? $img['url'] : $img)->toArray();
+                @endphp
+                <flux:card
+                    x-data="imageGallery()"
+                    x-init="images = JSON.parse($el.dataset.images)"
+                    data-images="{{ json_encode($images, JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) }}"
+                    @keydown.escape.window="open = false"
+                    @keydown.arrow-right.window="if(open) next()"
+                    @keydown.arrow-left.window="if(open) prev()"
+                >
                     <div class="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                        @foreach (array_slice($listing->raw_data['images'], 0, 6) as $image)
-                            <a href="{{ $image['url'] }}" target="_blank" class="aspect-video overflow-hidden rounded-lg bg-zinc-100 dark:bg-zinc-800">
+                        @foreach (array_slice($images, 0, 6) as $index => $imageUrl)
+                            <button @click="openAt({{ $index }})" class="aspect-video overflow-hidden rounded-lg bg-zinc-100 dark:bg-zinc-800 cursor-pointer">
                                 <img
-                                    src="{{ $image['url'] }}"
+                                    src="{{ $imageUrl }}"
                                     alt="Property image"
                                     class="h-full w-full object-cover transition-transform hover:scale-105"
                                     loading="lazy"
                                 />
-                            </a>
+                            </button>
                         @endforeach
                     </div>
-                    @if (count($listing->raw_data['images']) > 6)
-                        <flux:text size="sm" class="mt-2 text-center">
-                            +{{ count($listing->raw_data['images']) - 6 }} {{ __('more images') }}
-                        </flux:text>
+                    @if (count($images) > 6)
+                        <button @click="openAt(6)" class="mt-2 w-full text-center text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300">
+                            +{{ count($images) - 6 }} {{ __('more images') }}
+                        </button>
                     @endif
+
+                    {{-- Lightbox Modal --}}
+                    <template x-if="open">
+                        <div x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center bg-black/90" @click.self="open = false">
+                            {{-- Close button --}}
+                            <button @click="open = false" class="absolute top-4 right-4 text-white hover:text-zinc-300 z-10">
+                                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                                </svg>
+                            </button>
+
+                            {{-- Previous button --}}
+                            <button @click="prev()" class="absolute left-4 text-white hover:text-zinc-300 z-10">
+                                <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                                </svg>
+                            </button>
+
+                            {{-- Image --}}
+                            <img :src="images[current]" class="max-h-[90vh] max-w-[90vw] object-contain" />
+
+                            {{-- Next button --}}
+                            <button @click="next()" class="absolute right-4 text-white hover:text-zinc-300 z-10">
+                                <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                                </svg>
+                            </button>
+
+                            {{-- Counter --}}
+                            <div class="absolute bottom-4 left-1/2 -translate-x-1/2 text-white text-sm">
+                                <span x-text="current + 1"></span> / <span x-text="images.length"></span>
+                            </div>
+                        </div>
+                    </template>
                 </flux:card>
             @endif
 
@@ -192,3 +236,23 @@
         </div>
     </div>
 </div>
+
+@script
+<script>
+    Alpine.data('imageGallery', () => ({
+        open: false,
+        current: 0,
+        images: [],
+        next() {
+            this.current = (this.current + 1) % this.images.length;
+        },
+        prev() {
+            this.current = (this.current - 1 + this.images.length) % this.images.length;
+        },
+        openAt(index) {
+            this.current = index;
+            this.open = true;
+        }
+    }));
+</script>
+@endscript
