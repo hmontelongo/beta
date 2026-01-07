@@ -14,6 +14,9 @@ use App\Models\SearchQuery;
 
 class ScrapeOrchestrator
 {
+    // Maximum duration for a scrape run (30 minutes)
+    public const MAX_RUN_DURATION_MINUTES = 30;
+
     public function startRun(SearchQuery $query): ScrapeRun
     {
         $run = ScrapeRun::create([
@@ -52,14 +55,8 @@ class ScrapeOrchestrator
             'phase' => ScrapePhase::Scrape->value,
         ]);
 
-        $pendingListings = DiscoveredListing::query()
-            ->where('platform_id', $run->platform_id)
-            ->where('status', DiscoveredListingStatus::Pending)
-            ->get();
-
-        foreach ($pendingListings as $listing) {
-            ScrapeListingJob::dispatch($listing->id, $run->id);
-        }
+        // Dispatch any remaining pending listings (batch scraping may have already queued some)
+        $this->dispatchScrapeBatch($run);
     }
 
     public function markCompleted(ScrapeRun $run): void
@@ -97,6 +94,22 @@ class ScrapeOrchestrator
         ScrapeRunProgress::dispatch($run, 'stats_updated', $updates);
     }
 
+    /**
+     * Atomically increment a stat value using database locking.
+     * Use this for concurrent updates from multiple workers.
+     */
+    public function incrementStat(ScrapeRun $run, string $key, int $amount = 1): void
+    {
+        \DB::transaction(function () use ($run, $key, $amount) {
+            $lockedRun = ScrapeRun::lockForUpdate()->find($run->id);
+            $stats = $lockedRun->stats ?? [];
+            $stats[$key] = ($stats[$key] ?? 0) + $amount;
+            $lockedRun->update(['stats' => $stats]);
+        });
+
+        ScrapeRunProgress::dispatch($run->fresh(), 'stats_updated', [$key => $amount]);
+    }
+
     public function checkDiscoveryComplete(ScrapeRun $run): bool
     {
         $stats = $run->stats ?? [];
@@ -106,6 +119,24 @@ class ScrapeOrchestrator
         return $pagesTotal > 0 && $pagesDone >= $pagesTotal;
     }
 
+    /**
+     * Dispatch scrape jobs for pending listings (batch scraping during discovery).
+     */
+    public function dispatchScrapeBatch(ScrapeRun $run): int
+    {
+        $pendingListings = DiscoveredListing::query()
+            ->where('scrape_run_id', $run->id)
+            ->where('status', DiscoveredListingStatus::Pending)
+            ->get();
+
+        foreach ($pendingListings as $listing) {
+            $listing->update(['status' => DiscoveredListingStatus::Queued]);
+            ScrapeListingJob::dispatch($listing->id, $run->id);
+        }
+
+        return $pendingListings->count();
+    }
+
     public function checkScrapingComplete(ScrapeRun $run): bool
     {
         $stats = $run->stats ?? [];
@@ -113,5 +144,79 @@ class ScrapeOrchestrator
         $listingsScraped = $stats['listings_scraped'] ?? 0;
 
         return $listingsFound > 0 && $listingsScraped >= $listingsFound;
+    }
+
+    public function isTimedOut(ScrapeRun $run): bool
+    {
+        if (! $run->started_at) {
+            return false;
+        }
+
+        return $run->started_at->diffInMinutes(now()) > self::MAX_RUN_DURATION_MINUTES;
+    }
+
+    public function markTimedOut(ScrapeRun $run): void
+    {
+        $run->update([
+            'status' => ScrapeRunStatus::Failed,
+            'error_message' => 'Run timed out after '.self::MAX_RUN_DURATION_MINUTES.' minutes',
+            'completed_at' => now(),
+        ]);
+
+        ScrapeRunProgress::dispatch($run, 'timed_out', [
+            'duration_minutes' => $run->started_at->diffInMinutes(now()),
+        ]);
+    }
+
+    public function cleanupStaleRuns(): int
+    {
+        $staleRuns = ScrapeRun::query()
+            ->whereIn('status', [ScrapeRunStatus::Discovering, ScrapeRunStatus::Scraping])
+            ->where('started_at', '<', now()->subMinutes(self::MAX_RUN_DURATION_MINUTES))
+            ->get();
+
+        foreach ($staleRuns as $run) {
+            $this->markTimedOut($run);
+        }
+
+        return $staleRuns->count();
+    }
+
+    /**
+     * Resume a stopped/failed run by re-queuing pending, queued, and failed listings.
+     * Queued listings need re-dispatching because their jobs were pruned when stopped.
+     */
+    public function resumeRun(ScrapeRun $run): int
+    {
+        $listingsToResume = DiscoveredListing::query()
+            ->where('scrape_run_id', $run->id)
+            ->whereIn('status', [
+                DiscoveredListingStatus::Pending,
+                DiscoveredListingStatus::Queued,
+                DiscoveredListingStatus::Failed,
+            ])
+            ->get();
+
+        if ($listingsToResume->isEmpty()) {
+            return 0;
+        }
+
+        $run->update([
+            'status' => ScrapeRunStatus::Scraping,
+            'phase' => ScrapePhase::Scrape,
+            'error_message' => null,
+            'completed_at' => null,
+        ]);
+
+        foreach ($listingsToResume as $listing) {
+            $listing->update(['status' => DiscoveredListingStatus::Queued]);
+            ScrapeListingJob::dispatch($listing->id, $run->id);
+        }
+
+        ScrapeRunProgress::dispatch($run, 'resumed', [
+            'listings_queued' => $listingsToResume->count(),
+        ]);
+
+        return $listingsToResume->count();
     }
 }

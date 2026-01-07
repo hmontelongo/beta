@@ -2,10 +2,12 @@
 
 namespace App\Models;
 
+use App\Enums\ScrapeRunStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class SearchQuery extends Model
 {
@@ -39,5 +41,27 @@ class SearchQuery extends Model
     public function scrapeRuns(): HasMany
     {
         return $this->hasMany(ScrapeRun::class);
+    }
+
+    /**
+     * @return HasOne<ScrapeRun, $this>
+     */
+    public function latestRun(): HasOne
+    {
+        return $this->hasOne(ScrapeRun::class)->latestOfMany();
+    }
+
+    /**
+     * @return HasOne<ScrapeRun, $this>
+     */
+    public function activeRun(): HasOne
+    {
+        return $this->hasOne(ScrapeRun::class)
+            ->whereIn('status', [
+                ScrapeRunStatus::Pending,
+                ScrapeRunStatus::Discovering,
+                ScrapeRunStatus::Scraping,
+            ])
+            ->latestOfMany();
     }
 }

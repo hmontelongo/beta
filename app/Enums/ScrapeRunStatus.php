@@ -9,4 +9,5 @@ enum ScrapeRunStatus: string
     case Scraping = 'scraping';
     case Completed = 'completed';
     case Failed = 'failed';
+    case Stopped = 'stopped';
 }

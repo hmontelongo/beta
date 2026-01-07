@@ -6,6 +6,7 @@ use App\Enums\DiscoveredListingStatus;
 use App\Enums\ScrapeJobStatus;
 use App\Enums\ScrapeJobType;
 use App\Events\ScrapingCompleted;
+use App\Jobs\Concerns\ChecksRunStatus;
 use App\Models\DiscoveredListing;
 use App\Models\Listing;
 use App\Models\ScrapeJob;
@@ -18,7 +19,7 @@ use Illuminate\Support\Facades\Log;
 
 class ScrapeListingJob implements ShouldQueue
 {
-    use Queueable;
+    use ChecksRunStatus, Queueable;
 
     public int $timeout = 180; // 3 minutes for browser scraping
 
@@ -27,10 +28,16 @@ class ScrapeListingJob implements ShouldQueue
     public function __construct(
         public int $discoveredListingId,
         public ?int $scrapeRunId = null,
-    ) {}
+    ) {
+        $this->onQueue('scraping');
+    }
 
     public function handle(ScraperService $scraperService, ScrapeOrchestrator $orchestrator): void
     {
+        if (! $this->isRunActive($this->scrapeRunId)) {
+            return;
+        }
+
         $discoveredListing = DiscoveredListing::findOrFail($this->discoveredListingId);
         $scrapeRun = $this->scrapeRunId ? ScrapeRun::find($this->scrapeRunId) : null;
 
@@ -79,10 +86,7 @@ class ScrapeListingJob implements ShouldQueue
             ]);
 
             if ($scrapeRun) {
-                $stats = $scrapeRun->fresh()->stats ?? [];
-                $orchestrator->updateStats($scrapeRun, [
-                    'listings_scraped' => ($stats['listings_scraped'] ?? 0) + 1,
-                ]);
+                $orchestrator->incrementStat($scrapeRun, 'listings_scraped');
 
                 if ($orchestrator->checkScrapingComplete($scrapeRun->fresh())) {
                     ScrapingCompleted::dispatch($scrapeRun->fresh());
@@ -109,10 +113,7 @@ class ScrapeListingJob implements ShouldQueue
 
             // Track failure in run stats
             if ($scrapeRun) {
-                $stats = $scrapeRun->fresh()->stats ?? [];
-                $orchestrator->updateStats($scrapeRun, [
-                    'listings_failed' => ($stats['listings_failed'] ?? 0) + 1,
-                ]);
+                $orchestrator->incrementStat($scrapeRun, 'listings_failed');
             }
 
             throw $e;

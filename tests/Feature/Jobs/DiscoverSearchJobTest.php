@@ -8,6 +8,7 @@ use App\Jobs\DiscoverSearchJob;
 use App\Models\DiscoveredListing;
 use App\Models\Platform;
 use App\Models\ScrapeJob;
+use App\Services\ScrapeOrchestrator;
 use App\Services\ScraperService;
 use Illuminate\Support\Facades\Queue;
 
@@ -33,7 +34,7 @@ it('creates a scrape job when dispatched', function () {
     app()->instance(ScraperService::class, $mockService);
 
     $job = new DiscoverSearchJob($platform->id, 'https://example.com/search');
-    $job->handle($mockService);
+    $job->handle($mockService, app(ScrapeOrchestrator::class));
 
     expect(ScrapeJob::count())->toBe(1);
 
@@ -61,7 +62,7 @@ it('stores discovered listings', function () {
         ]);
 
     $job = new DiscoverSearchJob($platform->id, 'https://example.com/search');
-    $job->handle($mockService);
+    $job->handle($mockService, app(ScrapeOrchestrator::class));
 
     expect(DiscoveredListing::count())->toBe(2);
 
@@ -85,7 +86,7 @@ it('dispatches page jobs for additional pages', function () {
         ]);
 
     $job = new DiscoverSearchJob($platform->id, 'https://example.com/search');
-    $job->handle($mockService);
+    $job->handle($mockService, app(ScrapeOrchestrator::class));
 
     Queue::assertPushed(DiscoverPageJob::class, 4);
 
@@ -112,7 +113,7 @@ it('does not dispatch page jobs for single page results', function () {
         ]);
 
     $job = new DiscoverSearchJob($platform->id, 'https://example.com/search');
-    $job->handle($mockService);
+    $job->handle($mockService, app(ScrapeOrchestrator::class));
 
     Queue::assertNotPushed(DiscoverPageJob::class);
 });
@@ -127,7 +128,7 @@ it('marks job as failed on exception', function () {
     $job = new DiscoverSearchJob($platform->id, 'https://example.com/search');
 
     try {
-        $job->handle($mockService);
+        $job->handle($mockService, app(ScrapeOrchestrator::class));
     } catch (\RuntimeException) {
         // Expected
     }
@@ -157,7 +158,7 @@ it('skips duplicates when storing listings', function () {
         ]);
 
     $job = new DiscoverSearchJob($platform->id, 'https://example.com/search');
-    $job->handle($mockService);
+    $job->handle($mockService, app(ScrapeOrchestrator::class));
 
     expect(DiscoveredListing::count())->toBe(2);
 });
@@ -176,7 +177,7 @@ it('stores batch id with discovered listings', function () {
         ]);
 
     $job = new DiscoverSearchJob($platform->id, 'https://example.com/search');
-    $job->handle($mockService);
+    $job->handle($mockService, app(ScrapeOrchestrator::class));
 
     $scrapeJob = ScrapeJob::first();
     $listing = DiscoveredListing::first();

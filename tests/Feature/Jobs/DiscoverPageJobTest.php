@@ -7,6 +7,7 @@ use App\Jobs\DiscoverPageJob;
 use App\Models\DiscoveredListing;
 use App\Models\Platform;
 use App\Models\ScrapeJob;
+use App\Services\ScrapeOrchestrator;
 use App\Services\ScraperService;
 
 it('creates a child scrape job', function () {
@@ -29,7 +30,7 @@ it('creates a child scrape job', function () {
         ]);
 
     $job = new DiscoverPageJob($parentJob->id, 'https://example.com/search', 2);
-    $job->handle($mockService);
+    $job->handle($mockService, app(ScrapeOrchestrator::class));
 
     expect(ScrapeJob::count())->toBe(2);
 
@@ -59,7 +60,7 @@ it('stores discovered listings with parent batch id', function () {
         ]);
 
     $job = new DiscoverPageJob($parentJob->id, 'https://example.com/search', 2);
-    $job->handle($mockService);
+    $job->handle($mockService, app(ScrapeOrchestrator::class));
 
     expect(DiscoveredListing::count())->toBe(2);
 
@@ -82,7 +83,7 @@ it('marks job as failed on exception', function () {
     $job = new DiscoverPageJob($parentJob->id, 'https://example.com/search', 3);
 
     try {
-        $job->handle($mockService);
+        $job->handle($mockService, app(ScrapeOrchestrator::class));
     } catch (\RuntimeException) {
         // Expected
     }
@@ -115,7 +116,7 @@ it('skips duplicate urls', function () {
         ]);
 
     $job = new DiscoverPageJob($parentJob->id, 'https://example.com/search', 2);
-    $job->handle($mockService);
+    $job->handle($mockService, app(ScrapeOrchestrator::class));
 
     expect(DiscoveredListing::count())->toBe(2);
 });
@@ -139,7 +140,7 @@ it('stores result with listings count', function () {
         ]);
 
     $job = new DiscoverPageJob($parentJob->id, 'https://example.com/search', 2);
-    $job->handle($mockService);
+    $job->handle($mockService, app(ScrapeOrchestrator::class));
 
     $childJob = ScrapeJob::where('parent_id', $parentJob->id)->first();
     expect($childJob->result)->toBeArray()
@@ -163,7 +164,7 @@ it('handles nullable external_id', function () {
         ]);
 
     $job = new DiscoverPageJob($parentJob->id, 'https://example.com/search', 2);
-    $job->handle($mockService);
+    $job->handle($mockService, app(ScrapeOrchestrator::class));
 
     $listing = DiscoveredListing::first();
     expect($listing->external_id)->toBeNull();

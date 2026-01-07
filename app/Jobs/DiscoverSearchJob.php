@@ -6,6 +6,7 @@ use App\Enums\DiscoveredListingStatus;
 use App\Enums\ScrapeJobStatus;
 use App\Enums\ScrapeJobType;
 use App\Events\DiscoveryCompleted;
+use App\Jobs\Concerns\ChecksRunStatus;
 use App\Models\DiscoveredListing;
 use App\Models\Platform;
 use App\Models\ScrapeJob;
@@ -18,7 +19,7 @@ use Illuminate\Support\Facades\Log;
 
 class DiscoverSearchJob implements ShouldQueue
 {
-    use Queueable;
+    use ChecksRunStatus, Queueable;
 
     public int $timeout = 180; // 3 minutes for browser scraping
 
@@ -28,10 +29,16 @@ class DiscoverSearchJob implements ShouldQueue
         public int $platformId,
         public string $searchUrl,
         public ?int $scrapeRunId = null,
-    ) {}
+    ) {
+        $this->onQueue('discovery');
+    }
 
     public function handle(ScraperService $scraperService, ScrapeOrchestrator $orchestrator): void
     {
+        if (! $this->isRunActive($this->scrapeRunId)) {
+            return;
+        }
+
         $platform = Platform::findOrFail($this->platformId);
         $scrapeRun = $this->scrapeRunId ? ScrapeRun::find($this->scrapeRunId) : null;
 
@@ -61,6 +68,9 @@ class DiscoverSearchJob implements ShouldQueue
                     'pages_done' => 1,
                     'listings_found' => count($result['listings']),
                 ]);
+
+                // Start scraping page 1 listings immediately
+                $orchestrator->dispatchScrapeBatch($scrapeRun->fresh());
             }
 
             for ($page = 2; $page <= $result['total_pages']; $page++) {
@@ -101,11 +111,13 @@ class DiscoverSearchJob implements ShouldQueue
     }
 
     /**
-     * @param  array<array{url: string, external_id: string|null}>  $listings
+     * @param  array<array{url: string, external_id: string|null, preview?: array}>  $listings
      */
     protected function storeListings(Platform $platform, array $listings, int $batchId): void
     {
         foreach ($listings as $listing) {
+            $preview = $listing['preview'] ?? [];
+
             DiscoveredListing::firstOrCreate(
                 [
                     'platform_id' => $platform->id,
@@ -114,8 +126,13 @@ class DiscoverSearchJob implements ShouldQueue
                 [
                     'external_id' => $listing['external_id'] ?? null,
                     'batch_id' => (string) $batchId,
+                    'scrape_run_id' => $this->scrapeRunId,
                     'status' => DiscoveredListingStatus::Pending,
                     'priority' => 0,
+                    'preview_title' => $preview['title'] ?? null,
+                    'preview_price' => $preview['price'] ?? null,
+                    'preview_location' => $preview['location'] ?? null,
+                    'preview_image' => $preview['image'] ?? null,
                 ]
             );
         }

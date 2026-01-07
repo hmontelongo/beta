@@ -52,7 +52,10 @@ it('transitions to scraping phase and dispatches listing jobs', function () {
     $listings = DiscoveredListing::factory()
         ->count(3)
         ->for($run->platform)
-        ->create(['status' => DiscoveredListingStatus::Pending]);
+        ->create([
+            'status' => DiscoveredListingStatus::Pending,
+            'scrape_run_id' => $run->id,
+        ]);
 
     $orchestrator = app(ScrapeOrchestrator::class);
     $orchestrator->transitionToScraping($run);
@@ -62,6 +65,12 @@ it('transitions to scraping phase and dispatches listing jobs', function () {
         ->and($run->phase)->toBe(ScrapePhase::Scrape);
 
     Queue::assertPushed(ScrapeListingJob::class, 3);
+
+    // Verify listings were marked as queued
+    foreach ($listings as $listing) {
+        expect($listing->fresh()->status)->toBe(DiscoveredListingStatus::Queued);
+    }
+
     Event::assertDispatched(ScrapeRunProgress::class, function ($event) use ($run) {
         return $event->run->id === $run->id && $event->type === 'phase_changed';
     });

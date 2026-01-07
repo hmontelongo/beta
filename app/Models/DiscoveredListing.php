@@ -36,6 +36,14 @@ class DiscoveredListing extends Model
     }
 
     /**
+     * @return BelongsTo<ScrapeRun, $this>
+     */
+    public function scrapeRun(): BelongsTo
+    {
+        return $this->belongsTo(ScrapeRun::class);
+    }
+
+    /**
      * @return HasOne<Listing, $this>
      */
     public function listing(): HasOne
