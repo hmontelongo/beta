@@ -2,67 +2,39 @@
 
 namespace App\Services;
 
-use Illuminate\Http\Client\ConnectionException;
-use Illuminate\Http\Client\RequestException;
-use Illuminate\Support\Facades\Http;
+use App\Services\Scrapers\Inmuebles24Config;
+use App\Services\Scrapers\Inmuebles24ListingParser;
+use App\Services\Scrapers\Inmuebles24SearchParser;
 use Illuminate\Support\Facades\Log;
 
 class ScraperService
 {
-    protected string $baseUrl;
-
-    protected int $timeout;
-
-    public function __construct()
-    {
-        $this->baseUrl = rtrim(config('services.scraper.url'), '/');
-        $this->timeout = config('services.scraper.timeout', 30);
-    }
+    public function __construct(
+        protected ZenRowsClient $zenRows,
+        protected Inmuebles24Config $config,
+        protected Inmuebles24SearchParser $searchParser,
+        protected Inmuebles24ListingParser $listingParser,
+    ) {}
 
     /**
      * Discover listings from a search page.
      *
-     * @return array{total_results: int, total_pages: int, listings: array<array{url: string, external_id: string|null}>}
+     * @return array{total_results: int, total_pages: int, listings: array<array{url: string, external_id: string|null, preview: array}>}
      *
      * @throws \RuntimeException
      */
     public function discoverPage(string $url, int $page = 1): array
     {
-        try {
-            $response = Http::timeout($this->timeout)
-                ->retry(3, 1000)
-                ->get("{$this->baseUrl}/discover", [
-                    'url' => $url,
-                    'page' => $page,
-                ]);
+        $paginatedUrl = $this->addPagination($url, $page);
 
-            $response->throw();
+        Log::debug('ScraperService: discovering page', ['url' => $paginatedUrl, 'page' => $page]);
 
-            $data = $response->json();
+        $extracted = $this->zenRows->fetchSearchPage(
+            $paginatedUrl,
+            $this->config->searchExtractor()
+        );
 
-            return [
-                'total_results' => $data['total_results'] ?? 0,
-                'total_pages' => $data['total_pages'] ?? 1,
-                'listings' => $data['listings'] ?? [],
-            ];
-        } catch (ConnectionException $e) {
-            Log::error('Scraper connection failed', [
-                'url' => $url,
-                'page' => $page,
-                'error' => $e->getMessage(),
-            ]);
-
-            throw new \RuntimeException("Failed to connect to scraper service: {$e->getMessage()}", 0, $e);
-        } catch (RequestException $e) {
-            Log::error('Scraper request failed', [
-                'url' => $url,
-                'page' => $page,
-                'status' => $e->response?->status(),
-                'error' => $e->getMessage(),
-            ]);
-
-            throw new \RuntimeException("Scraper request failed: {$e->getMessage()}", 0, $e);
-        }
+        return $this->searchParser->parse($extracted, $this->getBaseUrl($url));
     }
 
     /**
@@ -74,31 +46,47 @@ class ScraperService
      */
     public function scrapeListing(string $url): array
     {
-        try {
-            $response = Http::timeout($this->timeout)
-                ->retry(3, 1000)
-                ->get("{$this->baseUrl}/scrape", [
-                    'url' => $url,
-                ]);
+        Log::debug('ScraperService: scraping listing', ['url' => $url]);
 
-            $response->throw();
+        // Two requests: CSS extraction for structured data, raw HTML for JS variables
+        $extracted = $this->zenRows->fetchListingPage(
+            $url,
+            $this->config->listingExtractor()
+        );
 
-            return $response->json();
-        } catch (ConnectionException $e) {
-            Log::error('Scraper connection failed', [
-                'url' => $url,
-                'error' => $e->getMessage(),
-            ]);
+        $rawHtml = $this->zenRows->fetchRawHtml($url);
 
-            throw new \RuntimeException("Failed to connect to scraper service: {$e->getMessage()}", 0, $e);
-        } catch (RequestException $e) {
-            Log::error('Scraper request failed', [
-                'url' => $url,
-                'status' => $e->response?->status(),
-                'error' => $e->getMessage(),
-            ]);
+        return $this->listingParser->parse($extracted, $rawHtml, $url);
+    }
 
-            throw new \RuntimeException("Scraper request failed: {$e->getMessage()}", 0, $e);
+    /**
+     * Add pagination parameter to URL.
+     */
+    protected function addPagination(string $url, int $page): string
+    {
+        if ($page <= 1) {
+            return $url;
         }
+
+        // Inmuebles24 uses -pagina-N suffix before the .html extension
+        // Example: /departamentos-renta-jalisco.html -> /departamentos-renta-jalisco-pagina-2.html
+        if (str_contains($url, '.html')) {
+            return str_replace('.html', "-pagina-{$page}.html", $url);
+        }
+
+        // Fallback: append as query parameter
+        $separator = str_contains($url, '?') ? '&' : '?';
+
+        return "{$url}{$separator}pagina={$page}";
+    }
+
+    /**
+     * Extract base URL from a full URL.
+     */
+    protected function getBaseUrl(string $url): string
+    {
+        $parsed = parse_url($url);
+
+        return "{$parsed['scheme']}://{$parsed['host']}";
     }
 }

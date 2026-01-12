@@ -41,4 +41,9 @@ return [
         'discovery_batch_size' => env('SCRAPER_DISCOVERY_BATCH_SIZE', 5),
     ],
 
+    'zenrows' => [
+        'api_key' => env('ZENROWS_API_KEY'),
+        'timeout' => env('ZENROWS_TIMEOUT', 90),
+    ],
+
 ];

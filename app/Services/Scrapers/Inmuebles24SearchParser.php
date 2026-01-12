@@ -1,0 +1,195 @@
+<?php
+
+namespace App\Services\Scrapers;
+
+class Inmuebles24SearchParser
+{
+    protected Inmuebles24Config $config;
+
+    public function __construct(Inmuebles24Config $config)
+    {
+        $this->config = $config;
+    }
+
+    /**
+     * Parse search results from ZenRows CSS-extracted data.
+     *
+     * @param  array<string, mixed>  $extracted  Data from ZenRows css_extractor
+     * @param  string  $baseUrl  Base URL for resolving relative links
+     * @return array{total_results: int, total_pages: int, listings: array<array{url: string, external_id: string|null, preview: array}>}
+     */
+    public function parse(array $extracted, string $baseUrl): array
+    {
+        $listings = [];
+        $seenUrls = [];
+
+        // Get URLs array - ZenRows returns arrays when multiple elements match
+        $urls = $this->toArray($extracted['urls'] ?? []);
+        $titles = $this->toArray($extracted['titles'] ?? []);
+        $prices = $this->toArray($extracted['prices'] ?? []);
+        $locations = $this->toArray($extracted['locations'] ?? []);
+        $images = $this->toArray($extracted['images'] ?? []);
+
+        foreach ($urls as $i => $url) {
+            if (empty($url)) {
+                continue;
+            }
+
+            $fullUrl = $this->resolveUrl($url, $baseUrl);
+
+            // Dedupe by URL
+            if (isset($seenUrls[$fullUrl])) {
+                continue;
+            }
+            $seenUrls[$fullUrl] = true;
+
+            $listings[] = [
+                'url' => $fullUrl,
+                'external_id' => $this->extractExternalId($fullUrl),
+                'preview' => [
+                    'title' => $this->cleanText($titles[$i] ?? null),
+                    'price' => $this->cleanText($prices[$i] ?? null),
+                    'location' => $this->cleanText($locations[$i] ?? null),
+                    'image' => $this->cleanImageUrl($images[$i] ?? null),
+                ],
+            ];
+        }
+
+        // Parse pagination from page title
+        $pageTitle = $extracted['page_title'] ?? '';
+        $totalResults = $this->parseTotalResults($pageTitle);
+        $totalPages = $this->parseTotalPages(
+            $this->toArray($extracted['page_links'] ?? []),
+            $totalResults
+        );
+
+        return [
+            'total_results' => $totalResults,
+            'total_pages' => $totalPages,
+            'listings' => $listings,
+        ];
+    }
+
+    /**
+     * Ensure value is an array.
+     *
+     * @return array<mixed>
+     */
+    protected function toArray(mixed $value): array
+    {
+        if (is_array($value)) {
+            return $value;
+        }
+
+        if (is_string($value) && ! empty($value)) {
+            return [$value];
+        }
+
+        return [];
+    }
+
+    /**
+     * Resolve a potentially relative URL.
+     */
+    protected function resolveUrl(string $url, string $baseUrl): string
+    {
+        // Already absolute
+        if (str_starts_with($url, 'http')) {
+            return explode('?', $url)[0]; // Remove query params
+        }
+
+        // Relative URL
+        if (str_starts_with($url, '/')) {
+            return rtrim($baseUrl, '/').explode('?', $url)[0];
+        }
+
+        return $url;
+    }
+
+    /**
+     * Extract external ID from URL.
+     */
+    protected function extractExternalId(string $url): ?string
+    {
+        if (preg_match($this->config->externalIdPattern(), $url, $matches)) {
+            return $matches[1];
+        }
+
+        return null;
+    }
+
+    /**
+     * Parse total results from page title.
+     * Example: "954 Departamentos en renta en Jalisco"
+     */
+    protected function parseTotalResults(string $pageTitle): int
+    {
+        if (preg_match('/^([\d,\.]+)\s+(departamentos?|inmuebles?|propiedades?|casas?)/iu', $pageTitle, $matches)) {
+            return (int) preg_replace('/[,\.]/', '', $matches[1]);
+        }
+
+        return 0;
+    }
+
+    /**
+     * Parse total pages from pagination links and/or total results.
+     *
+     * @param  array<string>  $pageLinks  Array of data-qa values like "PAGING_1", "PAGING_2"
+     */
+    protected function parseTotalPages(array $pageLinks, int $totalResults): int
+    {
+        $maxPage = 1;
+
+        // Parse page numbers from data-qa attributes
+        foreach ($pageLinks as $link) {
+            if (preg_match('/PAGING_(\d+)/', $link, $matches)) {
+                $pageNum = (int) $matches[1];
+                if ($pageNum > $maxPage) {
+                    $maxPage = $pageNum;
+                }
+            }
+        }
+
+        // Calculate from total results (Inmuebles24 shows ~30 per page)
+        // Use calculated if higher (pagination may only show first few pages)
+        if ($totalResults > 0) {
+            $calculated = (int) ceil($totalResults / 30);
+            if ($calculated > $maxPage) {
+                $maxPage = $calculated;
+            }
+        }
+
+        return $maxPage;
+    }
+
+    /**
+     * Clean extracted text.
+     */
+    protected function cleanText(?string $text): ?string
+    {
+        if ($text === null) {
+            return null;
+        }
+
+        // Normalize whitespace
+        $text = preg_replace('/\s+/', ' ', trim($text));
+
+        return $text ?: null;
+    }
+
+    /**
+     * Clean and upgrade image URL.
+     */
+    protected function cleanImageUrl(?string $url): ?string
+    {
+        if ($url === null || $url === '') {
+            return null;
+        }
+
+        // Upgrade to higher resolution if possible
+        $url = str_replace(['360x266', '720x532'], '1200x1200', $url);
+
+        return $url;
+    }
+
+}

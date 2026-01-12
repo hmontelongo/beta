@@ -4,123 +4,171 @@ use App\Services\ScraperService;
 use Illuminate\Support\Facades\Http;
 
 beforeEach(function () {
-    config(['services.scraper.url' => 'http://localhost:3000']);
-    config(['services.scraper.timeout' => 30]);
+    config(['services.zenrows.api_key' => 'test-api-key']);
+    config(['services.zenrows.timeout' => 30]);
 });
 
 it('can discover listings from a search page', function () {
     Http::fake([
-        'localhost:3000/discover*' => Http::response([
-            'total_results' => 100,
-            'total_pages' => 5,
-            'listings' => [
-                ['url' => 'https://example.com/listing/1', 'external_id' => 'abc123'],
-                ['url' => 'https://example.com/listing/2', 'external_id' => 'def456'],
+        'api.zenrows.com/*' => Http::response([
+            'urls' => [
+                '/propiedades/departamento-en-renta-123456.html',
+                '/propiedades/departamento-en-renta-789012.html',
             ],
+            'titles' => ['Test Listing 1', 'Test Listing 2'],
+            'prices' => ['$25,000 MXN', '$30,000 MXN'],
+            'locations' => ['Guadalajara, Jalisco', 'Zapopan, Jalisco'],
+            'images' => [],
+            'page_title' => '100 Departamentos en renta en Jalisco',
+            'page_links' => ['PAGING_1', 'PAGING_2', 'PAGING_3', 'PAGING_4', 'PAGING_5'],
         ], 200),
     ]);
 
-    $service = new ScraperService;
-    $result = $service->discoverPage('https://example.com/search', 1);
+    $service = app(ScraperService::class);
+    $result = $service->discoverPage('https://www.inmuebles24.com/departamentos-renta-jalisco.html', 1);
 
     expect($result)->toHaveKey('total_results')
         ->and($result)->toHaveKey('total_pages')
         ->and($result)->toHaveKey('listings')
         ->and($result['total_results'])->toBe(100)
-        ->and($result['total_pages'])->toBe(5)
+        ->and($result['total_pages'])->toBe(5) // From pagination links
         ->and($result['listings'])->toHaveCount(2);
 
+    // Check first listing
+    $first = $result['listings'][0];
+    expect($first['url'])->toContain('departamento-en-renta-123456')
+        ->and($first['external_id'])->toBe('123456')
+        ->and($first['preview']['title'])->toBe('Test Listing 1');
+
     Http::assertSent(function ($request) {
-        return $request->url() === 'http://localhost:3000/discover?url=https%3A%2F%2Fexample.com%2Fsearch&page=1';
+        return str_contains($request->url(), 'api.zenrows.com')
+            && str_contains($request->url(), 'css_extractor');
     });
 });
 
 it('can scrape a single listing', function () {
     Http::fake([
-        'localhost:3000/scrape*' => Http::response([
-            'title' => 'Test Listing',
-            'price' => 1500000,
-            'bedrooms' => 3,
-        ], 200),
+        'api.zenrows.com/*' => Http::sequence()
+            // First request: CSS extraction
+            ->push([
+                'title' => 'Hermoso Departamento',
+                'description' => 'Amplio departamento con vista.',
+                'bedrooms_text' => '3 recámaras',
+                'bathrooms_text' => '2 baños',
+                'location_header' => 'Providencia, Guadalajara, Jalisco',
+                'gallery_images' => ['https://cdn.inmuebles24.com/img/360x266/photo.jpg'],
+            ], 200)
+            // Second request: Raw HTML for JS variables
+            ->push("
+                <script>
+                window.dataLayer = [{
+                    'price': '1500000',
+                    'currencyId': '10',
+                    'operationTypeId': '1',
+                    'propertyTypeId': '2'
+                }];
+                </script>
+            ", 200),
     ]);
 
-    $service = new ScraperService;
-    $result = $service->scrapeListing('https://example.com/listing/1');
+    $service = app(ScraperService::class);
+    $result = $service->scrapeListing('https://www.inmuebles24.com/propiedades/departamento-12345678.html');
 
     expect($result)->toHaveKey('title')
-        ->and($result['title'])->toBe('Test Listing')
-        ->and($result['price'])->toBe(1500000);
+        ->and($result['title'])->toBe('Hermoso Departamento')
+        ->and($result['bedrooms'])->toBe(3)
+        ->and($result['operations'][0]['price'])->toBe(1500000)
+        ->and($result['operations'][0]['currency'])->toBe('MXN');
 });
 
-it('throws exception on connection failure for discover', function () {
+it('throws exception on ZenRows failure for discover', function () {
     Http::fake([
-        'localhost:3000/discover*' => Http::response(null, 500),
+        'api.zenrows.com/*' => Http::response('Error', 500),
     ]);
 
-    $service = new ScraperService;
+    $service = app(ScraperService::class);
 
-    expect(fn () => $service->discoverPage('https://example.com/search', 1))
+    expect(fn () => $service->discoverPage('https://www.inmuebles24.com/search.html', 1))
         ->toThrow(\RuntimeException::class);
 });
 
-it('throws exception on connection failure for scrape', function () {
+it('throws exception on ZenRows failure for scrape', function () {
     Http::fake([
-        'localhost:3000/scrape*' => Http::response(null, 500),
+        'api.zenrows.com/*' => Http::response('Error', 500),
     ]);
 
-    $service = new ScraperService;
+    $service = app(ScraperService::class);
 
-    expect(fn () => $service->scrapeListing('https://example.com/listing/1'))
+    expect(fn () => $service->scrapeListing('https://www.inmuebles24.com/propiedades/test-123456.html'))
         ->toThrow(\RuntimeException::class);
 });
 
-it('handles missing fields in discover response gracefully', function () {
+it('handles empty discovery response gracefully', function () {
     Http::fake([
-        'localhost:3000/discover*' => Http::response([
-            'listings' => [],
+        'api.zenrows.com/*' => Http::response([
+            'urls' => [],
+            'page_title' => '',
+            'page_links' => [],
         ], 200),
     ]);
 
-    $service = new ScraperService;
-    $result = $service->discoverPage('https://example.com/search', 1);
+    $service = app(ScraperService::class);
+    $result = $service->discoverPage('https://www.inmuebles24.com/search.html', 1);
 
     expect($result['total_results'])->toBe(0)
         ->and($result['total_pages'])->toBe(1)
         ->and($result['listings'])->toBeArray()->toBeEmpty();
 });
 
-it('uses correct base url from config', function () {
-    config(['services.scraper.url' => 'http://scraper.local:8080/']);
-
+it('adds pagination suffix for page > 1', function () {
     Http::fake([
-        'scraper.local:8080/discover*' => Http::response([
-            'total_results' => 0,
-            'total_pages' => 1,
-            'listings' => [],
+        'api.zenrows.com/*' => Http::response([
+            'urls' => [],
+            'page_title' => '',
+            'page_links' => [],
         ], 200),
     ]);
 
-    $service = new ScraperService;
-    $service->discoverPage('https://example.com/search', 1);
+    $service = app(ScraperService::class);
+    $service->discoverPage('https://www.inmuebles24.com/departamentos-renta-jalisco.html', 5);
 
     Http::assertSent(function ($request) {
-        return str_contains($request->url(), 'scraper.local:8080');
+        // Check that the URL sent to ZenRows contains the paginated URL
+        $requestedUrl = urldecode($request['url'] ?? '');
+
+        return str_contains($requestedUrl, 'pagina-5');
     });
 });
 
-it('passes page number correctly', function () {
+it('deduplicates listing URLs in discovery', function () {
     Http::fake([
-        'localhost:3000/discover*' => Http::response([
-            'total_results' => 0,
-            'total_pages' => 1,
-            'listings' => [],
+        'api.zenrows.com/*' => Http::response([
+            'urls' => [
+                '/propiedades/departamento-123456.html',
+                '/propiedades/departamento-123456.html', // Duplicate
+                '/propiedades/departamento-789012.html',
+            ],
+            'titles' => ['Title 1', 'Title 2', 'Title 3'],
+            'page_title' => '3 Departamentos',
+            'page_links' => [],
         ], 200),
     ]);
 
-    $service = new ScraperService;
-    $service->discoverPage('https://example.com/search', 5);
+    $service = app(ScraperService::class);
+    $result = $service->discoverPage('https://www.inmuebles24.com/search.html', 1);
 
-    Http::assertSent(function ($request) {
-        return str_contains($request->url(), 'page=5');
-    });
+    expect($result['listings'])->toHaveCount(2);
+});
+
+it('extracts external ID from listing URL', function () {
+    Http::fake([
+        'api.zenrows.com/*' => Http::sequence()
+            ->push(['title' => 'Test'], 200)
+            ->push('', 200),
+    ]);
+
+    $service = app(ScraperService::class);
+    $result = $service->scrapeListing('https://www.inmuebles24.com/propiedades/departamento-87654321.html');
+
+    expect($result['external_id'])->toBe('87654321');
 });

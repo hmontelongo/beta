@@ -1,0 +1,242 @@
+<?php
+
+namespace App\Services\Scrapers;
+
+class Inmuebles24Config
+{
+    /**
+     * CSS extractor configuration for search pages.
+     *
+     * @return array<string, string>
+     */
+    public function searchExtractor(): array
+    {
+        return [
+            // Listing URLs - extract href attributes
+            'urls' => '[data-qa^="posting"] a[href*="/propiedades/"] @href',
+
+            // Preview data (shown during discovery)
+            'titles' => '[data-qa="POSTING_CARD_DESCRIPTION"]',
+            'prices' => '[data-qa="POSTING_CARD_PRICE"]',
+            'locations' => '[data-qa="POSTING_CARD_LOCATION"]',
+            'images' => '[data-qa^="posting"] img @src',
+
+            // Pagination - extract title for total count
+            'page_title' => 'title',
+            'page_links' => '[data-qa^="PAGING_"] @data-qa',
+        ];
+    }
+
+    /**
+     * CSS extractor configuration for listing pages.
+     *
+     * @return array<string, string>
+     */
+    public function listingExtractor(): array
+    {
+        return [
+            // Core info
+            'title' => 'h1',
+            'description' => '#longDescription',
+
+            // Features (icon-based elements)
+            'bedrooms_text' => '.icon-dormitorio',
+            'bathrooms_text' => '.icon-bano',
+            'half_bathrooms_text' => '.icon-toilete',
+            'parking_text' => '.icon-cochera',
+            'area_total_text' => '.icon-stotal',
+            'area_built_text' => '.icon-scubierta',
+            'age_text' => '.icon-antiguedad',
+
+            // All feature items for fallback parsing
+            'feature_items' => 'li.icon-feature',
+
+            // Location
+            'location_header' => '.section-location-property h4',
+            'breadcrumbs' => '[class*="breadcrumb"] a',
+
+            // Images - multiple selectors for fallback
+            'gallery_images' => '[class*="gallery"] img @src',
+            'carousel_images' => '[class*="carousel"] img @src',
+
+            // Publisher info
+            'publisher_name' => '[data-qa="publisher-name"], [class*="publisher-name"]',
+            'whatsapp_link' => 'a[href*="wa.me"] @href',
+
+            // Stats
+            'stats_text' => '.view-users-container',
+
+            // Amenities
+            'amenities' => '.generalFeaturesProperty-module__description-text',
+        ];
+    }
+
+    /**
+     * Regex patterns for extracting data from JavaScript variables.
+     *
+     * @return array<string, string>
+     */
+    public function jsPatterns(): array
+    {
+        return [
+            'price' => "/'price':\s*'(\d+)'/",
+            'currency_id' => "/'currencyId':\s*'(\d+)'/",
+            'operation_type_id' => "/'operationTypeId':\s*'(\d+)'/",
+            'province_id' => "/'provinceId':\s*'(\d+)'/",
+            'city_id' => "/'cityId':\s*'(\d+)'/",
+            'neighborhood_id' => "/'neighborhoodId':\s*'(\d+)'/",
+            'property_type_id' => "/'propertyTypeId':\s*'(\d+)'/",
+            'posting_id' => "/'postingId':\s*'(\d+)'/",
+            'publisher_id' => "/'publisherId':\s*'(\d+)'/",
+            'publisher_name' => "/'name':\s*'([^']+)'/",
+            'publisher_type_id' => "/'publisherTypeId':\s*'(\d+)'/",
+            'publisher_url' => "/'url':\s*'(\\/(?:inmobiliaria|agencia|desarrolladora)[^']+)'/",
+            'publisher_logo' => "/'urlLogo':\s*'([^']+)'/",
+            'whatsapp' => "/'whatsApp':\s*'([^']+)'/",
+            'latitude' => '/"latitude":\s*([-\d.]+)/',
+            'longitude' => '/"longitude":\s*([-\d.]+)/',
+        ];
+    }
+
+    /**
+     * URL pattern for extracting external ID.
+     */
+    public function externalIdPattern(): string
+    {
+        return '/(?:propiedades|propiedad|clasificado)[\\/-].*?(\\d{6,})/';
+    }
+
+    /**
+     * Operation type mappings (platform ID => standard type).
+     *
+     * @return array<int, string>
+     */
+    public function operationTypes(): array
+    {
+        return [
+            1 => 'sale',
+            2 => 'rent',
+        ];
+    }
+
+    /**
+     * Currency type mappings (platform ID => ISO code).
+     *
+     * @return array<int, string>
+     */
+    public function currencyTypes(): array
+    {
+        return [
+            1 => 'USD',
+            10 => 'MXN',
+        ];
+    }
+
+    /**
+     * Property type mappings (platform ID => standard type).
+     *
+     * @return array<int, string>
+     */
+    public function propertyTypes(): array
+    {
+        return [
+            1 => 'house',
+            2 => 'apartment',
+            3 => 'land',
+            4 => 'commercial',
+            5 => 'office',
+        ];
+    }
+
+    /**
+     * Publisher type mappings (platform ID => standard type).
+     *
+     * @return array<int, string>
+     */
+    public function publisherTypes(): array
+    {
+        return [
+            1 => 'individual',
+            2 => 'agency',
+            3 => 'developer',
+        ];
+    }
+
+    /**
+     * Amenity mappings (Spanish keyword => standardized English name).
+     *
+     * @return array<string, string>
+     */
+    public function amenityMappings(): array
+    {
+        return [
+            'alberca' => 'pool',
+            'piscina' => 'pool',
+            'gimnasio' => 'gym',
+            'gym' => 'gym',
+            'seguridad' => 'security_24h',
+            'vigilancia' => 'security_24h',
+            'elevador' => 'elevator',
+            'ascensor' => 'elevator',
+            'roof' => 'roof_garden',
+            'terraza' => 'terrace',
+            'jardín' => 'garden',
+            'jardin' => 'garden',
+            'áreas verdes' => 'green_areas',
+            'areas verdes' => 'green_areas',
+            'pet friendly' => 'pet_friendly',
+            'mascotas' => 'pet_friendly',
+            'estacionamiento' => 'parking',
+            'bodega' => 'storage',
+            'cuarto de servicio' => 'service_room',
+            'aire acondicionado' => 'ac',
+            'calefacción' => 'heating',
+            'amueblado' => 'furnished',
+            'jacuzzi' => 'jacuzzi',
+            'bbq' => 'bbq_area',
+            'asador' => 'bbq_area',
+            'parrilla' => 'bbq_area',
+            'sala de juntas' => 'meeting_room',
+            'salón de eventos' => 'event_room',
+            'business center' => 'business_center',
+            'usos múltiples' => 'multipurpose_room',
+            'juegos' => 'playground',
+            'ludoteca' => 'playground',
+            'biblioteca' => 'library',
+            'cancha' => 'sports_court',
+            'tenis' => 'sports_court',
+            'padel' => 'sports_court',
+            'lobby' => 'lobby',
+            'cctv' => 'cctv',
+            'cámaras' => 'cctv',
+            'pista para correr' => 'jogging_track',
+            'jogging' => 'jogging_track',
+            'coworking' => 'coworking',
+            'spa' => 'spa',
+            'vapor' => 'spa',
+            'sauna' => 'spa',
+            'cine' => 'cinema',
+            'cocina integral' => 'integrated_kitchen',
+            'área de lavado' => 'laundry_area',
+            'balcón' => 'balcony',
+            'balcon' => 'balcony',
+        ];
+    }
+
+    /**
+     * Property subtype patterns (regex => subtype).
+     *
+     * @return array<string, string>
+     */
+    public function subtypePatterns(): array
+    {
+        return [
+            '/\\bPH\\b|PENTHOUSE/i' => 'penthouse',
+            '/GARDEN|PLANTA\\s+BAJA|\\bPB\\b/i' => 'ground_floor',
+            '/\\bLOFT\\b/i' => 'loft',
+            '/DUPLEX|D[ÚU]PLEX/i' => 'duplex',
+            '/TRIPLEX/i' => 'triplex',
+            '/ESTUDIO/i' => 'studio',
+        ];
+    }
+}
