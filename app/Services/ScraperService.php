@@ -54,7 +54,17 @@ class ScraperService
             $this->config->listingExtractor()
         );
 
-        $rawHtml = $this->zenRows->fetchRawHtml($url);
+        // Second request for JS variables - handle failure gracefully
+        $rawHtml = '';
+        try {
+            $rawHtml = $this->zenRows->fetchRawHtml($url);
+        } catch (\RuntimeException $e) {
+            Log::warning('ScraperService: failed to fetch raw HTML for JS variables', [
+                'url' => $url,
+                'error' => $e->getMessage(),
+            ]);
+            // Continue with empty rawHtml - parser will work with CSS-extracted data only
+        }
 
         return $this->listingParser->parse($extracted, $rawHtml, $url);
     }

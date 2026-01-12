@@ -30,10 +30,10 @@
             ['label' => __('Pending'), 'value' => $this->stats['pending'], 'icon' => 'clock'],
             ['label' => __('Scraped'), 'value' => $this->stats['scraped'], 'icon' => 'check-circle'],
         ] as $stat)
-            <div class="flex-1 rounded-lg px-6 py-4 bg-zinc-50 dark:bg-zinc-800">
+            <flux:card class="flex-1">
                 <flux:subheading>{{ $stat['label'] }}</flux:subheading>
                 <flux:heading size="xl">{{ number_format($stat['value']) }}</flux:heading>
-            </div>
+            </flux:card>
         @endforeach
     </div>
 
@@ -70,21 +70,16 @@
                             @if ($query->activeRun)
                                 <a href="{{ route('runs.show', $query->activeRun) }}" wire:navigate class="mt-3 block rounded-lg bg-blue-50 dark:bg-blue-900/20 p-3 hover:bg-blue-100 dark:hover:bg-blue-900/30">
                                     <div class="flex justify-between items-center">
-                                        <flux:badge color="blue" size="sm">
-                                            <span class="mr-1 size-2 animate-pulse rounded-full bg-blue-400 inline-block"></span>
-                                            {{ $query->activeRun->status->value === 'discovering' ? __('Discovering') : __('Scraping') }}
+                                        <flux:badge :color="$query->activeRun->status->color()" size="sm">
+                                            <span class="mr-1 size-2 animate-pulse rounded-full bg-current inline-block"></span>
+                                            {{ ucfirst($query->activeRun->status->value) }}
                                         </flux:badge>
                                         <flux:subheading>
                                             {{ $query->activeRun->stats['pages_done'] ?? 0 }}/{{ $query->activeRun->stats['pages_total'] ?? 0 }} {{ __('pages') }}
                                         </flux:subheading>
                                     </div>
                                     <div class="mt-2 h-1.5 rounded-full bg-blue-200 dark:bg-blue-800">
-                                        @php
-                                            $progress = ($query->activeRun->stats['pages_total'] ?? 0) > 0
-                                                ? round(($query->activeRun->stats['pages_done'] ?? 0) / $query->activeRun->stats['pages_total'] * 100)
-                                                : 0;
-                                        @endphp
-                                        <div class="h-1.5 rounded-full bg-blue-500" style="width: {{ $progress }}%"></div>
+                                        <div class="h-1.5 rounded-full bg-blue-500" style="width: {{ $query->activeRun->progress }}%"></div>
                                     </div>
                                 </a>
                             @else
@@ -93,9 +88,9 @@
                                         <a href="{{ route('runs.show', $query->latestRun) }}" wire:navigate class="group flex items-center gap-1">
                                             <flux:subheading class="group-hover:text-zinc-700 dark:group-hover:text-zinc-300">
                                                 {{ __('Last run') }}: {{ $query->latestRun->created_at->diffForHumans() }}
-                                                @if ($query->latestRun->status === \App\Enums\ScrapeRunStatus::Completed)
+                                                @if ($query->latestRun->status->value === 'completed')
                                                     <span class="text-green-600">({{ $query->latestRun->stats['listings_scraped'] ?? 0 }} {{ __('scraped') }})</span>
-                                                @elseif ($query->latestRun->status === \App\Enums\ScrapeRunStatus::Failed)
+                                                @elseif ($query->latestRun->status->value === 'failed')
                                                     <span class="text-red-500">({{ __('failed') }})</span>
                                                 @endif
                                             </flux:subheading>
@@ -128,32 +123,12 @@
                 <div class="space-y-1">
                     @foreach ($this->recentRuns as $run)
                         <a wire:key="run-{{ $run->id }}" href="{{ route('runs.show', $run) }}" wire:navigate class="flex items-center gap-3 rounded-lg p-2 hover:bg-zinc-50 dark:hover:bg-zinc-700/50">
-                            <flux:icon :name="match($run->status->value) {
-                                'pending' => 'clock',
-                                'discovering' => 'magnifying-glass',
-                                'scraping' => 'arrow-path',
-                                'completed' => 'check',
-                                'failed' => 'x-mark',
-                                default => 'clock'
-                            }" class="size-5 {{ match($run->status->value) {
-                                'pending' => 'text-zinc-400',
-                                'discovering' => 'text-blue-500 animate-pulse',
-                                'scraping' => 'text-amber-500 animate-spin',
-                                'completed' => 'text-green-500',
-                                'failed' => 'text-red-500',
-                                default => 'text-zinc-400'
-                            } }}" />
+                            <flux:icon :name="$run->status->icon()" class="size-5 {{ $run->status->iconClass() }}" />
                             <div class="flex-1 min-w-0">
                                 <flux:heading size="sm" class="truncate">{{ $run->searchQuery?->name ?? __('Unknown') }}</flux:heading>
                                 <flux:subheading>{{ $run->created_at->diffForHumans() }}</flux:subheading>
                             </div>
-                            <flux:badge size="sm" :color="match($run->status->value) {
-                                'discovering' => 'blue',
-                                'scraping' => 'amber',
-                                'completed' => 'green',
-                                'failed' => 'red',
-                                default => 'zinc'
-                            }">{{ ucfirst($run->status->value) }}</flux:badge>
+                            <flux:badge size="sm" :color="$run->status->color()">{{ ucfirst($run->status->value) }}</flux:badge>
                         </a>
                     @endforeach
                 </div>

@@ -2,7 +2,7 @@
     {{-- Page Header --}}
     <div>
         <flux:heading size="xl" level="1">{{ __('Scraped Listings') }}</flux:heading>
-        <flux:text class="mt-2">{{ __('Browse all scraped property listings from all platforms.') }}</flux:text>
+        <flux:subheading>{{ __('Browse all scraped property listings from all platforms.') }}</flux:subheading>
     </div>
 
     {{-- Filters --}}
@@ -71,13 +71,22 @@
                         </flux:table.cell>
                         <flux:table.cell>
                             @php
-                                $operation = $listing->raw_data['operations'][0] ?? null;
+                                $operations = $listing->raw_data['operations'] ?? [];
                             @endphp
-                            @if ($operation && isset($operation['price']))
-                                <flux:text>
-                                    ${{ number_format($operation['price']) }}
-                                    {{ $operation['currency'] ?? 'MXN' }}
-                                </flux:text>
+                            @if (!empty($operations))
+                                <div class="space-y-1">
+                                    @foreach ($operations as $operation)
+                                        <div class="flex items-center gap-2">
+                                            <flux:badge size="sm" :color="$operation['type'] === 'rent' ? 'blue' : 'green'">
+                                                {{ $operation['type'] === 'rent' ? 'R' : 'S' }}
+                                            </flux:badge>
+                                            <flux:text>
+                                                ${{ number_format($operation['price'] ?? 0) }}
+                                                <span class="text-zinc-400 text-xs">{{ $operation['currency'] ?? 'MXN' }}</span>
+                                            </flux:text>
+                                        </div>
+                                    @endforeach
+                                </div>
                             @else
                                 <flux:text class="text-zinc-400">—</flux:text>
                             @endif

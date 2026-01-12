@@ -4,12 +4,7 @@ namespace App\Services\Scrapers;
 
 class Inmuebles24ListingParser
 {
-    protected Inmuebles24Config $config;
-
-    public function __construct(Inmuebles24Config $config)
-    {
-        $this->config = $config;
-    }
+    public function __construct(protected Inmuebles24Config $config) {}
 
     /**
      * Parse listing data from ZenRows CSS-extracted data + raw HTML for JS variables.
@@ -24,14 +19,17 @@ class Inmuebles24ListingParser
         // Extract JavaScript variables from raw HTML
         $jsData = $this->extractJavaScriptVars($rawHtml);
 
+        // Extract dataLayer data (richer structured info)
+        $dataLayerData = $this->extractDataLayer($rawHtml);
+
         // Extract features from icon-based elements
-        $features = $this->extractFeatures($extracted);
+        $features = $this->extractFeatures($extracted, $dataLayerData);
 
-        // Build operations array (price/rent info)
-        $operations = $this->buildOperations($jsData, $rawHtml);
+        // Build operations array (price/rent info) - now supports multiple operations
+        $operations = $this->buildOperations($jsData, $dataLayerData, $rawHtml);
 
-        // Parse location
-        $location = $this->parseLocation($extracted, $jsData);
+        // Parse location (enhanced with dataLayer)
+        $location = $this->parseLocation($extracted, $jsData, $dataLayerData);
 
         // Parse description for additional data
         $description = $this->cleanDescription($extracted['description'] ?? '');
@@ -43,8 +41,11 @@ class Inmuebles24ListingParser
             $descriptionData['amenities']
         );
 
-        // Get images
+        // Get images (enhanced extraction)
         $images = $this->extractImages($extracted, $rawHtml);
+
+        // Extract coordinates with multiple fallbacks
+        $coordinates = $this->extractCoordinates($jsData, $rawHtml);
 
         // Build the final data structure
         return [
@@ -53,7 +54,7 @@ class Inmuebles24ListingParser
             'title' => $this->cleanText($extracted['title'] ?? null),
             'description' => $description,
 
-            // Operations (sale/rent with prices)
+            // Operations (sale/rent with prices) - now supports multiple
             'operations' => $operations,
 
             // Features
@@ -64,7 +65,7 @@ class Inmuebles24ListingParser
             'lot_size_m2' => $features['lot_size_m2'],
             'built_size_m2' => $features['built_size_m2'],
             'age_years' => $features['age_years'],
-            'property_type' => $this->resolvePropertyType($jsData, $extracted),
+            'property_type' => $this->resolvePropertyType($jsData, $dataLayerData, $extracted),
             'property_subtype' => $descriptionData['subtype'],
 
             // Location
@@ -72,13 +73,13 @@ class Inmuebles24ListingParser
             'colonia' => $location['colonia'],
             'city' => $location['city'],
             'state' => $location['state'],
-            'latitude' => $jsData['latitude'] ?? null,
-            'longitude' => $jsData['longitude'] ?? null,
+            'latitude' => $coordinates['latitude'],
+            'longitude' => $coordinates['longitude'],
 
             // Publisher
             'publisher_id' => $jsData['publisher_id'] ?? null,
             'publisher_name' => $jsData['publisher_name'] ?? $this->cleanText($extracted['publisher_name'] ?? null),
-            'publisher_type' => $this->resolvePublisherType($jsData),
+            'publisher_type' => $this->resolvePublisherType($jsData, $dataLayerData),
             'publisher_url' => $this->buildPublisherUrl($jsData),
             'publisher_logo' => $jsData['publisher_logo'] ?? null,
             'whatsapp' => $this->parseWhatsApp($extracted['whatsapp_link'] ?? null, $jsData),
@@ -105,6 +106,7 @@ class Inmuebles24ListingParser
                 'property_type_id' => $jsData['property_type_id'] ?? null,
                 'publisher_type_id' => $jsData['publisher_type_id'] ?? null,
                 'posting_id' => $jsData['posting_id'] ?? null,
+                'dataLayer' => $dataLayerData, // Include for debugging/LLM analysis
             ],
         ];
     }
@@ -135,11 +137,89 @@ class Inmuebles24ListingParser
     }
 
     /**
+     * Extract data from dataLayer JavaScript object.
+     * dataLayer contains rich structured data about the listing.
+     *
+     * @return array<string, mixed>
+     */
+    protected function extractDataLayer(string $html): array
+    {
+        $data = [];
+
+        foreach ($this->config->dataLayerPatterns() as $key => $pattern) {
+            if (preg_match($pattern, $html, $matches)) {
+                $value = $matches[1];
+
+                // Convert numeric strings to numbers
+                if (is_numeric($value)) {
+                    $value = str_contains($value, '.') ? (float) $value : (int) $value;
+                }
+
+                $data[$key] = $value;
+            }
+        }
+
+        return $data;
+    }
+
+    /**
+     * Extract coordinates with multiple fallback patterns.
+     *
+     * @return array{latitude: float|null, longitude: float|null}
+     */
+    protected function extractCoordinates(array $jsData, string $html): array
+    {
+        $coordinates = [
+            'latitude' => null,
+            'longitude' => null,
+        ];
+
+        // Try from jsData first
+        if (isset($jsData['latitude']) && isset($jsData['longitude'])) {
+            $coordinates['latitude'] = (float) $jsData['latitude'];
+            $coordinates['longitude'] = (float) $jsData['longitude'];
+
+            return $coordinates;
+        }
+
+        // Try various patterns in HTML
+        $patterns = [
+            // JSON-LD format
+            '/"geo"\s*:\s*\{[^}]*"latitude"\s*:\s*([-\d.]+)[^}]*"longitude"\s*:\s*([-\d.]+)/s',
+            // dataLayer format
+            '/"latitud"\s*:\s*"?([-\d.]+)"?\s*,\s*"longitud"\s*:\s*"?([-\d.]+)"?/',
+            // Map initialization
+            '/initMap\s*\([^)]*\{\s*lat:\s*([-\d.]+)\s*,\s*lng:\s*([-\d.]+)/s',
+            // Leaflet/Google Maps marker
+            '/new\s+(?:google\.maps\.)?LatLng\s*\(\s*([-\d.]+)\s*,\s*([-\d.]+)/s',
+            // Generic coordinate pattern
+            '/coordinates?\s*[:=]\s*\[\s*([-\d.]+)\s*,\s*([-\d.]+)\s*\]/',
+        ];
+
+        foreach ($patterns as $pattern) {
+            if (preg_match($pattern, $html, $matches)) {
+                $lat = (float) $matches[1];
+                $lng = (float) $matches[2];
+
+                // Validate coordinates are in Mexico range
+                if ($lat >= 14 && $lat <= 33 && $lng >= -118 && $lng <= -86) {
+                    $coordinates['latitude'] = $lat;
+                    $coordinates['longitude'] = $lng;
+
+                    return $coordinates;
+                }
+            }
+        }
+
+        return $coordinates;
+    }
+
+    /**
      * Extract features from icon-based elements.
      *
      * @return array<string, int|null>
      */
-    protected function extractFeatures(array $extracted): array
+    protected function extractFeatures(array $extracted, array $dataLayerData = []): array
     {
         $features = [
             'bedrooms' => $this->parseNumber($extracted['bedrooms_text'] ?? null),
@@ -155,6 +235,17 @@ class Inmuebles24ListingParser
         $featureItems = $this->toArray($extracted['feature_items'] ?? []);
         if (! empty($featureItems)) {
             $features = $this->parseFeatureItems($featureItems, $features);
+        }
+
+        // Use dataLayer as fallback for missing features
+        if ($features['bedrooms'] === null && isset($dataLayerData['bedrooms'])) {
+            $features['bedrooms'] = (int) $dataLayerData['bedrooms'];
+        }
+        if ($features['bathrooms'] === null && isset($dataLayerData['bathrooms'])) {
+            $features['bathrooms'] = (int) $dataLayerData['bathrooms'];
+        }
+        if ($features['lot_size_m2'] === null && isset($dataLayerData['area'])) {
+            $features['lot_size_m2'] = (int) $dataLayerData['area'];
         }
 
         return $features;
@@ -199,26 +290,142 @@ class Inmuebles24ListingParser
     }
 
     /**
-     * Build operations array from JavaScript data.
+     * Build operations array from JavaScript data and dataLayer.
+     * Supports multiple operations (e.g., same property for sale AND rent).
      *
      * @return array<array{type: string, price: int, currency: string, maintenance_fee: int|null}>
      */
-    protected function buildOperations(array $jsData, string $html): array
+    protected function buildOperations(array $jsData, array $dataLayerData, string $html): array
     {
         $operations = [];
+        $operationTypes = $this->config->operationTypes();
+        $currencyTypes = $this->config->currencyTypes();
+        $maintenanceFee = $this->extractMaintenanceFee($html);
 
+        // Primary operation from JS data
         if (isset($jsData['price']) && isset($jsData['operation_type_id'])) {
-            $operationTypes = $this->config->operationTypes();
-            $currencyTypes = $this->config->currencyTypes();
-
-            $operation = [
+            $operations[] = [
                 'type' => $operationTypes[$jsData['operation_type_id']] ?? 'sale',
                 'price' => (int) $jsData['price'],
                 'currency' => $currencyTypes[$jsData['currency_id'] ?? 10] ?? 'MXN',
-                'maintenance_fee' => $this->extractMaintenanceFee($html),
+                'maintenance_fee' => $maintenanceFee,
             ];
+        }
 
-            $operations[] = $operation;
+        // Check dataLayer for additional operations
+        // dataLayer may have precioVenta and precioAlquiler separately
+        $salePrice = $this->parsePriceFromDataLayer($dataLayerData['sale_price'] ?? null);
+        $rentPrice = $this->parsePriceFromDataLayer($dataLayerData['rent_price'] ?? null);
+
+        // Add sale operation if not already present and price exists
+        if ($salePrice && ! $this->hasOperationType($operations, 'sale')) {
+            $operations[] = [
+                'type' => 'sale',
+                'price' => $salePrice['amount'],
+                'currency' => $salePrice['currency'],
+                'maintenance_fee' => null,
+            ];
+        }
+
+        // Add rent operation if not already present and price exists
+        if ($rentPrice && ! $this->hasOperationType($operations, 'rent')) {
+            $operations[] = [
+                'type' => 'rent',
+                'price' => $rentPrice['amount'],
+                'currency' => $rentPrice['currency'],
+                'maintenance_fee' => $maintenanceFee, // Maintenance usually applies to rent
+            ];
+        }
+
+        // Fallback: try to extract from HTML if no operations found
+        if (empty($operations)) {
+            $operations = $this->extractOperationsFromHtml($html, $maintenanceFee);
+        }
+
+        return $operations;
+    }
+
+    /**
+     * Parse price from dataLayer format like "MN 2000" or "USD 150000".
+     *
+     * @return array{amount: int, currency: string}|null
+     */
+    protected function parsePriceFromDataLayer(?string $priceText): ?array
+    {
+        if (! $priceText) {
+            return null;
+        }
+
+        // Format: "MN 2000" or "USD 150000"
+        if (preg_match('/^(MN|USD)\s*([\d,]+)/i', $priceText, $matches)) {
+            return [
+                'amount' => (int) str_replace(',', '', $matches[2]),
+                'currency' => strtoupper($matches[1]) === 'MN' ? 'MXN' : 'USD',
+            ];
+        }
+
+        // Just a number
+        if (preg_match('/^([\d,]+)$/', trim($priceText), $matches)) {
+            return [
+                'amount' => (int) str_replace(',', '', $matches[1]),
+                'currency' => 'MXN',
+            ];
+        }
+
+        return null;
+    }
+
+    /**
+     * Check if operations array already has a specific type.
+     *
+     * @param  array<array{type: string}>  $operations
+     */
+    protected function hasOperationType(array $operations, string $type): bool
+    {
+        foreach ($operations as $op) {
+            if (($op['type'] ?? '') === $type) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Extract operations from HTML when other methods fail.
+     *
+     * @return array<array{type: string, price: int, currency: string, maintenance_fee: int|null}>
+     */
+    protected function extractOperationsFromHtml(string $html, ?int $maintenanceFee): array
+    {
+        $operations = [];
+
+        // Pattern for price with operation type
+        $patterns = [
+            // "Venta: $1,500,000 MXN" or "En venta $1,500,000"
+            '/(?:venta|en\s+venta|precio\s+venta)[:\s]*\$?\s*([\d,]+)\s*(?:MXN|MN|USD)?/i' => 'sale',
+            // "Renta: $15,000 MXN/mes" or "En renta $15,000"
+            '/(?:renta|en\s+renta|precio\s+renta|alquiler)[:\s]*\$?\s*([\d,]+)\s*(?:MXN|MN|USD)?/i' => 'rent',
+        ];
+
+        foreach ($patterns as $pattern => $type) {
+            if (preg_match($pattern, $html, $matches)) {
+                $price = (int) str_replace(',', '', $matches[1]);
+                if ($price > 0 && ! $this->hasOperationType($operations, $type)) {
+                    // Detect currency
+                    $currency = 'MXN';
+                    if (preg_match('/USD/i', $matches[0])) {
+                        $currency = 'USD';
+                    }
+
+                    $operations[] = [
+                        'type' => $type,
+                        'price' => $price,
+                        'currency' => $currency,
+                        'maintenance_fee' => $type === 'rent' ? $maintenanceFee : null,
+                    ];
+                }
+            }
         }
 
         return $operations;
@@ -246,11 +453,11 @@ class Inmuebles24ListingParser
     }
 
     /**
-     * Parse location from extracted data and JS variables.
+     * Parse location from extracted data, JS variables, and dataLayer.
      *
      * @return array{address: string|null, colonia: string|null, city: string|null, state: string|null}
      */
-    protected function parseLocation(array $extracted, array $jsData): array
+    protected function parseLocation(array $extracted, array $jsData, array $dataLayerData = []): array
     {
         $location = [
             'address' => null,
@@ -295,6 +502,17 @@ class Inmuebles24ListingParser
                     }
                 }
             }
+        }
+
+        // Use dataLayer as fallback for missing location fields
+        if (! $location['colonia'] && isset($dataLayerData['neighborhood'])) {
+            $location['colonia'] = $dataLayerData['neighborhood'];
+        }
+        if (! $location['city'] && isset($dataLayerData['city'])) {
+            $location['city'] = $dataLayerData['city'];
+        }
+        if (! $location['state'] && isset($dataLayerData['state'])) {
+            $location['state'] = $dataLayerData['state'];
         }
 
         return $location;
@@ -470,32 +688,58 @@ class Inmuebles24ListingParser
         $images = [];
         $seen = [];
 
-        // Try gallery images first
-        foreach ($this->toArray($extracted['gallery_images'] ?? []) as $url) {
+        // Helper to add image
+        $addImage = function (string $url) use (&$images, &$seen) {
             $url = $this->cleanImageUrl($url);
             if ($url && ! isset($seen[$url])) {
                 $images[] = $url;
                 $seen[$url] = true;
             }
+        };
+
+        // Try gallery images first
+        foreach ($this->toArray($extracted['gallery_images'] ?? []) as $url) {
+            $addImage($url);
         }
 
         // Try carousel images
         foreach ($this->toArray($extracted['carousel_images'] ?? []) as $url) {
-            $url = $this->cleanImageUrl($url);
-            if ($url && ! isset($seen[$url])) {
-                $images[] = $url;
-                $seen[$url] = true;
+            $addImage($url);
+        }
+
+        // Extract from JSON-LD structured data
+        if (preg_match('/"image"\s*:\s*\[([^\]]+)\]/s', $rawHtml, $jsonLdMatch)) {
+            preg_match_all('/"([^"]+\.(?:jpg|jpeg|png|webp)[^"]*)"/i', $jsonLdMatch[1], $ldImages);
+            foreach ($ldImages[1] ?? [] as $url) {
+                $addImage($url);
             }
         }
 
-        // Fallback: extract from HTML if no images found
-        if (empty($images)) {
-            preg_match_all('/url1200x1200["\']\s*[:=]\s*["\']([^"\']+)["\']/i', $rawHtml, $matches);
+        // Extract high-res images from JavaScript objects
+        $jsPatterns = [
+            '/url1200x1200["\']\s*[:=]\s*["\']([^"\']+)["\']/i',
+            '/"url(?:1200x1200|720x532|Original)"\s*:\s*"([^"]+)"/i',
+            '/src(?:Set)?["\']\s*[:=]\s*["\']([^"\']+inmuebles24[^"\']+(?:1200x1200|720x532)[^"\']*)/i',
+        ];
+
+        foreach ($jsPatterns as $pattern) {
+            preg_match_all($pattern, $rawHtml, $matches);
             foreach ($matches[1] ?? [] as $url) {
-                if (! isset($seen[$url])) {
-                    $images[] = $url;
-                    $seen[$url] = true;
-                }
+                $addImage($url);
+            }
+        }
+
+        // Extract from gallery image data attributes or background-image styles
+        preg_match_all('/(?:data-src|data-lazy|background-image[^)]+url\()["\']?([^"\')\s]+inmuebles24[^"\')\s]+\.(jpg|jpeg|png|webp))["\']?/i', $rawHtml, $attrMatches);
+        foreach ($attrMatches[1] ?? [] as $url) {
+            $addImage($url);
+        }
+
+        // Look for image array in JavaScript (common in React/Vue apps)
+        if (preg_match('/pictures?\s*[:=]\s*\[([^\]]{100,})\]/is', $rawHtml, $picturesMatch)) {
+            preg_match_all('/"(https?:\/\/[^"]+\.(?:jpg|jpeg|png|webp)[^"]*)"/i', $picturesMatch[1], $pictureUrls);
+            foreach ($pictureUrls[1] ?? [] as $url) {
+                $addImage($url);
             }
         }
 
@@ -503,14 +747,35 @@ class Inmuebles24ListingParser
     }
 
     /**
-     * Resolve property type from JS data or extracted content.
+     * Resolve property type from JS data, dataLayer, or extracted content.
      */
-    protected function resolvePropertyType(array $jsData, array $extracted): ?string
+    protected function resolvePropertyType(array $jsData, array $dataLayerData, array $extracted): ?string
     {
+        // First try from JS data property_type_id
         if (isset($jsData['property_type_id'])) {
             $types = $this->config->propertyTypes();
+            $type = $types[$jsData['property_type_id']] ?? null;
+            if ($type) {
+                return $type;
+            }
+        }
 
-            return $types[$jsData['property_type_id']] ?? null;
+        // Try from dataLayer property type text
+        if (isset($dataLayerData['property_type_text'])) {
+            $typeText = mb_strtolower($dataLayerData['property_type_text']);
+            $textMappings = $this->config->propertyTypeTextMappings();
+
+            // Try exact match first
+            if (isset($textMappings[$typeText])) {
+                return $textMappings[$typeText];
+            }
+
+            // Try partial match
+            foreach ($textMappings as $keyword => $type) {
+                if (str_contains($typeText, $keyword)) {
+                    return $type;
+                }
+            }
         }
 
         // Try to detect from title
@@ -530,19 +795,41 @@ class Inmuebles24ListingParser
         if (str_contains($title, 'local') || str_contains($title, 'comercial')) {
             return 'commercial';
         }
+        if (str_contains($title, 'bodega')) {
+            return 'warehouse';
+        }
+        if (str_contains($title, 'nave')) {
+            return 'industrial';
+        }
 
         return null;
     }
 
     /**
-     * Resolve publisher type from JS data.
+     * Resolve publisher type from JS data or dataLayer.
      */
-    protected function resolvePublisherType(array $jsData): ?string
+    protected function resolvePublisherType(array $jsData, array $dataLayerData = []): ?string
     {
         if (isset($jsData['publisher_type_id'])) {
             $types = $this->config->publisherTypes();
+            $type = $types[$jsData['publisher_type_id']] ?? null;
+            if ($type) {
+                return $type;
+            }
+        }
 
-            return $types[$jsData['publisher_type_id']] ?? null;
+        // Try from dataLayer
+        if (isset($dataLayerData['publisher_type'])) {
+            $typeText = mb_strtolower($dataLayerData['publisher_type']);
+            if (str_contains($typeText, 'inmobiliaria') || str_contains($typeText, 'agencia')) {
+                return 'agency';
+            }
+            if (str_contains($typeText, 'desarrollador')) {
+                return 'developer';
+            }
+            if (str_contains($typeText, 'particular') || str_contains($typeText, 'dueño')) {
+                return 'individual';
+            }
         }
 
         return null;
@@ -615,7 +902,7 @@ class Inmuebles24ListingParser
     /**
      * Parse a number from text like "3 recámaras" → 3.
      */
-    protected function parseNumber(?string $text): ?int
+    protected function parseNumber(mixed $text): ?int
     {
         if ($text === null) {
             return null;
@@ -627,6 +914,10 @@ class Inmuebles24ListingParser
             if ($text === null) {
                 return null;
             }
+        }
+
+        if (! is_string($text)) {
+            return null;
         }
 
         if (preg_match('/(\d+)/', $text, $matches)) {

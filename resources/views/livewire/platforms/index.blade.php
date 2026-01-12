@@ -2,7 +2,7 @@
     {{-- Header --}}
     <div>
         <flux:heading size="xl" level="1">{{ __('Platforms') }}</flux:heading>
-        <flux:text class="mt-1">{{ __('Select a platform to manage search queries and scrape runs.') }}</flux:text>
+        <flux:subheading>{{ __('Select a platform to manage search queries and scrape runs.') }}</flux:subheading>
     </div>
 
     {{-- Platform Cards --}}
@@ -48,8 +48,10 @@
                             @endif
                         </div>
 
+                        <flux:separator class="my-4" />
+
                         {{-- Stats Row - Horizontal --}}
-                        <div class="mt-4 flex items-center justify-between border-t border-zinc-100 pt-4 dark:border-zinc-700">
+                        <div class="flex items-center justify-between">
                             <div class="text-center">
                                 <flux:text size="xs" class="text-zinc-500">{{ __('Queries') }}</flux:text>
                                 <flux:heading size="sm">{{ $platform->search_queries_count }}</flux:heading>
@@ -71,7 +73,7 @@
                             <div class="mt-3 flex items-center gap-2 rounded-lg bg-blue-50 px-3 py-2 dark:bg-blue-900/20">
                                 <span class="size-2 animate-pulse rounded-full bg-blue-500"></span>
                                 <flux:text size="sm" class="text-blue-700 dark:text-blue-400">
-                                    {{ $platform->active_runs_count }} {{ __('active run') }}{{ $platform->active_runs_count > 1 ? 's' : '' }}
+                                    {{ trans_choice(':count active run|:count active runs', $platform->active_runs_count, ['count' => $platform->active_runs_count]) }}
                                 </flux:text>
                             </div>
                         @endif

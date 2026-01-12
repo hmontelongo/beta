@@ -66,8 +66,12 @@ class Inmuebles24Config
             // Stats
             'stats_text' => '.view-users-container',
 
-            // Amenities
-            'amenities' => '.generalFeaturesProperty-module__description-text',
+            // Amenities - use flexible selector since CSS module classes change
+            'amenities' => '[class*="generalFeatures"] [class*="description"], [class*="amenities"] li, [data-qa*="AMENITY"]',
+
+            // Price containers for dual operations
+            'price_containers' => '[data-qa="POSTING_CARD_PRICE"], [class*="price-value"]',
+            'operation_tags' => '[data-qa="POSTING_CARD_FEATURES"] span, [class*="operation-type"]',
         ];
     }
 
@@ -104,6 +108,62 @@ class Inmuebles24Config
     public function externalIdPattern(): string
     {
         return '/(?:propiedades|propiedad|clasificado)[\\/-].*?(\\d{6,})/';
+    }
+
+    /**
+     * Patterns for extracting data from dataLayer JavaScript object.
+     *
+     * @return array<string, string>
+     */
+    public function dataLayerPatterns(): array
+    {
+        return [
+            'operation_type' => '/"tipoDeOperacion"\s*:\s*"([^"]+)"/',
+            'property_type_text' => '/"tipoDePropiedad"\s*:\s*"([^"]+)"/',
+            'sale_price' => '/"precioVenta"\s*:\s*"([^"]+)"/',
+            'rent_price' => '/"precioAlquiler"\s*:\s*"([^"]+)"/',
+            'neighborhood' => '/"barrio"\s*:\s*"([^"]+)"/',
+            'city' => '/"ciudad"\s*:\s*"([^"]+)"/',
+            'state' => '/"provincia"\s*:\s*"([^"]+)"/',
+            'bedrooms' => '/"ambientes"\s*:\s*"?(\d+)"?/',
+            'bathrooms' => '/"banos"\s*:\s*"?(\d+)"?/',
+            'area' => '/"superficieTotal"\s*:\s*"?(\d+)"?/',
+            'publisher_type' => '/"tipoDePropietario"\s*:\s*"([^"]+)"/',
+        ];
+    }
+
+    /**
+     * Map Spanish property type names to standard types.
+     *
+     * @return array<string, string>
+     */
+    public function propertyTypeTextMappings(): array
+    {
+        return [
+            'casa' => 'house',
+            'departamento' => 'apartment',
+            'terreno' => 'land',
+            'local' => 'commercial',
+            'oficina' => 'office',
+            'bodega' => 'warehouse',
+            'edificio' => 'building',
+            'hotel' => 'hotel',
+            'rancho' => 'ranch',
+            'nave' => 'industrial',
+            'estacionamiento' => 'parking',
+            'casa en condominio' => 'house',
+            'departamento compartido' => 'apartment',
+            'local en centro comercial' => 'commercial',
+            'cuarto' => 'room',
+            'habitación' => 'room',
+            'terreno comercial' => 'land',
+            'nave industrial' => 'industrial',
+            'consultorio' => 'office',
+            'villa' => 'house',
+            'bodega comercial' => 'warehouse',
+            'penthouse' => 'apartment',
+            'loft' => 'apartment',
+        ];
     }
 
     /**
@@ -145,6 +205,21 @@ class Inmuebles24Config
             3 => 'land',
             4 => 'commercial',
             5 => 'office',
+            6 => 'warehouse',
+            7 => 'building',
+            8 => 'hotel',
+            9 => 'ranch',
+            10 => 'industrial',
+            11 => 'parking',
+            12 => 'house',           // casa en condominio
+            13 => 'apartment',       // departamento compartido
+            14 => 'commercial',      // local en centro comercial
+            15 => 'room',            // cuarto/habitación
+            16 => 'land',            // terreno comercial
+            17 => 'commercial',      // nave industrial
+            18 => 'office',          // consultorio
+            19 => 'house',           // villa
+            20 => 'commercial',      // bodega comercial
         ];
     }
 

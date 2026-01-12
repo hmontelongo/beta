@@ -7,7 +7,7 @@
                 <flux:heading size="xl" level="1">{{ $listing->raw_data['title'] ?? 'Listing Details' }}</flux:heading>
                 <flux:badge>{{ $listing->platform->name }}</flux:badge>
             </div>
-            <flux:text class="mt-1">{{ $listing->external_id }}</flux:text>
+            <flux:subheading>{{ $listing->external_id }}</flux:subheading>
         </div>
         <flux:button icon="arrow-top-right-on-square" :href="$listing->original_url" target="_blank">
             {{ __('View Original') }}
@@ -18,69 +18,59 @@
         {{-- Main Content --}}
         <div class="space-y-6 lg:col-span-2">
             {{-- Images --}}
-            @if (!empty($listing->raw_data['images']))
-                @php
-                    $images = collect($listing->raw_data['images'])->map(fn($img) => is_array($img) ? $img['url'] : $img)->toArray();
-                @endphp
-                <flux:card
-                    x-data="imageGallery()"
-                    x-init="images = JSON.parse($el.dataset.images)"
-                    data-images="{{ json_encode($images, JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) }}"
-                    @keydown.escape.window="open = false"
-                    @keydown.arrow-right.window="if(open) next()"
-                    @keydown.arrow-left.window="if(open) prev()"
-                >
+            @if (!empty($this->images))
+                <flux:card x-data="{ currentImage: 0, images: {{ json_encode($this->images) }} }">
+                    {{-- Image Grid --}}
                     <div class="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                        @foreach (array_slice($images, 0, 6) as $index => $imageUrl)
-                            <button @click="openAt({{ $index }})" class="aspect-video overflow-hidden rounded-lg bg-zinc-100 dark:bg-zinc-800 cursor-pointer">
-                                <img
-                                    src="{{ $imageUrl }}"
-                                    alt="Property image"
-                                    class="h-full w-full object-cover transition-transform hover:scale-105"
-                                    loading="lazy"
-                                />
+                        @foreach (array_slice($this->images, 0, 6) as $index => $imageUrl)
+                            <button
+                                type="button"
+                                x-on:click="currentImage = {{ $index }}; $flux.modal('image-gallery').show()"
+                                class="aspect-video overflow-hidden rounded-lg bg-zinc-100 dark:bg-zinc-800 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                <img src="{{ $imageUrl }}" alt="Property image" class="h-full w-full object-cover hover:scale-105 transition-transform" loading="lazy" />
                             </button>
                         @endforeach
                     </div>
-                    @if (count($images) > 6)
-                        <button @click="openAt(6)" class="mt-2 w-full text-center text-sm text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300">
-                            +{{ count($images) - 6 }} {{ __('more images') }}
-                        </button>
+
+                    @if (count($this->images) > 6)
+                        <flux:button
+                            variant="ghost"
+                            class="mt-2 w-full"
+                            x-on:click="currentImage = 6; $flux.modal('image-gallery').show()"
+                        >
+                            +{{ count($this->images) - 6 }} {{ __('more images') }}
+                        </flux:button>
                     @endif
 
-                    {{-- Lightbox Modal --}}
-                    <template x-if="open">
-                        <div x-transition.opacity class="fixed inset-0 z-50 flex items-center justify-center bg-black/90" @click.self="open = false">
-                            {{-- Close button --}}
-                            <button @click="open = false" class="absolute top-4 right-4 text-white hover:text-zinc-300 z-10">
-                                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
-                                </svg>
-                            </button>
+                    {{-- Single Lightbox Modal --}}
+                    <flux:modal name="image-gallery" class="max-w-4xl bg-black/95">
+                        <div class="relative flex flex-col items-center">
+                            {{-- Main Image --}}
+                            <img
+                                x-bind:src="images[currentImage]"
+                                alt="Property image"
+                                class="max-h-[70vh] w-auto object-contain"
+                            />
 
-                            {{-- Previous button --}}
-                            <button @click="prev()" class="absolute left-4 text-white hover:text-zinc-300 z-10">
-                                <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-                                </svg>
-                            </button>
-
-                            {{-- Image --}}
-                            <img :src="images[current]" class="max-h-[90vh] max-w-[90vw] object-contain" />
-
-                            {{-- Next button --}}
-                            <button @click="next()" class="absolute right-4 text-white hover:text-zinc-300 z-10">
-                                <svg class="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
-                                </svg>
-                            </button>
-
-                            {{-- Counter --}}
-                            <div class="absolute bottom-4 left-1/2 -translate-x-1/2 text-white text-sm">
-                                <span x-text="current + 1"></span> / <span x-text="images.length"></span>
+                            {{-- Navigation --}}
+                            <div class="mt-4 flex items-center gap-4">
+                                <flux:button
+                                    variant="ghost"
+                                    icon="chevron-left"
+                                    x-on:click="currentImage = currentImage > 0 ? currentImage - 1 : images.length - 1"
+                                />
+                                <flux:text class="tabular-nums">
+                                    <span x-text="currentImage + 1"></span> / <span x-text="images.length"></span>
+                                </flux:text>
+                                <flux:button
+                                    variant="ghost"
+                                    icon="chevron-right"
+                                    x-on:click="currentImage = currentImage < images.length - 1 ? currentImage + 1 : 0"
+                                />
                             </div>
                         </div>
-                    </template>
+                    </flux:modal>
                 </flux:card>
             @endif
 
@@ -117,7 +107,7 @@
             @if (!empty($listing->raw_data['operations']))
                 <flux:card>
                     @foreach ($listing->raw_data['operations'] as $operation)
-                        <div class="mb-2 last:mb-0">
+                        <div class="mb-4 last:mb-0">
                             <flux:badge color="{{ $operation['type'] === 'rent' ? 'blue' : 'green' }}" class="mb-2">
                                 {{ $operation['type'] === 'rent' ? __('For Rent') : __('For Sale') }}
                             </flux:badge>
@@ -126,9 +116,12 @@
                                 <span class="text-base font-normal text-zinc-500">{{ $operation['currency'] ?? 'MXN' }}</span>
                             </flux:heading>
                             @if (!empty($operation['maintenance_fee']))
-                                <flux:text size="sm">+ ${{ number_format($operation['maintenance_fee']) }} {{ __('maintenance') }}</flux:text>
+                                <flux:subheading>+ ${{ number_format($operation['maintenance_fee']) }} {{ __('maintenance') }}</flux:subheading>
                             @endif
                         </div>
+                        @if (!$loop->last)
+                            <flux:separator class="my-4" />
+                        @endif
                     @endforeach
                 </flux:card>
             @endif
@@ -140,7 +133,12 @@
                     @if (!empty($listing->raw_data['property_type']))
                         <div class="flex justify-between">
                             <flux:text class="text-zinc-500">{{ __('Type') }}</flux:text>
-                            <flux:text>{{ ucfirst($listing->raw_data['property_type']) }}</flux:text>
+                            <flux:text>
+                                {{ ucfirst($listing->raw_data['property_type']) }}
+                                @if (!empty($listing->raw_data['property_subtype']))
+                                    <span class="text-zinc-400">({{ ucfirst(str_replace('_', ' ', $listing->raw_data['property_subtype'])) }})</span>
+                                @endif
+                            </flux:text>
                         </div>
                     @endif
                     @if (!empty($listing->raw_data['bedrooms']))
@@ -185,38 +183,103 @@
             {{-- Location --}}
             <flux:card>
                 <flux:heading size="lg" class="mb-4">{{ __('Location') }}</flux:heading>
-                <dl class="space-y-2">
+                <div class="space-y-2">
                     @if (!empty($listing->raw_data['address']))
                         <flux:text>{{ $listing->raw_data['address'] }}</flux:text>
                     @endif
-                    <flux:text class="text-zinc-500">
+                    <flux:subheading>
                         {{ collect([$listing->raw_data['colonia'] ?? null, $listing->raw_data['city'] ?? null, $listing->raw_data['state'] ?? null])->filter()->implode(', ') }}
-                    </flux:text>
-                </dl>
+                    </flux:subheading>
+                    @if (!empty($listing->raw_data['latitude']) && !empty($listing->raw_data['longitude']))
+                        <flux:separator class="my-3" />
+                        <div class="flex items-center gap-2">
+                            <flux:icon name="map-pin" variant="mini" class="text-zinc-400" />
+                            <flux:subheading>{{ $listing->raw_data['latitude'] }}, {{ $listing->raw_data['longitude'] }}</flux:subheading>
+                        </div>
+                        <flux:button
+                            variant="subtle"
+                            size="sm"
+                            icon="arrow-top-right-on-square"
+                            :href="'https://www.google.com/maps?q=' . $listing->raw_data['latitude'] . ',' . $listing->raw_data['longitude']"
+                            target="_blank"
+                            class="w-full"
+                        >
+                            {{ __('View on Google Maps') }}
+                        </flux:button>
+                    @endif
+                </div>
             </flux:card>
 
             {{-- Publisher --}}
             @if (!empty($listing->raw_data['publisher_name']))
                 <flux:card>
                     <flux:heading size="lg" class="mb-4">{{ __('Publisher') }}</flux:heading>
-                    <div class="flex items-center gap-3">
+                    <div class="flex items-start gap-3">
                         @if (!empty($listing->raw_data['publisher_logo']))
-                            <img src="{{ $listing->raw_data['publisher_logo'] }}" alt="" class="h-10 w-10 rounded-lg object-contain" />
+                            <flux:avatar src="{{ $listing->raw_data['publisher_logo'] }}" size="lg" />
+                        @else
+                            <flux:avatar icon="building-office" size="lg" />
                         @endif
-                        <div>
+                        <div class="flex-1 min-w-0">
                             <flux:heading size="sm">{{ $listing->raw_data['publisher_name'] }}</flux:heading>
-                            @if (!empty($listing->raw_data['whatsapp']))
-                                <flux:text size="sm">{{ $listing->raw_data['whatsapp'] }}</flux:text>
+                            @if (!empty($listing->raw_data['publisher_type']))
+                                <flux:badge size="sm" class="mt-1">{{ ucfirst($listing->raw_data['publisher_type']) }}</flux:badge>
                             @endif
                         </div>
                     </div>
+                    @if (!empty($listing->raw_data['whatsapp']) || !empty($listing->raw_data['publisher_url']))
+                        <flux:separator class="my-4" />
+                        <div class="space-y-2">
+                            @if (!empty($listing->raw_data['whatsapp']))
+                                <flux:button
+                                    variant="subtle"
+                                    size="sm"
+                                    icon="phone"
+                                    :href="'https://wa.me/' . $this->formattedWhatsapp"
+                                    target="_blank"
+                                    class="w-full"
+                                >
+                                    {{ $listing->raw_data['whatsapp'] }}
+                                </flux:button>
+                            @endif
+                            @if (!empty($listing->raw_data['publisher_url']))
+                                <flux:button
+                                    variant="subtle"
+                                    size="sm"
+                                    icon="arrow-top-right-on-square"
+                                    :href="$listing->raw_data['publisher_url']"
+                                    target="_blank"
+                                    class="w-full"
+                                >
+                                    {{ __('View Profile') }}
+                                </flux:button>
+                            @endif
+                        </div>
+                    @endif
+                </flux:card>
+            @endif
+
+            {{-- External Codes --}}
+            @if (!empty($listing->raw_data['external_codes']) && count(array_filter($listing->raw_data['external_codes'])) > 0)
+                <flux:card>
+                    <flux:heading size="lg" class="mb-4">{{ __('External Codes') }}</flux:heading>
+                    <dl class="space-y-2">
+                        @foreach ($listing->raw_data['external_codes'] as $source => $code)
+                            @if (!empty($code))
+                                <div class="flex justify-between items-center">
+                                    <flux:text class="text-zinc-500">{{ ucfirst($source) }}</flux:text>
+                                    <flux:badge color="purple" size="sm">{{ $code }}</flux:badge>
+                                </div>
+                            @endif
+                        @endforeach
+                    </dl>
                 </flux:card>
             @endif
 
             {{-- Meta --}}
             <flux:card>
                 <flux:heading size="lg" class="mb-4">{{ __('Scrape Info') }}</flux:heading>
-                <dl class="space-y-2 text-sm">
+                <dl class="space-y-2">
                     <div class="flex justify-between">
                         <flux:text class="text-zinc-500">{{ __('Scraped') }}</flux:text>
                         <flux:text>{{ $listing->scraped_at?->format('M j, Y H:i') }}</flux:text>
@@ -225,10 +288,22 @@
                         <flux:text class="text-zinc-500">{{ __('Platform ID') }}</flux:text>
                         <flux:text>{{ $listing->external_id }}</flux:text>
                     </div>
-                    @if (!empty($listing->raw_data['platform_metadata']['days_published']))
+                    @if (!empty($listing->raw_data['platform_metadata']['posting_id']))
                         <div class="flex justify-between">
-                            <flux:text class="text-zinc-500">{{ __('Days Published') }}</flux:text>
-                            <flux:text>{{ $listing->raw_data['platform_metadata']['days_published'] }}</flux:text>
+                            <flux:text class="text-zinc-500">{{ __('Posting ID') }}</flux:text>
+                            <flux:text>{{ $listing->raw_data['platform_metadata']['posting_id'] }}</flux:text>
+                        </div>
+                    @endif
+                    @if (!empty($listing->raw_data['platform_metadata']['property_type_id']))
+                        <div class="flex justify-between">
+                            <flux:text class="text-zinc-500">{{ __('Type ID') }}</flux:text>
+                            <flux:text>{{ $listing->raw_data['platform_metadata']['property_type_id'] }}</flux:text>
+                        </div>
+                    @endif
+                    @if (!empty($listing->raw_data['images']))
+                        <div class="flex justify-between">
+                            <flux:text class="text-zinc-500">{{ __('Images') }}</flux:text>
+                            <flux:text>{{ count($listing->raw_data['images']) }}</flux:text>
                         </div>
                     @endif
                 </dl>
@@ -236,23 +311,3 @@
         </div>
     </div>
 </div>
-
-@script
-<script>
-    Alpine.data('imageGallery', () => ({
-        open: false,
-        current: 0,
-        images: [],
-        next() {
-            this.current = (this.current + 1) % this.images.length;
-        },
-        prev() {
-            this.current = (this.current - 1 + this.images.length) % this.images.length;
-        },
-        openAt(index) {
-            this.current = index;
-            this.open = true;
-        }
-    }));
-</script>
-@endscript

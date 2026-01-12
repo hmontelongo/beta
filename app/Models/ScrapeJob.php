@@ -31,6 +31,21 @@ class ScrapeJob extends Model
         ];
     }
 
+    public function getDurationAttribute(): ?string
+    {
+        if (! $this->started_at || ! $this->completed_at) {
+            return null;
+        }
+
+        $seconds = $this->started_at->diffInSeconds($this->completed_at);
+
+        if ($seconds >= 60) {
+            return floor($seconds / 60).'m '.($seconds % 60).'s';
+        }
+
+        return $seconds.'s';
+    }
+
     /**
      * @return BelongsTo<Platform, $this>
      */

@@ -6,16 +6,8 @@
             <div>
                 <div class="flex items-center gap-2">
                     <flux:heading size="xl">{{ $run->searchQuery?->name ?? __('Unknown Query') }}</flux:heading>
-                    <flux:badge size="sm" :color="match($run->status->value) {
-                        'pending' => 'zinc',
-                        'discovering' => 'blue',
-                        'scraping' => 'amber',
-                        'completed' => 'green',
-                        'failed' => 'red',
-                        'stopped' => 'orange',
-                        default => 'zinc'
-                    }">
-                        @if (in_array($run->status->value, ['discovering', 'scraping']))
+                    <flux:badge size="sm" :color="$run->status->color()">
+                        @if ($run->status->isActive())
                             <span class="mr-1 size-2 animate-pulse rounded-full bg-current inline-block"></span>
                         @endif
                         {{ ucfirst($run->status->value) }}
@@ -94,7 +86,7 @@
             ['label' => __('Scraped'), 'value' => $this->stats['listings_scraped'] ?? 0, 'total' => $this->stats['listings_found'] ?? 0, 'icon' => 'check-circle', 'color' => 'green'],
             ['label' => __('Failed'), 'value' => ($this->stats['pages_failed'] ?? 0) + ($this->stats['listings_failed'] ?? 0), 'total' => null, 'icon' => 'exclamation-triangle', 'color' => (($this->stats['pages_failed'] ?? 0) + ($this->stats['listings_failed'] ?? 0)) > 0 ? 'red' : 'zinc'],
         ] as $stat)
-            <div class="rounded-lg px-6 py-4 bg-zinc-50 dark:bg-zinc-800">
+            <flux:card>
                 <flux:subheading>{{ $stat['label'] }}</flux:subheading>
                 <div class="flex items-baseline gap-1">
                     <flux:heading size="xl" class="{{ $stat['color'] === 'red' ? 'text-red-500' : '' }}">{{ number_format($stat['value']) }}</flux:heading>
@@ -102,7 +94,7 @@
                         <flux:subheading>/ {{ number_format($stat['total']) }}</flux:subheading>
                     @endif
                 </div>
-            </div>
+            </flux:card>
         @endforeach
     </div>
 
@@ -145,17 +137,7 @@
                             <flux:table.row wire:key="job-{{ $job->id }}">
                                 <flux:table.cell>
                                     <div class="flex items-center gap-2">
-                                        <flux:icon :name="match($job->status->value) {
-                                            'completed' => 'check',
-                                            'failed' => 'x-mark',
-                                            'running' => 'arrow-path',
-                                            default => 'clock'
-                                        }" class="size-4 {{ match($job->status->value) {
-                                            'completed' => 'text-green-500',
-                                            'failed' => 'text-red-500',
-                                            'running' => 'text-blue-500 animate-spin',
-                                            default => 'text-zinc-400'
-                                        } }}" />
+                                        <flux:icon :name="$job->status->icon()" class="size-4 {{ $job->status->iconClass() }}" />
                                         <span>
                                             @if ($job->job_type->value === 'discovery')
                                                 {{ __('Page') }} {{ $job->current_page ?? 1 }}
@@ -182,12 +164,8 @@
                                     @endif
                                 </flux:table.cell>
                                 <flux:table.cell class="text-right text-zinc-500">
-                                    @if ($job->completed_at && $job->started_at)
-                                        @php
-                                            $seconds = $job->started_at->diffInSeconds($job->completed_at);
-                                            $duration = $seconds >= 60 ? floor($seconds / 60) . 'm ' . ($seconds % 60) . 's' : $seconds . 's';
-                                        @endphp
-                                        {{ $duration }}
+                                    @if ($job->duration)
+                                        {{ $job->duration }}
                                     @elseif ($job->started_at)
                                         <span class="animate-pulse">{{ __('running') }}</span>
                                     @else

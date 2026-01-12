@@ -4,12 +4,7 @@ namespace App\Services\Scrapers;
 
 class Inmuebles24SearchParser
 {
-    protected Inmuebles24Config $config;
-
-    public function __construct(Inmuebles24Config $config)
-    {
-        $this->config = $config;
-    }
+    public function __construct(protected Inmuebles24Config $config) {}
 
     /**
      * Parse search results from ZenRows CSS-extracted data.
@@ -191,5 +186,4 @@ class Inmuebles24SearchParser
 
         return $url;
     }
-
 }

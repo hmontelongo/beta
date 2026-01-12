@@ -30,6 +30,17 @@ class ScrapeRun extends Model
         ];
     }
 
+    public function getProgressAttribute(): int
+    {
+        $pagesTotal = $this->stats['pages_total'] ?? 0;
+
+        if ($pagesTotal === 0) {
+            return 0;
+        }
+
+        return (int) round(($this->stats['pages_done'] ?? 0) / $pagesTotal * 100);
+    }
+
     /**
      * @return BelongsTo<Platform, $this>
      */

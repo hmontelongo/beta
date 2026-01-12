@@ -54,7 +54,7 @@ class ZenRowsClient
     public function fetchListingPage(string $url, array $cssExtractor): array
     {
         return $this->fetch($url, [
-            'wait_for' => 'h1',
+            'wait_for' => '#longDescription',
             'wait' => 2000,
             'block_resources' => 'font,media',
             'css_extractor' => json_encode($cssExtractor),
