@@ -111,12 +111,13 @@ it('increments attempts on successful scrape', function () {
     $platform = Platform::factory()->create();
     $discoveredListing = DiscoveredListing::factory()->create([
         'platform_id' => $platform->id,
+        'external_id' => '12345',
         'attempts' => 2,
     ]);
 
     $mockService = Mockery::mock(ScraperService::class);
     $mockService->shouldReceive('scrapeListing')
-        ->andReturn(['operations' => []]);
+        ->andReturn(['external_id' => '12345', 'operations' => []]);
 
     $job = new ScrapeListingJob($discoveredListing->id);
     $job->handle($mockService, app(ScrapeOrchestrator::class));

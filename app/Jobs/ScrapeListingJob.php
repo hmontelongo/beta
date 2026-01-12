@@ -25,6 +25,16 @@ class ScrapeListingJob implements ShouldQueue
 
     public int $tries = 3;
 
+    /**
+     * Exponential backoff: 30s, 60s, 120s between retries.
+     *
+     * @return array<int>
+     */
+    public function backoff(): array
+    {
+        return [30, 60, 120];
+    }
+
     public function __construct(
         public int $discoveredListingId,
         public ?int $scrapeRunId = null,
@@ -40,10 +50,6 @@ class ScrapeListingJob implements ShouldQueue
 
         $discoveredListing = DiscoveredListing::findOrFail($this->discoveredListingId);
         $scrapeRun = $this->scrapeRunId ? ScrapeRun::find($this->scrapeRunId) : null;
-
-        $discoveredListing->update([
-            'status' => DiscoveredListingStatus::Queued,
-        ]);
 
         $scrapeJob = ScrapeJob::create([
             'platform_id' => $discoveredListing->platform_id,
@@ -74,9 +80,8 @@ class ScrapeListingJob implements ShouldQueue
                 ]
             );
 
-            $discoveredListing->update([
+            $discoveredListing->increment('attempts', 1, [
                 'status' => DiscoveredListingStatus::Scraped,
-                'attempts' => $discoveredListing->attempts + 1,
                 'last_attempt_at' => now(),
             ]);
 
@@ -103,9 +108,8 @@ class ScrapeListingJob implements ShouldQueue
                 'error' => $e->getMessage(),
             ]);
 
-            $discoveredListing->update([
+            $discoveredListing->increment('attempts', 1, [
                 'status' => DiscoveredListingStatus::Failed,
-                'attempts' => $discoveredListing->attempts + 1,
                 'last_attempt_at' => now(),
             ]);
 

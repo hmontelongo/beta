@@ -124,17 +124,25 @@ class ScrapeOrchestrator
      */
     public function dispatchScrapeBatch(ScrapeRun $run): int
     {
-        $pendingListings = DiscoveredListing::query()
+        $pendingListingIds = DiscoveredListing::query()
             ->where('scrape_run_id', $run->id)
             ->where('status', DiscoveredListingStatus::Pending)
-            ->get();
+            ->pluck('id');
 
-        foreach ($pendingListings as $listing) {
-            $listing->update(['status' => DiscoveredListingStatus::Queued]);
-            ScrapeListingJob::dispatch($listing->id, $run->id);
+        if ($pendingListingIds->isEmpty()) {
+            return 0;
         }
 
-        return $pendingListings->count();
+        // Bulk update status to Queued (single query instead of N)
+        DiscoveredListing::whereIn('id', $pendingListingIds)
+            ->update(['status' => DiscoveredListingStatus::Queued]);
+
+        // Dispatch jobs
+        foreach ($pendingListingIds as $listingId) {
+            ScrapeListingJob::dispatch($listingId, $run->id);
+        }
+
+        return $pendingListingIds->count();
     }
 
     public function checkScrapingComplete(ScrapeRun $run): bool
@@ -142,8 +150,10 @@ class ScrapeOrchestrator
         $stats = $run->stats ?? [];
         $listingsFound = $stats['listings_found'] ?? 0;
         $listingsScraped = $stats['listings_scraped'] ?? 0;
+        $listingsFailed = $stats['listings_failed'] ?? 0;
 
-        return $listingsFound > 0 && $listingsScraped >= $listingsFound;
+        // Complete when all listings are either scraped or failed
+        return $listingsFound > 0 && ($listingsScraped + $listingsFailed) >= $listingsFound;
     }
 
     public function isTimedOut(ScrapeRun $run): bool

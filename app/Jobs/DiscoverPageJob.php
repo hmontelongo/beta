@@ -24,6 +24,16 @@ class DiscoverPageJob implements ShouldQueue
 
     public int $tries = 3;
 
+    /**
+     * Exponential backoff: 30s, 60s, 120s between retries.
+     *
+     * @return array<int>
+     */
+    public function backoff(): array
+    {
+        return [30, 60, 120];
+    }
+
     public function __construct(
         public int $parentJobId,
         public string $searchUrl,
