@@ -46,4 +46,24 @@ return [
         'timeout' => env('ZENROWS_TIMEOUT', 90),
     ],
 
+    'anthropic' => [
+        'api_key' => env('ANTHROPIC_API_KEY'),
+        'model' => env('ANTHROPIC_MODEL', 'claude-sonnet-4-20250514'),
+        'max_tokens' => env('ANTHROPIC_MAX_TOKENS', 4096),
+        'timeout' => env('ANTHROPIC_TIMEOUT', 60),
+    ],
+
+    'enrichment' => [
+        'batch_size' => env('AI_ENRICHMENT_BATCH_SIZE', 50),
+        'enabled' => env('AI_ENRICHMENT_ENABLED', true),
+    ],
+
+    'dedup' => [
+        'batch_size' => env('DEDUP_BATCH_SIZE', 100),
+        'distance_threshold_meters' => env('DEDUP_DISTANCE_METERS', 100),
+        'auto_match_threshold' => 0.9,
+        'review_threshold' => 0.6,
+        'enabled' => env('DEDUP_ENABLED', true),
+    ],
+
 ];

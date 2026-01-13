@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use App\Enums\AiEnrichmentStatus;
+use App\Enums\DedupStatus;
 use App\Enums\ListingStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Listing extends Model
 {
@@ -22,11 +25,15 @@ class Listing extends Model
     {
         return [
             'status' => ListingStatus::class,
+            'ai_status' => AiEnrichmentStatus::class,
+            'dedup_status' => DedupStatus::class,
             'operations' => 'array',
             'external_codes' => 'array',
             'raw_data' => 'array',
             'data_quality' => 'array',
             'scraped_at' => 'datetime',
+            'ai_processed_at' => 'datetime',
+            'dedup_checked_at' => 'datetime',
         ];
     }
 
@@ -84,5 +91,36 @@ class Listing extends Model
     public function images(): HasMany
     {
         return $this->hasMany(ListingImage::class);
+    }
+
+    /**
+     * @return HasOne<AiEnrichment, $this>
+     */
+    public function aiEnrichment(): HasOne
+    {
+        return $this->hasOne(AiEnrichment::class);
+    }
+
+    /**
+     * Scope for listings pending AI enrichment.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<Listing>  $query
+     * @return \Illuminate\Database\Eloquent\Builder<Listing>
+     */
+    public function scopePendingAiEnrichment($query)
+    {
+        return $query->where('ai_status', AiEnrichmentStatus::Pending);
+    }
+
+    /**
+     * Scope for listings pending deduplication.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<Listing>  $query
+     * @return \Illuminate\Database\Eloquent\Builder<Listing>
+     */
+    public function scopePendingDedup($query)
+    {
+        return $query->where('dedup_status', DedupStatus::Pending)
+            ->where('ai_status', AiEnrichmentStatus::Completed);
     }
 }

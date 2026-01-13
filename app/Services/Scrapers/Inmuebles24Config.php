@@ -37,7 +37,7 @@ class Inmuebles24Config
         return [
             // Core info
             'title' => 'h1',
-            'description' => '#longDescription',
+            'description' => '#longDescription, [class*="descriptionContent"], [data-qa="POSTING_DESCRIPTION"]',
 
             // Features (icon-based elements)
             'bedrooms_text' => '.icon-dormitorio',

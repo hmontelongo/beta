@@ -308,6 +308,171 @@
                     @endif
                 </dl>
             </flux:card>
+
+            {{-- Processing Status --}}
+            <flux:card>
+                <flux:heading size="lg" class="mb-4">{{ __('Processing') }}</flux:heading>
+
+                {{-- AI Enrichment --}}
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <flux:text class="text-zinc-500">{{ __('AI Enrichment') }}</flux:text>
+                        <flux:badge :color="$listing->ai_status->color()" :icon="$listing->ai_status->icon()">
+                            {{ ucfirst($listing->ai_status->value) }}
+                        </flux:badge>
+                    </div>
+
+                    @if ($listing->aiEnrichment?->quality_score)
+                        <div class="flex items-center justify-between">
+                            <flux:text class="text-zinc-500">{{ __('Quality Score') }}</flux:text>
+                            <flux:text class="font-semibold">{{ $listing->aiEnrichment->quality_score }}/100</flux:text>
+                        </div>
+                    @endif
+
+                    @if ($listing->ai_processed_at)
+                        <div class="flex items-center justify-between">
+                            <flux:text class="text-zinc-500">{{ __('Processed') }}</flux:text>
+                            <flux:text>{{ $listing->ai_processed_at->diffForHumans() }}</flux:text>
+                        </div>
+                    @endif
+
+                    <flux:button
+                        wire:click="runEnrichment"
+                        wire:loading.attr="disabled"
+                        :disabled="!$this->canEnrich || $isProcessing"
+                        variant="primary"
+                        size="sm"
+                        icon="sparkles"
+                        class="w-full"
+                    >
+                        <span wire:loading.remove wire:target="runEnrichment">
+                            {{ $listing->ai_status->value === 'completed' ? __('Re-run Enrichment') : __('Run Enrichment') }}
+                        </span>
+                        <span wire:loading wire:target="runEnrichment">{{ __('Processing...') }}</span>
+                    </flux:button>
+                </div>
+
+                <flux:separator class="my-4" />
+
+                {{-- Deduplication --}}
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <flux:text class="text-zinc-500">{{ __('Deduplication') }}</flux:text>
+                        <flux:badge :color="$listing->dedup_status->color()" :icon="$listing->dedup_status->icon()">
+                            {{ ucfirst(str_replace('_', ' ', $listing->dedup_status->value)) }}
+                        </flux:badge>
+                    </div>
+
+                    @if ($listing->property_id)
+                        <div class="flex items-center justify-between">
+                            <flux:text class="text-zinc-500">{{ __('Property') }}</flux:text>
+                            <flux:badge color="purple">#{{ $listing->property_id }}</flux:badge>
+                        </div>
+                    @endif
+
+                    @if ($listing->dedup_checked_at)
+                        <div class="flex items-center justify-between">
+                            <flux:text class="text-zinc-500">{{ __('Checked') }}</flux:text>
+                            <flux:text>{{ $listing->dedup_checked_at->diffForHumans() }}</flux:text>
+                        </div>
+                    @endif
+
+                    <flux:button
+                        wire:click="runDeduplication"
+                        wire:loading.attr="disabled"
+                        :disabled="!$this->canDedup || $isProcessing"
+                        variant="{{ $this->canDedup ? 'primary' : 'ghost' }}"
+                        size="sm"
+                        icon="document-duplicate"
+                        class="w-full"
+                    >
+                        <span wire:loading.remove wire:target="runDeduplication">
+                            {{ $listing->dedup_status->value !== 'pending' ? __('Re-run Dedup') : __('Run Dedup') }}
+                        </span>
+                        <span wire:loading wire:target="runDeduplication">{{ __('Processing...') }}</span>
+                    </flux:button>
+
+                    @if (!$this->canDedup && $listing->ai_status->value !== 'completed')
+                        <flux:text size="sm" class="text-zinc-400 text-center">
+                            {{ __('Run enrichment first') }}
+                        </flux:text>
+                    @endif
+                </div>
+            </flux:card>
+
+            {{-- AI Enrichment Results --}}
+            @if ($listing->aiEnrichment && $listing->aiEnrichment->status->isCompleted())
+                <flux:card>
+                    <flux:heading size="lg" class="mb-4">{{ __('AI Analysis') }}</flux:heading>
+
+                    {{-- Quality Issues --}}
+                    @if (!empty($listing->aiEnrichment->quality_issues))
+                        <div class="mb-4">
+                            <flux:text class="text-zinc-500 mb-2">{{ __('Quality Issues') }}</flux:text>
+                            <div class="space-y-1">
+                                @foreach ($listing->aiEnrichment->quality_issues as $issue)
+                                    <div class="flex items-start gap-2">
+                                        <flux:icon name="exclamation-triangle" variant="mini" class="text-amber-500 mt-0.5 shrink-0" />
+                                        <flux:text size="sm">{{ $issue }}</flux:text>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
+
+                    {{-- Extracted Tags --}}
+                    @if (!empty($listing->aiEnrichment->extracted_tags))
+                        <div class="mb-4">
+                            <flux:text class="text-zinc-500 mb-2">{{ __('Extracted Tags') }}</flux:text>
+                            <div class="flex flex-wrap gap-1">
+                                @foreach ($listing->aiEnrichment->extracted_tags as $tag)
+                                    <flux:badge size="sm" color="emerald">{{ $tag }}</flux:badge>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
+
+                    {{-- Suggested Property Type --}}
+                    @if ($listing->aiEnrichment->suggested_property_type)
+                        <div class="mb-4">
+                            <flux:text class="text-zinc-500 mb-1">{{ __('Suggested Type') }}</flux:text>
+                            <flux:badge color="blue">{{ ucfirst($listing->aiEnrichment->suggested_property_type) }}</flux:badge>
+                        </div>
+                    @endif
+
+                    {{-- Confidence Scores --}}
+                    @if (!empty($listing->aiEnrichment->confidence_scores))
+                        <div>
+                            <flux:text class="text-zinc-500 mb-2">{{ __('Confidence') }}</flux:text>
+                            <dl class="space-y-1">
+                                @foreach ($listing->aiEnrichment->confidence_scores as $field => $score)
+                                    <div class="flex justify-between items-center">
+                                        <flux:text size="sm" class="text-zinc-500">{{ ucfirst($field) }}</flux:text>
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-16 h-1.5 bg-zinc-200 dark:bg-zinc-700 rounded-full overflow-hidden">
+                                                <div
+                                                    class="h-full rounded-full {{ $score >= 0.8 ? 'bg-green-500' : ($score >= 0.5 ? 'bg-amber-500' : 'bg-red-500') }}"
+                                                    style="width: {{ $score * 100 }}%"
+                                                ></div>
+                                            </div>
+                                            <flux:text size="sm">{{ number_format($score * 100) }}%</flux:text>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </dl>
+                        </div>
+                    @endif
+
+                    {{-- Token Usage --}}
+                    @if ($listing->aiEnrichment->input_tokens)
+                        <flux:separator class="my-3" />
+                        <div class="flex justify-between text-xs text-zinc-400">
+                            <span>{{ number_format($listing->aiEnrichment->input_tokens) }} in / {{ number_format($listing->aiEnrichment->output_tokens) }} out</span>
+                            <span>${{ number_format($listing->aiEnrichment->estimated_cost, 4) }}</span>
+                        </div>
+                    @endif
+                </flux:card>
+            @endif
         </div>
     </div>
 </div>
