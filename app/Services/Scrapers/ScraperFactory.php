@@ -57,14 +57,24 @@ class ScraperFactory
     {
         $host = parse_url($url, PHP_URL_HOST) ?? '';
 
-        $platform = match (true) {
-            str_contains($host, 'inmuebles24.com') => Platform::where('slug', 'inmuebles24')->first(),
-            str_contains($host, 'vivanuncios.com') => Platform::where('slug', 'vivanuncios')->first(),
+        $slugOrName = match (true) {
+            str_contains($host, 'inmuebles24.com') => 'inmuebles24',
+            str_contains($host, 'vivanuncios.com') => 'vivanuncios',
+            str_contains($host, 'mercadolibre.com') => 'mercadolibre',
+            str_contains($host, 'easybroker.com') => 'easybroker',
             default => null,
         };
 
-        if (! $platform) {
+        if (! $slugOrName) {
             throw new InvalidArgumentException("Could not detect platform from URL: {$url}");
+        }
+
+        $platform = Platform::where('slug', $slugOrName)
+            ->orWhere('name', $slugOrName)
+            ->first();
+
+        if (! $platform) {
+            throw new InvalidArgumentException("Platform not found for: {$slugOrName}");
         }
 
         return $platform;
