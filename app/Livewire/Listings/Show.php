@@ -3,9 +3,11 @@
 namespace App\Livewire\Listings;
 
 use App\Enums\AiEnrichmentStatus;
+use App\Enums\DedupStatus;
+use App\Jobs\DeduplicateListingJob;
+use App\Jobs\EnrichListingJob;
+use App\Jobs\RescrapeListingJob;
 use App\Models\Listing;
-use App\Services\AI\ListingEnrichmentService;
-use App\Services\Dedup\DeduplicationService;
 use Flux\Flux;
 use Illuminate\View\View;
 use Livewire\Attributes\Computed;
@@ -17,89 +19,72 @@ class Show extends Component
 {
     public Listing $listing;
 
-    public bool $isProcessing = false;
+    public bool $isRescraping = false;
 
     public function mount(Listing $listing): void
     {
         $this->listing = $listing->load(['platform', 'discoveredListing', 'aiEnrichment', 'property']);
     }
 
-    public function runEnrichment(ListingEnrichmentService $enrichmentService): void
+    public function rescrape(): void
     {
-        $this->isProcessing = true;
+        $this->isRescraping = true;
 
-        try {
-            $enrichment = $enrichmentService->enrichListing($this->listing);
-            $this->listing->refresh();
+        RescrapeListingJob::dispatch($this->listing->id);
 
-            if ($enrichment->status->isCompleted()) {
-                Flux::toast(
-                    heading: 'Enrichment Complete',
-                    text: "Quality score: {$enrichment->quality_score}",
-                    variant: 'success',
-                );
-            } else {
-                Flux::toast(
-                    heading: 'Enrichment Failed',
-                    text: $enrichment->error_message ?? 'Unknown error',
-                    variant: 'danger',
-                );
-            }
-        } catch (\Throwable $e) {
-            Flux::toast(
-                heading: 'Error',
-                text: $e->getMessage(),
-                variant: 'danger',
-            );
-        } finally {
-            $this->isProcessing = false;
-        }
+        Flux::toast(
+            heading: 'Re-scrape Queued',
+            text: 'Fetching fresh data from the source...',
+            variant: 'info',
+        );
     }
 
-    public function runDeduplication(DeduplicationService $dedupService): void
+    public function runEnrichment(): void
     {
-        $this->isProcessing = true;
+        $this->listing->update(['ai_status' => AiEnrichmentStatus::Processing]);
 
-        try {
-            $dedupService->processListing($this->listing);
-            $this->listing->refresh();
+        EnrichListingJob::dispatch($this->listing->id);
 
-            $status = $this->listing->dedup_status->value;
-            $message = match ($status) {
-                'matched' => "Linked to property #{$this->listing->property_id}",
-                'new' => 'Created new property',
-                'needs_review' => 'Found candidates needing review',
-                default => "Status: {$status}",
-            };
+        Flux::toast(
+            heading: 'Enrichment Queued',
+            text: 'Processing in background...',
+            variant: 'info',
+        );
+    }
 
-            Flux::toast(
-                heading: 'Deduplication Complete',
-                text: $message,
-                variant: 'success',
-            );
-        } catch (\Throwable $e) {
-            Flux::toast(
-                heading: 'Error',
-                text: $e->getMessage(),
-                variant: 'danger',
-            );
-        } finally {
-            $this->isProcessing = false;
-        }
+    public function runDeduplication(): void
+    {
+        $this->listing->update(['dedup_status' => DedupStatus::Processing]);
+
+        DeduplicateListingJob::dispatch($this->listing->id);
+
+        Flux::toast(
+            heading: 'Deduplication Queued',
+            text: 'Processing in background...',
+            variant: 'info',
+        );
     }
 
     #[Computed]
     public function canEnrich(): bool
     {
         return $this->listing->raw_data !== null
-            && $this->listing->ai_status !== AiEnrichmentStatus::Processing;
+            && ! $this->listing->ai_status->isActive();
     }
 
     #[Computed]
     public function canDedup(): bool
     {
         return $this->listing->raw_data !== null
-            && $this->listing->ai_status === AiEnrichmentStatus::Completed;
+            && $this->listing->ai_status === AiEnrichmentStatus::Completed
+            && ! $this->listing->dedup_status->isActive();
+    }
+
+    #[Computed]
+    public function isProcessing(): bool
+    {
+        return $this->listing->ai_status->isActive()
+            || $this->listing->dedup_status->isActive();
     }
 
     /**
@@ -110,6 +95,11 @@ class Show extends Component
     {
         return collect($this->listing->raw_data['images'] ?? [])
             ->map(fn (array|string $img): string => is_array($img) ? $img['url'] : $img)
+            ->filter(fn (string $url): bool => ! str_contains($url, '.svg')
+                && ! str_contains($url, 'placeholder')
+                && ! str_contains($url, 'icon')
+                && preg_match('/\.(jpg|jpeg|png|webp)/i', $url)
+            )
             ->values()
             ->toArray();
     }
@@ -128,6 +118,10 @@ class Show extends Component
 
     public function render(): View
     {
+        // Refresh listing data to pick up job completion
+        $this->listing->refresh();
+        $this->listing->load(['aiEnrichment', 'property']);
+
         return view('livewire.listings.show');
     }
 }

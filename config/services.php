@@ -66,4 +66,9 @@ return [
         'enabled' => env('DEDUP_ENABLED', true),
     ],
 
+    'google' => [
+        'maps_api_key' => env('GOOGLE_MAPS_API_KEY'),
+        'geocoding_enabled' => env('GOOGLE_GEOCODING_ENABLED', true),
+    ],
+
 ];

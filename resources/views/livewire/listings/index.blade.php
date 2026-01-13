@@ -1,4 +1,4 @@
-<div class="space-y-6">
+<div class="space-y-6" @if($this->isProcessing) wire:poll.2s @endif>
     {{-- Page Header --}}
     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -9,7 +9,7 @@
             <flux:button
                 wire:click="runBatchEnrichment"
                 wire:loading.attr="disabled"
-                :disabled="$isProcessing || $this->stats['ai_pending'] === 0"
+                :disabled="$this->isProcessing || $this->stats['ai_pending'] === 0"
                 variant="primary"
                 size="sm"
                 icon="sparkles"
@@ -22,7 +22,7 @@
             <flux:button
                 wire:click="runBatchDeduplication"
                 wire:loading.attr="disabled"
-                :disabled="$isProcessing || $this->stats['dedup_pending'] === 0"
+                :disabled="$this->isProcessing || $this->stats['dedup_pending'] === 0"
                 variant="primary"
                 size="sm"
                 icon="document-duplicate"
@@ -36,7 +36,7 @@
     </div>
 
     {{-- Stats Bar --}}
-    <div class="grid grid-cols-2 gap-4 sm:grid-cols-5">
+    <div class="grid grid-cols-2 gap-4 sm:grid-cols-6">
         <flux:card class="p-4">
             <flux:text size="sm" class="text-zinc-500">{{ __('Total') }}</flux:text>
             <flux:heading size="lg">{{ $listings->total() }}</flux:heading>
@@ -45,6 +45,14 @@
             <flux:text size="sm" class="text-zinc-500">{{ __('AI Pending') }}</flux:text>
             <flux:heading size="lg" class="text-zinc-600">{{ $this->stats['ai_pending'] }}</flux:heading>
         </flux:card>
+        @if ($this->stats['ai_processing'] > 0 || $this->stats['dedup_processing'] > 0)
+            <flux:card class="p-4 bg-blue-50 dark:bg-blue-900/20">
+                <flux:text size="sm" class="text-blue-600 dark:text-blue-400">{{ __('Processing') }}</flux:text>
+                <flux:heading size="lg" class="text-blue-600">
+                    {{ $this->stats['ai_processing'] + $this->stats['dedup_processing'] }}
+                </flux:heading>
+            </flux:card>
+        @endif
         <flux:card class="p-4 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50" wire:click="$set('aiStatus', 'completed')">
             <flux:text size="sm" class="text-zinc-500">{{ __('AI Done') }}</flux:text>
             <flux:heading size="lg" class="text-green-600">{{ $this->stats['ai_completed'] }}</flux:heading>
@@ -101,7 +109,7 @@
                 <flux:button
                     wire:click="runBulkEnrichment"
                     wire:loading.attr="disabled"
-                    :disabled="$isProcessing"
+                    :disabled="$this->isProcessing"
                     size="sm"
                     icon="sparkles"
                 >
@@ -111,7 +119,7 @@
                 <flux:button
                     wire:click="runBulkDeduplication"
                     wire:loading.attr="disabled"
-                    :disabled="$isProcessing"
+                    :disabled="$this->isProcessing"
                     size="sm"
                     icon="document-duplicate"
                 >

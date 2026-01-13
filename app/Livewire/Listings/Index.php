@@ -4,10 +4,10 @@ namespace App\Livewire\Listings;
 
 use App\Enums\AiEnrichmentStatus;
 use App\Enums\DedupStatus;
+use App\Jobs\DeduplicateListingJob;
+use App\Jobs\EnrichListingJob;
 use App\Models\Listing;
 use App\Models\Platform;
-use App\Services\AI\ListingEnrichmentService;
-use App\Services\Dedup\DeduplicationService;
 use Flux\Flux;
 use Illuminate\View\View;
 use Livewire\Attributes\Computed;
@@ -39,8 +39,6 @@ class Index extends Component
     public array $selected = [];
 
     public bool $selectAll = false;
-
-    public bool $isProcessing = false;
 
     public function updatedSearch(): void
     {
@@ -79,184 +77,156 @@ class Index extends Component
         return $this->buildQuery()->pluck('id')->toArray();
     }
 
-    public function runBulkEnrichment(ListingEnrichmentService $enrichmentService): void
+    public function runBulkEnrichment(): void
     {
         if (empty($this->selected)) {
             Flux::toast(text: 'No listings selected', variant: 'warning');
 
             return;
         }
-
-        $this->isProcessing = true;
-        $processed = 0;
-        $failed = 0;
-
-        $listings = Listing::whereIn('id', $this->selected)->get();
-
-        foreach ($listings as $listing) {
-            if (! $listing->raw_data) {
-                $failed++;
-
-                continue;
-            }
-
-            try {
-                $enrichment = $enrichmentService->enrichListing($listing);
-                if ($enrichment->status->isCompleted()) {
-                    $processed++;
-                } else {
-                    $failed++;
-                }
-            } catch (\Throwable) {
-                $failed++;
-            }
-        }
-
-        $this->isProcessing = false;
-        $this->selected = [];
-        $this->selectAll = false;
-
-        Flux::toast(
-            heading: 'Enrichment Complete',
-            text: "{$processed} processed, {$failed} failed",
-            variant: $failed > 0 ? 'warning' : 'success',
-        );
-    }
-
-    public function runBulkDeduplication(DeduplicationService $dedupService): void
-    {
-        if (empty($this->selected)) {
-            Flux::toast(text: 'No listings selected', variant: 'warning');
-
-            return;
-        }
-
-        $this->isProcessing = true;
-        $processed = 0;
-        $failed = 0;
 
         $listings = Listing::whereIn('id', $this->selected)
-            ->where('ai_status', AiEnrichmentStatus::Completed)
+            ->whereNotNull('raw_data')
+            ->where('ai_status', '!=', AiEnrichmentStatus::Processing)
             ->get();
 
         if ($listings->isEmpty()) {
-            $this->isProcessing = false;
-            Flux::toast(text: 'No enriched listings in selection', variant: 'warning');
+            Flux::toast(text: 'No eligible listings in selection', variant: 'warning');
 
             return;
         }
 
+        // Mark all as processing and dispatch jobs
         foreach ($listings as $listing) {
-            try {
-                $dedupService->processListing($listing);
-                $processed++;
-            } catch (\Throwable) {
-                $failed++;
-            }
+            $listing->update(['ai_status' => AiEnrichmentStatus::Processing]);
+            EnrichListingJob::dispatch($listing->id);
         }
 
-        $this->isProcessing = false;
+        $count = $listings->count();
         $this->selected = [];
         $this->selectAll = false;
 
         Flux::toast(
-            heading: 'Deduplication Complete',
-            text: "{$processed} processed, {$failed} failed",
-            variant: $failed > 0 ? 'warning' : 'success',
+            heading: 'Enrichment Queued',
+            text: "{$count} listings queued for processing",
+            variant: 'info',
         );
     }
 
-    public function runBatchEnrichment(ListingEnrichmentService $enrichmentService): void
+    public function runBulkDeduplication(): void
     {
-        $this->isProcessing = true;
+        if (empty($this->selected)) {
+            Flux::toast(text: 'No listings selected', variant: 'warning');
 
+            return;
+        }
+
+        $listings = Listing::whereIn('id', $this->selected)
+            ->whereNotNull('raw_data')
+            ->where('ai_status', AiEnrichmentStatus::Completed)
+            ->where('dedup_status', '!=', DedupStatus::Processing)
+            ->get();
+
+        if ($listings->isEmpty()) {
+            Flux::toast(text: 'No enriched listings eligible for dedup', variant: 'warning');
+
+            return;
+        }
+
+        // Mark all as processing and dispatch jobs
+        foreach ($listings as $listing) {
+            $listing->update(['dedup_status' => DedupStatus::Processing]);
+            DeduplicateListingJob::dispatch($listing->id);
+        }
+
+        $count = $listings->count();
+        $this->selected = [];
+        $this->selectAll = false;
+
+        Flux::toast(
+            heading: 'Deduplication Queued',
+            text: "{$count} listings queued for processing",
+            variant: 'info',
+        );
+    }
+
+    public function runBatchEnrichment(): void
+    {
         $listings = Listing::pendingAiEnrichment()
             ->whereNotNull('raw_data')
             ->limit(10)
             ->get();
 
         if ($listings->isEmpty()) {
-            $this->isProcessing = false;
             Flux::toast(text: 'No listings pending enrichment', variant: 'warning');
 
             return;
         }
 
-        $processed = 0;
-        $failed = 0;
-
+        // Mark all as processing and dispatch jobs
         foreach ($listings as $listing) {
-            try {
-                $enrichment = $enrichmentService->enrichListing($listing);
-                if ($enrichment->status->isCompleted()) {
-                    $processed++;
-                } else {
-                    $failed++;
-                }
-            } catch (\Throwable) {
-                $failed++;
-            }
+            $listing->update(['ai_status' => AiEnrichmentStatus::Processing]);
+            EnrichListingJob::dispatch($listing->id);
         }
 
-        $this->isProcessing = false;
+        $count = $listings->count();
 
         Flux::toast(
-            heading: 'Batch Enrichment Complete',
-            text: "{$processed} processed, {$failed} failed",
-            variant: $failed > 0 ? 'warning' : 'success',
+            heading: 'Batch Enrichment Queued',
+            text: "{$count} listings queued for processing",
+            variant: 'info',
         );
     }
 
-    public function runBatchDeduplication(DeduplicationService $dedupService): void
+    public function runBatchDeduplication(): void
     {
-        $this->isProcessing = true;
-
         $listings = Listing::pendingDedup()
             ->whereNotNull('raw_data')
             ->limit(10)
             ->get();
 
         if ($listings->isEmpty()) {
-            $this->isProcessing = false;
             Flux::toast(text: 'No listings pending deduplication', variant: 'warning');
 
             return;
         }
 
-        $processed = 0;
-        $failed = 0;
-
+        // Mark all as processing and dispatch jobs
         foreach ($listings as $listing) {
-            try {
-                $dedupService->processListing($listing);
-                $processed++;
-            } catch (\Throwable) {
-                $failed++;
-            }
+            $listing->update(['dedup_status' => DedupStatus::Processing]);
+            DeduplicateListingJob::dispatch($listing->id);
         }
 
-        $this->isProcessing = false;
+        $count = $listings->count();
 
         Flux::toast(
-            heading: 'Batch Deduplication Complete',
-            text: "{$processed} processed, {$failed} failed",
-            variant: $failed > 0 ? 'warning' : 'success',
+            heading: 'Batch Deduplication Queued',
+            text: "{$count} listings queued for processing",
+            variant: 'info',
         );
     }
 
     /**
-     * @return array{ai_pending: int, ai_completed: int, dedup_pending: int, dedup_matched: int, dedup_needs_review: int}
+     * @return array{ai_pending: int, ai_processing: int, ai_completed: int, dedup_pending: int, dedup_processing: int, dedup_matched: int, dedup_needs_review: int}
      */
     #[Computed]
     public function stats(): array
     {
         return [
             'ai_pending' => Listing::where('ai_status', AiEnrichmentStatus::Pending)->count(),
+            'ai_processing' => Listing::where('ai_status', AiEnrichmentStatus::Processing)->count(),
             'ai_completed' => Listing::where('ai_status', AiEnrichmentStatus::Completed)->count(),
             'dedup_pending' => Listing::where('dedup_status', DedupStatus::Pending)->count(),
+            'dedup_processing' => Listing::where('dedup_status', DedupStatus::Processing)->count(),
             'dedup_matched' => Listing::where('dedup_status', DedupStatus::Matched)->count(),
             'dedup_needs_review' => Listing::where('dedup_status', DedupStatus::NeedsReview)->count(),
         ];
+    }
+
+    #[Computed]
+    public function isProcessing(): bool
+    {
+        return $this->stats['ai_processing'] > 0 || $this->stats['dedup_processing'] > 0;
     }
 
     /**

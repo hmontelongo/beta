@@ -58,8 +58,13 @@ class ScraperService
         $rawHtml = '';
         try {
             $rawHtml = $this->zenRows->fetchRawHtml($url);
+            Log::debug('ScraperService: got raw HTML', [
+                'url' => $url,
+                'length' => strlen($rawHtml),
+                'has_description' => str_contains($rawHtml, 'longDescription') || str_contains($rawHtml, 'description'),
+            ]);
         } catch (\RuntimeException $e) {
-            Log::warning('ScraperService: failed to fetch raw HTML for JS variables', [
+            Log::error('ScraperService: failed to fetch raw HTML - images and description may be incomplete', [
                 'url' => $url,
                 'error' => $e->getMessage(),
             ]);

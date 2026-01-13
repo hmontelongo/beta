@@ -63,13 +63,14 @@ class ZenRowsClient
 
     /**
      * Fetch raw HTML for JavaScript variable extraction.
+     * Image data is embedded in the page's JavaScript, no need to interact with the gallery.
      *
      * @throws \RuntimeException
      */
     public function fetchRawHtml(string $url): string
     {
         return $this->fetch($url, [
-            'wait_for' => 'h1',
+            'wait_for' => '#longDescription, [class*="description"]',
             'wait' => 2000,
             'block_resources' => 'stylesheet,font,media',
         ], 'body');

@@ -1,4 +1,4 @@
-<div class="space-y-6">
+<div class="space-y-6" @if($this->isProcessing) wire:poll.2s @endif>
     {{-- Page Header --}}
     <div class="flex items-start gap-4">
         <flux:button variant="ghost" icon="arrow-left" :href="route('listings.index')" wire:navigate />
@@ -9,9 +9,21 @@
             </div>
             <flux:subheading>{{ $listing->external_id }}</flux:subheading>
         </div>
-        <flux:button icon="arrow-top-right-on-square" :href="$listing->original_url" target="_blank">
-            {{ __('View Original') }}
-        </flux:button>
+        <div class="flex gap-2">
+            <flux:button
+                wire:click="rescrape"
+                wire:loading.attr="disabled"
+                :disabled="$isRescraping"
+                icon="arrow-path"
+                variant="ghost"
+            >
+                <span wire:loading.remove wire:target="rescrape">{{ __('Re-scrape') }}</span>
+                <span wire:loading wire:target="rescrape">{{ __('Queued...') }}</span>
+            </flux:button>
+            <flux:button icon="arrow-top-right-on-square" :href="$listing->original_url" target="_blank">
+                {{ __('View Original') }}
+            </flux:button>
+        </div>
     </div>
 
     <div class="grid gap-6 lg:grid-cols-3">
@@ -19,7 +31,12 @@
         <div class="space-y-6 lg:col-span-2">
             {{-- Images --}}
             @if (!empty($this->images))
-                <flux:card x-data="{ currentImage: 0, images: {{ json_encode($this->images) }} }">
+                <flux:card x-data="{
+                    currentImage: 0,
+                    images: {{ json_encode($this->images) }},
+                    next() { this.currentImage = this.currentImage < this.images.length - 1 ? this.currentImage + 1 : 0 },
+                    prev() { this.currentImage = this.currentImage > 0 ? this.currentImage - 1 : this.images.length - 1 }
+                }">
                     {{-- Image Grid --}}
                     <div class="grid grid-cols-2 gap-2 sm:grid-cols-3">
                         @foreach (array_slice($this->images, 0, 6) as $index => $imageUrl)
@@ -44,8 +61,23 @@
                     @endif
 
                     {{-- Single Lightbox Modal --}}
-                    <flux:modal name="image-gallery" class="max-w-4xl bg-black/95">
+                    <flux:modal
+                        name="image-gallery"
+                        class="max-w-4xl bg-black/95"
+                        x-on:keydown.arrow-left.window="prev()"
+                        x-on:keydown.arrow-right.window="next()"
+                        x-on:keydown.escape.window="$flux.modal('image-gallery').close()"
+                    >
                         <div class="relative flex flex-col items-center">
+                            {{-- Close Button --}}
+                            <button
+                                type="button"
+                                x-on:click="$flux.modal('image-gallery').close()"
+                                class="absolute -top-2 -right-2 z-10 rounded-full bg-white/90 p-2 text-zinc-800 shadow-lg hover:bg-white transition-colors"
+                            >
+                                <flux:icon name="x-mark" class="size-5" />
+                            </button>
+
                             {{-- Main Image --}}
                             <img
                                 x-bind:src="images[currentImage]"
@@ -58,17 +90,24 @@
                                 <flux:button
                                     variant="ghost"
                                     icon="chevron-left"
-                                    x-on:click="currentImage = currentImage > 0 ? currentImage - 1 : images.length - 1"
+                                    x-on:click="prev()"
+                                    class="!text-white hover:!bg-white/20"
                                 />
-                                <flux:text class="tabular-nums">
+                                <flux:text class="tabular-nums text-white">
                                     <span x-text="currentImage + 1"></span> / <span x-text="images.length"></span>
                                 </flux:text>
                                 <flux:button
                                     variant="ghost"
                                     icon="chevron-right"
-                                    x-on:click="currentImage = currentImage < images.length - 1 ? currentImage + 1 : 0"
+                                    x-on:click="next()"
+                                    class="!text-white hover:!bg-white/20"
                                 />
                             </div>
+
+                            {{-- Keyboard hint --}}
+                            <flux:text size="xs" class="mt-2 text-zinc-400">
+                                {{ __('Use arrow keys to navigate, ESC to close') }}
+                            </flux:text>
                         </div>
                     </flux:modal>
                 </flux:card>
@@ -184,7 +223,9 @@
             <flux:card>
                 <flux:heading size="lg" class="mb-4">{{ __('Location') }}</flux:heading>
                 <div class="space-y-2">
-                    @if (!empty($listing->raw_data['address']))
+                    @if (!empty($listing->raw_data['geocoded_address']))
+                        <flux:text class="text-sm">{{ $listing->raw_data['geocoded_address'] }}</flux:text>
+                    @elseif (!empty($listing->raw_data['address']))
                         <flux:text>{{ $listing->raw_data['address'] }}</flux:text>
                     @endif
                     <flux:subheading>
@@ -192,20 +233,45 @@
                     </flux:subheading>
                     @if (!empty($listing->raw_data['latitude']) && !empty($listing->raw_data['longitude']))
                         <flux:separator class="my-3" />
-                        <div class="flex items-center gap-2">
-                            <flux:icon name="map-pin" variant="mini" class="text-zinc-400" />
-                            <flux:subheading>{{ $listing->raw_data['latitude'] }}, {{ $listing->raw_data['longitude'] }}</flux:subheading>
+
+                        {{-- Google Maps Preview --}}
+                        @php
+                            $lat = $listing->raw_data['latitude'];
+                            $lng = $listing->raw_data['longitude'];
+                            $mapsUrl = $listing->raw_data['google_maps_url'] ?? "https://www.google.com/maps?q={$lat},{$lng}";
+                        @endphp
+                        <a href="{{ $mapsUrl }}" target="_blank" class="block rounded-lg overflow-hidden hover:opacity-90 transition-opacity">
+                            <img
+                                src="https://maps.googleapis.com/maps/api/staticmap?center={{ $lat }},{{ $lng }}&zoom=15&size=400x200&maptype=roadmap&markers=color:red|{{ $lat }},{{ $lng }}&key={{ config('services.google.maps_api_key') }}"
+                                alt="Map location"
+                                class="w-full h-32 object-cover bg-zinc-100 dark:bg-zinc-800"
+                                loading="lazy"
+                            />
+                        </a>
+
+                        <div class="flex items-center justify-between text-xs text-zinc-500">
+                            <span>{{ number_format($lat, 6) }}, {{ number_format($lng, 6) }}</span>
+                            @if (!empty($listing->raw_data['geocoding_accuracy']))
+                                <flux:badge size="sm" color="{{ $listing->raw_data['geocoding_accuracy'] === 'ROOFTOP' ? 'green' : 'zinc' }}">
+                                    {{ $listing->raw_data['geocoding_accuracy'] }}
+                                </flux:badge>
+                            @endif
                         </div>
+
                         <flux:button
                             variant="subtle"
                             size="sm"
                             icon="arrow-top-right-on-square"
-                            :href="'https://www.google.com/maps?q=' . $listing->raw_data['latitude'] . ',' . $listing->raw_data['longitude']"
+                            :href="$mapsUrl"
                             target="_blank"
                             class="w-full"
                         >
-                            {{ __('View on Google Maps') }}
+                            {{ __('Open in Google Maps') }}
                         </flux:button>
+                    @else
+                        <flux:callout variant="warning" icon="map-pin" class="mt-2">
+                            <flux:callout.text>{{ __('No coordinates available. Run enrichment to geocode address.') }}</flux:callout.text>
+                        </flux:callout>
                     @endif
                 </div>
             </flux:card>
@@ -339,7 +405,6 @@
                     <flux:button
                         wire:click="runEnrichment"
                         wire:loading.attr="disabled"
-                        :disabled="!$this->canEnrich || $isProcessing"
                         variant="primary"
                         size="sm"
                         icon="sparkles"
@@ -380,8 +445,7 @@
                     <flux:button
                         wire:click="runDeduplication"
                         wire:loading.attr="disabled"
-                        :disabled="!$this->canDedup || $isProcessing"
-                        variant="{{ $this->canDedup ? 'primary' : 'ghost' }}"
+                        variant="primary"
                         size="sm"
                         icon="document-duplicate"
                         class="w-full"

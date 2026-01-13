@@ -55,9 +55,14 @@ class Inmuebles24Config
             'location_header' => '.section-location-property h4',
             'breadcrumbs' => '[class*="breadcrumb"] a',
 
-            // Images - multiple selectors for fallback
-            'gallery_images' => '[class*="gallery"] img @src',
-            'carousel_images' => '[class*="carousel"] img @src',
+            // Images - multiple selectors for fallback (also grab data-src for lazy loading)
+            'gallery_images' => '[class*="gallery"] img @src, [class*="gallery"] img @data-src',
+            'carousel_images' => '[class*="carousel"] img @src, [class*="carousel"] img @data-src',
+            'picture_images' => '[class*="picture"] img @src, [class*="picture"] img @data-src',
+            'multimedia_images' => '[class*="multimedia"] img @src, [data-qa*="GALLERY"] img @src',
+            'all_listing_images' => '[class*="posting-image"] img @src, [class*="PostingImage"] img @src',
+            'preview_gallery_images' => '[class*="preview-gallery"] img @src, [class*="preview-gallery"] img @data-src',
+            'modal_gallery_images' => '[class*="modal"] img @src, [class*="lightbox"] img @src, [class*="fullscreen"] img @src',
 
             // Publisher info
             'publisher_name' => '[data-qa="publisher-name"], [class*="publisher-name"]',

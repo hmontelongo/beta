@@ -685,26 +685,69 @@ class Inmuebles24ListingParser
      */
     protected function extractImages(array $extracted, string $rawHtml): array
     {
-        $images = [];
-        $seen = [];
+        $imagesByHash = []; // Dedupe by image hash/ID
 
-        // Helper to add image
-        $addImage = function (string $url) use (&$images, &$seen) {
+        // Helper to add image - extracts the unique image ID and keeps highest quality
+        $addImage = function (string $url) use (&$imagesByHash) {
             $url = $this->cleanImageUrl($url);
-            if ($url && ! isset($seen[$url])) {
-                $images[] = $url;
-                $seen[$url] = true;
+            if (! $url) {
+                return;
+            }
+
+            // Extract the unique image ID (e.g., 1530108201 from the URL)
+            // Pattern: /avisos/.../.../1530108201.jpg
+            if (preg_match('/\/(\d{9,12})\.(?:jpg|jpeg|png|webp)/i', $url, $match)) {
+                $imageId = $match[1];
+
+                // Prefer 1200x1200, then 720x532, then others
+                $priority = 0;
+                if (str_contains($url, '1200x1200')) {
+                    $priority = 3;
+                } elseif (str_contains($url, '720x532') || str_contains($url, '730x532')) {
+                    $priority = 2;
+                } elseif (str_contains($url, '360x266')) {
+                    $priority = 1;
+                }
+
+                // Prefer non-resize URLs over resize URLs for same resolution
+                if (! str_contains($url, '/resize/')) {
+                    $priority += 0.5;
+                }
+
+                if (! isset($imagesByHash[$imageId]) || $imagesByHash[$imageId]['priority'] < $priority) {
+                    $imagesByHash[$imageId] = ['url' => $url, 'priority' => $priority];
+                }
+            } else {
+                // For non-standard URLs, use the URL itself as key
+                $hash = md5($url);
+                if (! isset($imagesByHash[$hash])) {
+                    $imagesByHash[$hash] = ['url' => $url, 'priority' => 0];
+                }
             }
         };
 
-        // Try gallery images first
-        foreach ($this->toArray($extracted['gallery_images'] ?? []) as $url) {
-            $addImage($url);
+        // Try all CSS-extracted image sources
+        $cssImageKeys = [
+            'gallery_images',
+            'carousel_images',
+            'picture_images',
+            'multimedia_images',
+            'all_listing_images',
+            'preview_gallery_images',
+            'modal_gallery_images',
+        ];
+        foreach ($cssImageKeys as $key) {
+            foreach ($this->toArray($extracted[$key] ?? []) as $url) {
+                $addImage($url);
+            }
         }
 
-        // Try carousel images
-        foreach ($this->toArray($extracted['carousel_images'] ?? []) as $url) {
-            $addImage($url);
+        // Extract from __NEXT_DATA__ (Next.js apps store full data here)
+        if (preg_match('/<script[^>]*id=["\']__NEXT_DATA__["\'][^>]*>(.+?)<\/script>/s', $rawHtml, $nextDataMatch)) {
+            $nextData = @json_decode($nextDataMatch[1], true);
+            if ($nextData) {
+                $this->extractImagesFromJson($nextData, $addImage);
+            }
         }
 
         // Extract from JSON-LD structured data
@@ -715,11 +758,34 @@ class Inmuebles24ListingParser
             }
         }
 
-        // Extract high-res images from JavaScript objects
+        // Extract from initialState or similar React state objects
+        $statePatterns = [
+            '/(?:initialState|__PRELOADED_STATE__|window\.__data__|window\.state)\s*=\s*(\{.{500,}?\});/s',
+            '/(?:props|pageProps|posting|listing)\s*[:=]\s*(\{[^}]{500,})/s',
+        ];
+        foreach ($statePatterns as $pattern) {
+            if (preg_match($pattern, $rawHtml, $stateMatch)) {
+                // Try to parse as JSON (may fail if not valid JSON)
+                $jsonStr = $stateMatch[1];
+                // Fix common issues with JS objects that aren't valid JSON
+                $jsonStr = preg_replace('/([{,])\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*:/', '$1"$2":', $jsonStr);
+                $data = @json_decode($jsonStr, true);
+                if ($data) {
+                    $this->extractImagesFromJson($data, $addImage);
+                }
+            }
+        }
+
+        // Extract all image URLs with various resolution patterns
+        // The site stores images in JSON with keys like url1200x1200, resizeUrl1200x1200, etc.
         $jsPatterns = [
+            // Match url1200x1200, resizeUrl1200x1200, url720x532, url730x532, url360x266
+            '/"(?:resize)?[Uu]rl\d+x\d+"\s*:\s*"(https?:\/\/[^"]+)"/i',
+            // Match url or src with avisos path
+            '/"(?:url|src)"\s*:\s*"(https?:\/\/[^"]+\/avisos\/[^"]+\.(?:jpg|jpeg|png|webp)[^"]*)"/i',
+            // Legacy patterns
             '/url1200x1200["\']\s*[:=]\s*["\']([^"\']+)["\']/i',
-            '/"url(?:1200x1200|720x532|Original)"\s*:\s*"([^"]+)"/i',
-            '/src(?:Set)?["\']\s*[:=]\s*["\']([^"\']+inmuebles24[^"\']+(?:1200x1200|720x532)[^"\']*)/i',
+            '/"(?:url|src|image|fullUrl|originalUrl)"\s*:\s*"(https?:\/\/[^"]+img[^"]*\.(?:jpg|jpeg|png|webp)[^"]*)"/i',
         ];
 
         foreach ($jsPatterns as $pattern) {
@@ -730,20 +796,64 @@ class Inmuebles24ListingParser
         }
 
         // Extract from gallery image data attributes or background-image styles
-        preg_match_all('/(?:data-src|data-lazy|background-image[^)]+url\()["\']?([^"\')\s]+inmuebles24[^"\')\s]+\.(jpg|jpeg|png|webp))["\']?/i', $rawHtml, $attrMatches);
+        preg_match_all('/(?:data-src|data-lazy|data-original|background-image[^)]+url\()["\']?([^"\')\s]+(?:inmuebles24|img)[^"\')\s]+\.(?:jpg|jpeg|png|webp))["\']?/i', $rawHtml, $attrMatches);
         foreach ($attrMatches[1] ?? [] as $url) {
             $addImage($url);
         }
 
-        // Look for image array in JavaScript (common in React/Vue apps)
-        if (preg_match('/pictures?\s*[:=]\s*\[([^\]]{100,})\]/is', $rawHtml, $picturesMatch)) {
-            preg_match_all('/"(https?:\/\/[^"]+\.(?:jpg|jpeg|png|webp)[^"]*)"/i', $picturesMatch[1], $pictureUrls);
-            foreach ($pictureUrls[1] ?? [] as $url) {
+        // Look for image/pictures arrays in JavaScript
+        $arrayPatterns = [
+            '/(?:pictures?|images?|photos?|multimedia|gallery)\s*[:=]\s*\[([^\]]{100,})\]/is',
+            '/"(?:pictures?|images?|photos?|multimedia)"\s*:\s*\[([^\]]{100,})\]/is',
+        ];
+        foreach ($arrayPatterns as $pattern) {
+            if (preg_match_all($pattern, $rawHtml, $arrayMatches)) {
+                foreach ($arrayMatches[1] as $arrayContent) {
+                    preg_match_all('/"(https?:\/\/[^"]+\.(?:jpg|jpeg|png|webp)[^"]*)"/i', $arrayContent, $pictureUrls);
+                    foreach ($pictureUrls[1] ?? [] as $url) {
+                        $addImage($url);
+                    }
+                }
+            }
+        }
+
+        // Final fallback: find any inmuebles24/img CDN URLs with image extensions
+        preg_match_all('/https?:\/\/[^"\'\s]+(?:inmuebles24|img\.clasificados)[^"\'\s]+\.(?:jpg|jpeg|png|webp)/i', $rawHtml, $fallbackMatches);
+        foreach ($fallbackMatches[0] ?? [] as $url) {
+            // Only add if it looks like a listing image (contains /avisos/ or /pictures/)
+            if (preg_match('/\/(?:avisos|pictures|multimedia|images)\//i', $url)) {
                 $addImage($url);
             }
         }
 
-        return $images;
+        // Extract just the URLs from the deduplicated array
+        return array_values(array_map(fn ($item) => $item['url'], $imagesByHash));
+    }
+
+    /**
+     * Recursively extract image URLs from JSON data.
+     */
+    protected function extractImagesFromJson(array $data, callable $addImage, int $depth = 0): void
+    {
+        // Prevent infinite recursion
+        if ($depth > 15) {
+            return;
+        }
+
+        foreach ($data as $key => $value) {
+            if (is_string($value)) {
+                // Check if this is an image URL
+                if (preg_match('/https?:\/\/[^"\'\s]+\.(?:jpg|jpeg|png|webp)/i', $value)) {
+                    // Filter for likely listing images
+                    if (preg_match('/(?:inmuebles24|img|cdn|avisos|pictures|multimedia)/i', $value)) {
+                        $addImage($value);
+                    }
+                }
+            } elseif (is_array($value)) {
+                // Recurse into arrays and objects
+                $this->extractImagesFromJson($value, $addImage, $depth + 1);
+            }
+        }
     }
 
     /**
