@@ -266,6 +266,14 @@ class PropertyMergerService
             return json_encode($value);
         }
 
+        if ($value instanceof \BackedEnum) {
+            return (string) $value->value;
+        }
+
+        if ($value instanceof \UnitEnum) {
+            return $value->name;
+        }
+
         return (string) $value;
     }
 }

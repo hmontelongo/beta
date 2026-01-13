@@ -12,7 +12,7 @@ class ProcessAiEnrichmentBatchJob implements ShouldQueue
 {
     use Queueable;
 
-    public int $timeout = 600; // 10 minutes for batch processing
+    public int $timeout = 1800; // 30 minutes for batch processing (with rate limiting delays)
 
     public int $tries = 1; // Don't retry - individual listings handle their own errors
 
@@ -24,7 +24,7 @@ class ProcessAiEnrichmentBatchJob implements ShouldQueue
 
     public function handle(ListingEnrichmentService $enrichmentService): void
     {
-        $batchSize = $this->batchSize ?? config('services.enrichment.batch_size', 50);
+        $batchSize = $this->batchSize ?? config('services.enrichment.batch_size', 10);
 
         if (! config('services.enrichment.enabled', true)) {
             Log::info('AI enrichment is disabled, skipping batch job');
@@ -51,7 +51,16 @@ class ProcessAiEnrichmentBatchJob implements ShouldQueue
         $processed = 0;
         $failed = 0;
 
-        foreach ($listings as $listing) {
+        // Rate limit: ~10k tokens/minute, each request ~3k tokens = ~3 requests/minute
+        // Add 20 second delay between requests to stay safely under limit
+        $delaySeconds = config('services.enrichment.delay_seconds', 20);
+
+        foreach ($listings as $index => $listing) {
+            // Add delay between requests (not before first one)
+            if ($index > 0 && $delaySeconds > 0) {
+                sleep($delaySeconds);
+            }
+
             try {
                 $enrichment = $enrichmentService->enrichListing($listing);
 
@@ -66,6 +75,12 @@ class ProcessAiEnrichmentBatchJob implements ShouldQueue
                     'error' => $e->getMessage(),
                 ]);
                 $failed++;
+
+                // If rate limited, wait longer before next attempt
+                if (str_contains($e->getMessage(), '429') || str_contains($e->getMessage(), 'rate_limit')) {
+                    Log::warning('Rate limited, waiting 60 seconds before continuing');
+                    sleep(60);
+                }
             }
         }
 

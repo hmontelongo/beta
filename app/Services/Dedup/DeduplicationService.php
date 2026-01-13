@@ -23,7 +23,14 @@ class DeduplicationService
         if ($listing->property_id) {
             Log::debug('Listing already linked to property', ['listing_id' => $listing->id, 'property_id' => $listing->property_id]);
 
-            // Already processed - don't change anything, just return
+            // Already linked to property - ensure status is updated (handles edge case of stuck "processing")
+            if ($listing->dedup_status === DedupStatus::Processing) {
+                $listing->update([
+                    'dedup_status' => DedupStatus::Matched,
+                    'dedup_checked_at' => now(),
+                ]);
+            }
+
             return;
         }
 

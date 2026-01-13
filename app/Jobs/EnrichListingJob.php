@@ -16,14 +16,16 @@ class EnrichListingJob implements ShouldQueue
 
     public int $timeout = 120;
 
-    public int $tries = 2;
+    public int $tries = 3;
 
     /**
+     * Backoff times in seconds - longer delays for rate limit handling.
+     *
      * @return array<int>
      */
     public function backoff(): array
     {
-        return [30, 60];
+        return [60, 120, 180];
     }
 
     public function __construct(

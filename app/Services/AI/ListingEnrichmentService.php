@@ -79,6 +79,15 @@ class ListingEnrichmentService
                 'error' => $e->getMessage(),
             ]);
 
+            // Re-throw rate limit errors so job retry mechanism can handle them
+            if (str_contains($e->getMessage(), '429') || str_contains($e->getMessage(), 'rate_limit')) {
+                // Reset status to pending so it can be retried
+                $listing->update(['ai_status' => AiEnrichmentStatus::Pending]);
+                $enrichment->update(['status' => AiEnrichmentStatus::Pending]);
+
+                throw $e;
+            }
+
             $enrichment->update([
                 'status' => AiEnrichmentStatus::Failed,
                 'error_message' => $e->getMessage(),

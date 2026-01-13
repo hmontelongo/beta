@@ -121,7 +121,7 @@ class CandidateMatcherService
     }
 
     /**
-     * Create a dedup candidate record with calculated scores.
+     * Create or retrieve a dedup candidate record with calculated scores.
      */
     protected function createCandidate(Listing $listingA, Listing $listingB): ?DedupCandidate
     {
@@ -130,13 +130,13 @@ class CandidateMatcherService
             [$listingA, $listingB] = [$listingB, $listingA];
         }
 
-        // Check if candidate pair already exists
-        $exists = DedupCandidate::where('listing_a_id', $listingA->id)
+        // Check if candidate pair already exists - return it if so
+        $existing = DedupCandidate::where('listing_a_id', $listingA->id)
             ->where('listing_b_id', $listingB->id)
-            ->exists();
+            ->first();
 
-        if ($exists) {
-            return null;
+        if ($existing) {
+            return $existing;
         }
 
         $rawDataA = $listingA->raw_data ?? [];
