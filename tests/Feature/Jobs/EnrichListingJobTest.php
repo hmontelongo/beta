@@ -6,6 +6,7 @@ use App\Models\AiEnrichment;
 use App\Models\Listing;
 use App\Models\Platform;
 use App\Services\AI\ListingEnrichmentService;
+use DateTime;
 
 it('sets status to processing before calling service', function () {
     $platform = Platform::factory()->create();
@@ -104,10 +105,10 @@ it('is queued on the ai-enrichment queue', function () {
     expect($job->queue)->toBe('ai-enrichment');
 });
 
-it('has exponential backoff configured', function () {
+it('has retry configuration for rate limiting', function () {
     $job = new EnrichListingJob(1);
 
-    expect($job->backoff())->toBe([60, 120, 180])
-        ->and($job->tries)->toBe(3)
+    expect($job->retryUntil())->toBeInstanceOf(DateTime::class)
+        ->and($job->maxExceptions)->toBe(5)
         ->and($job->timeout)->toBe(120);
 });

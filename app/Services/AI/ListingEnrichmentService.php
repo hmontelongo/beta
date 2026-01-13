@@ -71,6 +71,7 @@ class ListingEnrichmentService
                 'auto_applied' => $autoApply,
                 'input_tokens' => $usage['input_tokens'],
                 'output_tokens' => $usage['output_tokens'],
+                'cache_read_tokens' => $usage['cache_read_input_tokens'] ?? 0,
             ]);
 
         } catch (\Throwable $e) {

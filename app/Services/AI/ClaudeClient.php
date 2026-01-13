@@ -54,7 +54,15 @@ class ClaudeClient
         }
 
         if ($system) {
-            $payload['system'] = $system;
+            // Use prompt caching for system prompt - 90% cost reduction on cached tokens
+            // and cached tokens don't count toward rate limits
+            $payload['system'] = [
+                [
+                    'type' => 'text',
+                    'text' => $system,
+                    'cache_control' => ['type' => 'ephemeral'],
+                ],
+            ];
         }
 
         Log::debug('Claude API request', [
@@ -81,6 +89,8 @@ class ClaudeClient
                 'stop_reason' => $data['stop_reason'] ?? null,
                 'input_tokens' => $data['usage']['input_tokens'] ?? 0,
                 'output_tokens' => $data['usage']['output_tokens'] ?? 0,
+                'cache_creation_tokens' => $data['usage']['cache_creation_input_tokens'] ?? 0,
+                'cache_read_tokens' => $data['usage']['cache_read_input_tokens'] ?? 0,
             ]);
 
             return $data;
@@ -136,13 +146,15 @@ class ClaudeClient
     /**
      * Get token usage from response.
      *
-     * @return array{input_tokens: int, output_tokens: int}
+     * @return array{input_tokens: int, output_tokens: int, cache_creation_input_tokens: int, cache_read_input_tokens: int}
      */
     public function getUsage(array $response): array
     {
         return [
             'input_tokens' => $response['usage']['input_tokens'] ?? 0,
             'output_tokens' => $response['usage']['output_tokens'] ?? 0,
+            'cache_creation_input_tokens' => $response['usage']['cache_creation_input_tokens'] ?? 0,
+            'cache_read_input_tokens' => $response['usage']['cache_read_input_tokens'] ?? 0,
         ];
     }
 }
