@@ -27,17 +27,17 @@ class ZenRowsClient
 
     /**
      * Fetch a search page with CSS extraction.
+     * Uses load event to ensure page is fully loaded.
      *
      * @param  array<string, string>  $cssExtractor
      * @return array<string, mixed>
      *
      * @throws \RuntimeException
      */
-    public function fetchSearchPage(string $url, array $cssExtractor, string $waitFor = '[data-qa^="posting"]'): array
+    public function fetchSearchPage(string $url, array $cssExtractor): array
     {
         return $this->fetch($url, [
-            'wait_for' => $waitFor,
-            'wait' => 5000,
+            'js_instructions' => json_encode([['wait_event' => 'load']]),
             'block_resources' => 'image,font,media',
             'css_extractor' => json_encode($cssExtractor),
         ], 'json');
@@ -45,34 +45,33 @@ class ZenRowsClient
 
     /**
      * Fetch a listing page with CSS extraction.
+     * Uses load event to ensure page is fully loaded.
      *
      * @param  array<string, string>  $cssExtractor
      * @return array<string, mixed>
      *
      * @throws \RuntimeException
      */
-    public function fetchListingPage(string $url, array $cssExtractor, string $waitFor = '#longDescription, [class*="description"]'): array
+    public function fetchListingPage(string $url, array $cssExtractor): array
     {
         return $this->fetch($url, [
-            'wait_for' => $waitFor,
-            'wait' => 5000,
-            'block_resources' => 'font,media',
+            'js_instructions' => json_encode([['wait_event' => 'load']]),
+            'block_resources' => 'image,font,media',
             'css_extractor' => json_encode($cssExtractor),
         ], 'json');
     }
 
     /**
      * Fetch raw HTML for JavaScript variable extraction.
-     * Image data is embedded in the page's JavaScript, no need to interact with the gallery.
+     * Uses load event to ensure all JS has executed.
      *
      * @throws \RuntimeException
      */
-    public function fetchRawHtml(string $url, string $waitFor = '#longDescription, [class*="description"]'): string
+    public function fetchRawHtml(string $url): string
     {
         return $this->fetch($url, [
-            'wait_for' => $waitFor,
-            'wait' => 2000,
-            'block_resources' => 'stylesheet,font,media',
+            'js_instructions' => json_encode([['wait_event' => 'load']]),
+            'block_resources' => 'image,font,media',
         ], 'body');
     }
 

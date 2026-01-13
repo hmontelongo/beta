@@ -203,7 +203,7 @@ return [
             'queue' => ['discovery'],
             'balance' => 'auto',
             'autoScalingStrategy' => 'time',
-            'maxProcesses' => 1,
+            'maxProcesses' => 2,
             'maxTime' => 0,
             'maxJobs' => 0,
             'memory' => 128,
@@ -218,7 +218,7 @@ return [
             'queue' => ['scraping'],
             'balance' => 'auto',
             'autoScalingStrategy' => 'time',
-            'maxProcesses' => 1,
+            'maxProcesses' => 2,
             'maxTime' => 0,
             'maxJobs' => 0,
             'memory' => 128,
@@ -284,7 +284,7 @@ return [
                 'maxProcesses' => 2,
             ],
             'scraping-supervisor' => [
-                'maxProcesses' => 3,
+                'maxProcesses' => 6,
             ],
             'enrichment-supervisor' => [
                 'maxProcesses' => 1, // Keep at 1 due to API rate limits

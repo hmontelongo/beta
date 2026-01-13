@@ -14,8 +14,8 @@ class VivanunciosConfig implements ScraperConfigInterface
     public function searchExtractor(): array
     {
         return [
-            // Listing URLs - match any posting container, extract data-to-posting or href
-            'urls' => '[data-qa^="posting"] @data-to-posting, [data-qa^="posting"] a[href*="/a-"] @href',
+            // Listing URLs - extract from data-to-posting attribute on posting cards
+            'urls' => '[data-qa^="posting"] @data-to-posting',
 
             // External IDs from data-id attribute
             'external_ids' => '[data-qa^="posting"] @data-id',
@@ -60,8 +60,8 @@ class VivanunciosConfig implements ScraperConfigInterface
             'location_header' => 'article h4, [class*="address"]',
             'breadcrumbs' => '[class*="breadcrumb"] a',
 
-            // Images
-            'gallery_images' => '[class*="gallery"] img @src, [class*="carousel"] img @src',
+            // Images - main grid uses imageGrid-module class
+            'gallery_images' => '[class*="imageGrid-module__imgProperty"] @src, [class*="imageGrid"] img @src',
 
             // Publisher info
             'publisher_name' => '[class*="seller"] a, a[href*="u-anuncios-del-vendedor"]',
@@ -106,29 +106,23 @@ class VivanunciosConfig implements ScraperConfigInterface
 
     /**
      * Generate paginated URL from base URL and page number.
-     * Vivanuncios uses /page-N format before the query string.
-     * Example: /s-renta-inmuebles/page-4?loc=c:102000799,102000785
+     * Vivanuncios uses pN suffix at end of URL path segment.
+     * Example: /s-renta-inmuebles/granja/v1c1098l15143p1 -> v1c1098l15143p2
      */
     public function paginateUrl(string $baseUrl, int $page): string
     {
-        // Parse the URL to handle query strings properly
-        $parts = parse_url($baseUrl);
-        $path = $parts['path'] ?? '';
-        $query = isset($parts['query']) ? '?'.$parts['query'] : '';
-
-        // Check if already has /page-N in path
-        if (preg_match('/\/page-\d+/', $path)) {
-            $path = preg_replace('/\/page-\d+/', "/page-{$page}", $path);
-        } else {
-            // Insert /page-N at end of path (before query string)
-            $path = rtrim($path, '/')."/page-{$page}";
+        // Vivanuncios uses pN format preceded by a digit (e.g., l15143p1)
+        // The pattern requires a digit before 'p' to avoid matching words like "prop123"
+        if (preg_match('/(\d)p\d+($|\?)/', $baseUrl)) {
+            return preg_replace('/(\d)p\d+($|\?)/', "\${1}p{$page}\$2", $baseUrl);
         }
 
-        // Rebuild URL
-        $scheme = isset($parts['scheme']) ? $parts['scheme'].'://' : '';
-        $host = $parts['host'] ?? '';
+        // If no existing page marker, append pN before query string
+        $parts = parse_url($baseUrl);
+        $query = isset($parts['query']) ? '?'.$parts['query'] : '';
+        $baseWithoutQuery = str_replace($query, '', $baseUrl);
 
-        return $scheme.$host.$path.$query;
+        return rtrim($baseWithoutQuery, '/')."p{$page}".$query;
     }
 
     /**
@@ -291,21 +285,5 @@ class VivanunciosConfig implements ScraperConfigInterface
             'aire acondicionado' => 'ac',
             'amueblado' => 'furnished',
         ];
-    }
-
-    /**
-     * CSS selector to wait for on search pages before extracting data.
-     */
-    public function searchWaitFor(): string
-    {
-        return '[data-qa*="posting"], [class*="ListingCard"], article';
-    }
-
-    /**
-     * CSS selector to wait for on listing pages before extracting data.
-     */
-    public function listingWaitFor(): string
-    {
-        return 'article h1, [class*="description"], #description';
     }
 }
