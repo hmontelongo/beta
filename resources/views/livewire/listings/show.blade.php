@@ -63,51 +63,33 @@
                     {{-- Single Lightbox Modal --}}
                     <flux:modal
                         name="image-gallery"
-                        class="max-w-4xl bg-black/95"
+                        class="max-w-4xl"
                         x-on:keydown.arrow-left.window="prev()"
                         x-on:keydown.arrow-right.window="next()"
-                        x-on:keydown.escape.window="$flux.modal('image-gallery').close()"
                     >
-                        <div class="relative flex flex-col items-center">
-                            {{-- Close Button --}}
-                            <button
-                                type="button"
-                                x-on:click="$flux.modal('image-gallery').close()"
-                                class="absolute -top-2 -right-2 z-10 rounded-full bg-white/90 p-2 text-zinc-800 shadow-lg hover:bg-white transition-colors"
-                            >
-                                <flux:icon name="x-mark" class="size-5" />
-                            </button>
-
-                            {{-- Main Image --}}
-                            <img
-                                x-bind:src="images[currentImage]"
-                                alt="Property image"
-                                class="max-h-[70vh] w-auto object-contain"
-                            />
-
-                            {{-- Navigation --}}
-                            <div class="mt-4 flex items-center gap-4">
-                                <flux:button
-                                    variant="ghost"
-                                    icon="chevron-left"
-                                    x-on:click="prev()"
-                                    class="!text-white hover:!bg-white/20"
-                                />
-                                <flux:text class="tabular-nums text-white">
-                                    <span x-text="currentImage + 1"></span> / <span x-text="images.length"></span>
-                                </flux:text>
-                                <flux:button
-                                    variant="ghost"
-                                    icon="chevron-right"
-                                    x-on:click="next()"
-                                    class="!text-white hover:!bg-white/20"
+                        <div class="space-y-4">
+                            {{-- Image Container --}}
+                            <div class="flex items-center justify-center rounded-lg bg-zinc-100 dark:bg-zinc-800 p-2">
+                                <img
+                                    x-bind:src="images[currentImage]"
+                                    alt="Property image"
+                                    class="max-h-[60vh] w-auto object-contain"
                                 />
                             </div>
 
+                            {{-- Navigation --}}
+                            <div class="flex items-center justify-center gap-4">
+                                <flux:button icon="chevron-left" variant="ghost" x-on:click="prev()" />
+                                <flux:badge color="zinc" size="lg">
+                                    <span x-text="currentImage + 1"></span> / <span x-text="images.length"></span>
+                                </flux:badge>
+                                <flux:button icon="chevron-right" variant="ghost" x-on:click="next()" />
+                            </div>
+
                             {{-- Keyboard hint --}}
-                            <flux:text size="xs" class="mt-2 text-zinc-400">
+                            <flux:subheading class="text-center">
                                 {{ __('Use arrow keys to navigate, ESC to close') }}
-                            </flux:text>
+                            </flux:subheading>
                         </div>
                     </flux:modal>
                 </flux:card>
