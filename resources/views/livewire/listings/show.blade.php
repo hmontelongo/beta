@@ -269,41 +269,30 @@
                             <flux:avatar icon="building-office" size="lg" />
                         @endif
                         <div class="flex-1 min-w-0">
-                            <flux:heading size="sm">{{ $listing->raw_data['publisher_name'] }}</flux:heading>
+                            <div class="flex items-center gap-2">
+                                <flux:heading size="sm">{{ $listing->raw_data['publisher_name'] }}</flux:heading>
+                                @if (!empty($listing->raw_data['publisher_url']))
+                                    <flux:button
+                                        variant="ghost"
+                                        size="sm"
+                                        icon="arrow-top-right-on-square"
+                                        :href="$listing->raw_data['publisher_url']"
+                                        target="_blank"
+                                        inset
+                                    />
+                                @endif
+                            </div>
                             @if (!empty($listing->raw_data['publisher_type']))
                                 <flux:badge size="sm" class="mt-1">{{ ucfirst($listing->raw_data['publisher_type']) }}</flux:badge>
                             @endif
+                            @if (!empty($listing->raw_data['whatsapp']))
+                                <a href="https://wa.me/{{ $this->formattedWhatsapp }}" target="_blank" class="mt-2 flex items-center gap-1.5 text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-200">
+                                    <flux:icon name="phone" variant="micro" />
+                                    {{ $listing->raw_data['whatsapp'] }}
+                                </a>
+                            @endif
                         </div>
                     </div>
-                    @if (!empty($listing->raw_data['whatsapp']) || !empty($listing->raw_data['publisher_url']))
-                        <flux:separator class="my-4" />
-                        <div class="space-y-2">
-                            @if (!empty($listing->raw_data['whatsapp']))
-                                <flux:button
-                                    variant="subtle"
-                                    size="sm"
-                                    icon="phone"
-                                    :href="'https://wa.me/' . $this->formattedWhatsapp"
-                                    target="_blank"
-                                    class="w-full"
-                                >
-                                    {{ $listing->raw_data['whatsapp'] }}
-                                </flux:button>
-                            @endif
-                            @if (!empty($listing->raw_data['publisher_url']))
-                                <flux:button
-                                    variant="subtle"
-                                    size="sm"
-                                    icon="arrow-top-right-on-square"
-                                    :href="$listing->raw_data['publisher_url']"
-                                    target="_blank"
-                                    class="w-full"
-                                >
-                                    {{ __('View Profile') }}
-                                </flux:button>
-                            @endif
-                        </div>
-                    @endif
                 </flux:card>
             @endif
 
@@ -413,7 +402,14 @@
                     @if ($listing->property_id)
                         <div class="flex items-center justify-between">
                             <flux:text class="text-zinc-500">{{ __('Property') }}</flux:text>
-                            <flux:badge color="purple">#{{ $listing->property_id }}</flux:badge>
+                            <div class="flex items-center gap-2">
+                                @if ($listing->dedup_status->value === 'new')
+                                    <flux:badge color="green" size="sm">{{ __('Created') }}</flux:badge>
+                                @else
+                                    <flux:badge color="purple" size="sm">{{ __('Linked') }}</flux:badge>
+                                @endif
+                                <flux:badge color="zinc">#{{ $listing->property_id }}</flux:badge>
+                            </div>
                         </div>
                     @endif
 

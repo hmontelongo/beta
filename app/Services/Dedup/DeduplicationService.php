@@ -22,8 +22,8 @@ class DeduplicationService
     {
         if ($listing->property_id) {
             Log::debug('Listing already linked to property', ['listing_id' => $listing->id]);
+            // Don't change the status - preserve whether it was 'new' (created property) or 'matched' (linked to existing)
             $listing->update([
-                'dedup_status' => DedupStatus::Matched,
                 'dedup_checked_at' => now(),
             ]);
 
