@@ -10,6 +10,9 @@ Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
 })->purpose('Display an inspiring quote');
 
+// Reset stale processing jobs every 5 minutes
+Schedule::command('listings:reset-stale')->everyFiveMinutes();
+
 // AI Enrichment: Process pending listings every 15 minutes
 Schedule::job(new ProcessAiEnrichmentBatchJob)->everyFifteenMinutes();
 

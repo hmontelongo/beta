@@ -16,8 +16,11 @@ class PlatformFactory extends Factory
      */
     public function definition(): array
     {
+        $name = fake()->unique()->word().fake()->unique()->randomNumber(4);
+
         return [
-            'name' => fake()->unique()->word().fake()->unique()->randomNumber(4),
+            'name' => $name,
+            'slug' => \Illuminate\Support\Str::slug($name),
             'base_url' => fake()->url(),
             'is_active' => true,
             'config' => null,

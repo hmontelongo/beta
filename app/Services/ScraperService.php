@@ -2,39 +2,43 @@
 
 namespace App\Services;
 
-use App\Services\Scrapers\Inmuebles24Config;
-use App\Services\Scrapers\Inmuebles24ListingParser;
-use App\Services\Scrapers\Inmuebles24SearchParser;
+use App\Services\Scrapers\ScraperFactory;
 use Illuminate\Support\Facades\Log;
 
 class ScraperService
 {
     public function __construct(
         protected ZenRowsClient $zenRows,
-        protected Inmuebles24Config $config,
-        protected Inmuebles24SearchParser $searchParser,
-        protected Inmuebles24ListingParser $listingParser,
+        protected ScraperFactory $factory,
     ) {}
 
     /**
      * Discover listings from a search page.
      *
-     * @return array{total_results: int, total_pages: int, listings: array<array{url: string, external_id: string|null, preview: array}>}
+     * @return array{total_results: int|null, total_pages: int|null, listings: array<array{url: string, external_id: string|null, preview: array}>}
      *
      * @throws \RuntimeException
      */
     public function discoverPage(string $url, int $page = 1): array
     {
-        $paginatedUrl = $this->addPagination($url, $page);
+        $platform = $this->factory->detectPlatformFromUrl($url);
+        $config = $this->factory->createConfig($platform);
+        $searchParser = $this->factory->createSearchParser($platform, $config);
 
-        Log::debug('ScraperService: discovering page', ['url' => $paginatedUrl, 'page' => $page]);
+        $paginatedUrl = $page > 1 ? $config->paginateUrl($url, $page) : $url;
+
+        Log::debug('ScraperService: discovering page', [
+            'url' => $paginatedUrl,
+            'page' => $page,
+            'platform' => $platform->slug,
+        ]);
 
         $extracted = $this->zenRows->fetchSearchPage(
             $paginatedUrl,
-            $this->config->searchExtractor()
+            $config->searchExtractor()
         );
 
-        return $this->searchParser->parse($extracted, $this->getBaseUrl($url));
+        return $searchParser->parse($extracted, $this->getBaseUrl($url));
     }
 
     /**
@@ -46,12 +50,19 @@ class ScraperService
      */
     public function scrapeListing(string $url): array
     {
-        Log::debug('ScraperService: scraping listing', ['url' => $url]);
+        $platform = $this->factory->detectPlatformFromUrl($url);
+        $config = $this->factory->createConfig($platform);
+        $listingParser = $this->factory->createListingParser($platform, $config);
+
+        Log::debug('ScraperService: scraping listing', [
+            'url' => $url,
+            'platform' => $platform->slug,
+        ]);
 
         // Two requests: CSS extraction for structured data, raw HTML for JS variables
         $extracted = $this->zenRows->fetchListingPage(
             $url,
-            $this->config->listingExtractor()
+            $config->listingExtractor()
         );
 
         // Second request for JS variables - handle failure gracefully
@@ -71,28 +82,7 @@ class ScraperService
             // Continue with empty rawHtml - parser will work with CSS-extracted data only
         }
 
-        return $this->listingParser->parse($extracted, $rawHtml, $url);
-    }
-
-    /**
-     * Add pagination parameter to URL.
-     */
-    protected function addPagination(string $url, int $page): string
-    {
-        if ($page <= 1) {
-            return $url;
-        }
-
-        // Inmuebles24 uses -pagina-N suffix before the .html extension
-        // Example: /departamentos-renta-jalisco.html -> /departamentos-renta-jalisco-pagina-2.html
-        if (str_contains($url, '.html')) {
-            return str_replace('.html', "-pagina-{$page}.html", $url);
-        }
-
-        // Fallback: append as query parameter
-        $separator = str_contains($url, '?') ? '&' : '?';
-
-        return "{$url}{$separator}pagina={$page}";
+        return $listingParser->parse($extracted, $rawHtml, $url);
     }
 
     /**

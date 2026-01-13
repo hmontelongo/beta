@@ -3,12 +3,15 @@
 namespace App\Livewire\Listings;
 
 use App\Enums\AiEnrichmentStatus;
+use App\Enums\DedupCandidateStatus;
 use App\Enums\DedupStatus;
 use App\Jobs\DeduplicateListingJob;
 use App\Jobs\EnrichListingJob;
 use App\Jobs\RescrapeListingJob;
+use App\Models\DedupCandidate;
 use App\Models\Listing;
 use Flux\Flux;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
@@ -54,26 +57,26 @@ class Show extends Component
 
     public function runDeduplication(): void
     {
-        // Skip if already linked to a property
         if ($this->listing->property_id) {
-            Flux::toast(
-                heading: 'Already Processed',
-                text: 'This listing is already linked to a property.',
-                variant: 'warning',
-            );
+            Flux::toast(heading: 'Already Processed', text: 'This listing is already linked to a property.', variant: 'warning');
 
             return;
         }
 
-        $this->listing->update(['dedup_status' => DedupStatus::Processing]);
+        if ($this->listing->ai_status !== AiEnrichmentStatus::Completed) {
+            Flux::toast(heading: 'Enrichment Required', text: 'Run AI enrichment first before deduplication.', variant: 'warning');
 
+            return;
+        }
+
+        if (! $this->canDedup) {
+            return;
+        }
+
+        $this->listing->update(['dedup_status' => DedupStatus::Processing]);
         DeduplicateListingJob::dispatch($this->listing->id);
 
-        Flux::toast(
-            heading: 'Deduplication Queued',
-            text: 'Processing in background...',
-            variant: 'info',
-        );
+        Flux::toast(heading: 'Deduplication Queued', text: 'Processing in background...', variant: 'info');
     }
 
     #[Computed]
@@ -126,6 +129,23 @@ class Show extends Component
         }
 
         return preg_replace('/[^0-9]/', '', $whatsapp);
+    }
+
+    /**
+     * Get dedup candidates involving this listing that need review.
+     *
+     * @return Collection<int, DedupCandidate>
+     */
+    #[Computed]
+    public function dedupCandidates(): Collection
+    {
+        return DedupCandidate::where('status', DedupCandidateStatus::NeedsReview)
+            ->where(function ($query) {
+                $query->where('listing_a_id', $this->listing->id)
+                    ->orWhere('listing_b_id', $this->listing->id);
+            })
+            ->with(['listingA.platform', 'listingB.platform'])
+            ->get();
     }
 
     public function render(): View

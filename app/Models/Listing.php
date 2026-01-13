@@ -102,6 +102,26 @@ class Listing extends Model
     }
 
     /**
+     * Get dedup candidates where this listing is listing_a.
+     *
+     * @return HasMany<DedupCandidate, $this>
+     */
+    public function dedupCandidatesAsA(): HasMany
+    {
+        return $this->hasMany(DedupCandidate::class, 'listing_a_id');
+    }
+
+    /**
+     * Get dedup candidates where this listing is listing_b.
+     *
+     * @return HasMany<DedupCandidate, $this>
+     */
+    public function dedupCandidatesAsB(): HasMany
+    {
+        return $this->hasMany(DedupCandidate::class, 'listing_b_id');
+    }
+
+    /**
      * Scope for listings pending AI enrichment.
      *
      * @param  \Illuminate\Database\Eloquent\Builder<Listing>  $query

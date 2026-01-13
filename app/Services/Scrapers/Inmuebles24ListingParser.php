@@ -2,9 +2,12 @@
 
 namespace App\Services\Scrapers;
 
-class Inmuebles24ListingParser
+use App\Contracts\ListingParserInterface;
+use App\Contracts\ScraperConfigInterface;
+
+class Inmuebles24ListingParser implements ListingParserInterface
 {
-    public function __construct(protected Inmuebles24Config $config) {}
+    public function __construct(protected ScraperConfigInterface $config) {}
 
     /**
      * Parse listing data from ZenRows CSS-extracted data + raw HTML for JS variables.

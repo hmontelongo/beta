@@ -423,6 +423,7 @@
                     <flux:button
                         wire:click="runDeduplication"
                         wire:loading.attr="disabled"
+                        :disabled="!$this->canDedup"
                         variant="primary"
                         size="sm"
                         icon="document-duplicate"
@@ -438,6 +439,50 @@
                         <flux:text size="sm" class="text-zinc-400 text-center">
                             {{ __('Run enrichment first') }}
                         </flux:text>
+                    @endif
+
+                    {{-- Needs Review Info --}}
+                    @if ($listing->dedup_status->value === 'needs_review' && $this->dedupCandidates->isNotEmpty())
+                        <flux:separator class="my-3" />
+                        <div class="space-y-2">
+                            <flux:text size="sm" class="text-amber-600 font-medium">
+                                {{ __('Potential duplicates found:') }}
+                            </flux:text>
+                            @foreach ($this->dedupCandidates as $candidate)
+                                @php
+                                    $otherListing = $candidate->listing_a_id === $listing->id
+                                        ? $candidate->listingB
+                                        : $candidate->listingA;
+                                @endphp
+                                <div class="flex items-center justify-between gap-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 p-2">
+                                    <div class="min-w-0 flex-1">
+                                        <flux:text size="sm" class="truncate font-medium">
+                                            {{ $otherListing->raw_data['title'] ?? 'Untitled' }}
+                                        </flux:text>
+                                        <flux:text size="xs" class="text-zinc-500">
+                                            {{ $otherListing->platform->name }} · {{ number_format($candidate->overall_score * 100) }}% match
+                                        </flux:text>
+                                    </div>
+                                    <flux:button
+                                        size="sm"
+                                        variant="ghost"
+                                        icon="eye"
+                                        :href="route('listings.show', $otherListing)"
+                                        wire:navigate
+                                    />
+                                </div>
+                            @endforeach
+                            <flux:button
+                                :href="route('dedup.review')"
+                                wire:navigate
+                                variant="filled"
+                                size="sm"
+                                icon="arrow-right"
+                                class="w-full"
+                            >
+                                {{ __('Review Matches') }}
+                            </flux:button>
+                        </div>
                     @endif
                 </div>
             </flux:card>

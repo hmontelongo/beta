@@ -1,11 +1,19 @@
 <?php
 
+use App\Models\Platform;
 use App\Services\ScraperService;
 use Illuminate\Support\Facades\Http;
 
 beforeEach(function () {
     config(['services.zenrows.api_key' => 'test-api-key']);
     config(['services.zenrows.timeout' => 30]);
+
+    // Seed the inmuebles24 platform for URL detection
+    Platform::factory()->create([
+        'slug' => 'inmuebles24',
+        'name' => 'Inmuebles24',
+        'base_url' => 'https://www.inmuebles24.com',
+    ]);
 });
 
 it('can discover listings from a search page', function () {

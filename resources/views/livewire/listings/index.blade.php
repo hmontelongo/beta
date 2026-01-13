@@ -6,32 +6,67 @@
             <flux:subheading>{{ __('Browse all scraped property listings from all platforms.') }}</flux:subheading>
         </div>
         <div class="flex gap-2">
-            <flux:button
-                wire:click="runBatchEnrichment"
-                wire:loading.attr="disabled"
-                :disabled="$this->isProcessing || $this->stats['ai_pending'] === 0"
-                variant="primary"
-                size="sm"
-                icon="sparkles"
-            >
-                <span wire:loading.remove wire:target="runBatchEnrichment">
-                    {{ __('Enrich Batch') }} ({{ $this->stats['ai_pending'] }})
-                </span>
-                <span wire:loading wire:target="runBatchEnrichment">{{ __('Processing...') }}</span>
-            </flux:button>
-            <flux:button
-                wire:click="runBatchDeduplication"
-                wire:loading.attr="disabled"
-                :disabled="$this->isProcessing || $this->stats['dedup_pending'] === 0"
-                variant="primary"
-                size="sm"
-                icon="document-duplicate"
-            >
-                <span wire:loading.remove wire:target="runBatchDeduplication">
-                    {{ __('Dedup Batch') }} ({{ $this->stats['dedup_pending'] }})
-                </span>
-                <span wire:loading wire:target="runBatchDeduplication">{{ __('Processing...') }}</span>
-            </flux:button>
+            {{-- Enrich Button: Normal or Cancel state --}}
+            @if ($this->isEnrichmentProcessing)
+                <flux:button
+                    wire:click="cancelEnrichment"
+                    wire:loading.attr="disabled"
+                    variant="danger"
+                    size="sm"
+                    icon="x-mark"
+                >
+                    <span wire:loading.remove wire:target="cancelEnrichment">
+                        {{ __('Cancel Enrich') }} ({{ $this->stats['ai_processing'] }})
+                    </span>
+                    <span wire:loading wire:target="cancelEnrichment">{{ __('Cancelling...') }}</span>
+                </flux:button>
+            @else
+                <flux:button
+                    wire:click="runBatchEnrichment"
+                    wire:loading.attr="disabled"
+                    :disabled="$this->isDeduplicationProcessing || $this->stats['ai_pending'] === 0"
+                    variant="primary"
+                    size="sm"
+                    icon="sparkles"
+                >
+                    <span wire:loading.remove wire:target="runBatchEnrichment">
+                        {{ __('Enrich Batch') }} ({{ $this->stats['ai_pending'] }})
+                    </span>
+                    <span wire:loading wire:target="runBatchEnrichment">{{ __('Processing...') }}</span>
+                </flux:button>
+            @endif
+
+            {{-- Dedup Button: Normal or Cancel state --}}
+            @if ($this->isDeduplicationProcessing)
+                <flux:button
+                    wire:click="cancelDeduplication"
+                    wire:loading.attr="disabled"
+                    variant="danger"
+                    size="sm"
+                    icon="x-mark"
+                >
+                    <span wire:loading.remove wire:target="cancelDeduplication">
+                        {{ __('Cancel Dedup') }} ({{ $this->stats['dedup_processing'] }})
+                    </span>
+                    <span wire:loading wire:target="cancelDeduplication">{{ __('Cancelling...') }}</span>
+                </flux:button>
+            @else
+                <flux:button
+                    wire:click="runBatchDeduplication"
+                    wire:loading.attr="disabled"
+                    :disabled="$this->isEnrichmentProcessing || $this->stats['dedup_pending'] === 0"
+                    variant="primary"
+                    size="sm"
+                    icon="document-duplicate"
+                >
+                    <span wire:loading.remove wire:target="runBatchDeduplication">
+                        {{ __('Dedup Batch') }} ({{ $this->stats['dedup_pending'] }})
+                    </span>
+                    <span wire:loading wire:target="runBatchDeduplication">{{ __('Processing...') }}</span>
+                </flux:button>
+            @endif
+
+            {{-- Review Matches link --}}
             @if ($this->stats['candidates_pending_review'] > 0)
                 <flux:button
                     :href="route('dedup.review')"

@@ -97,6 +97,9 @@ class ReviewCandidates extends Component
 
     protected function loadNextCandidate(): void
     {
+        // Clear computed property cache so they refresh
+        unset($this->candidate, $this->candidates, $this->pendingCount);
+
         $next = DedupCandidate::where('status', DedupCandidateStatus::NeedsReview)
             ->orderBy('overall_score', 'desc')
             ->first();

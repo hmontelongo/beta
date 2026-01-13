@@ -92,27 +92,13 @@ class Index extends Component
             ->where('ai_status', '!=', AiEnrichmentStatus::Processing)
             ->get();
 
-        if ($listings->isEmpty()) {
-            Flux::toast(text: 'No eligible listings in selection', variant: 'warning');
+        $count = $this->dispatchEnrichmentJobs($listings, 'No eligible listings in selection');
 
-            return;
+        if ($count > 0) {
+            $this->selected = [];
+            $this->selectAll = false;
+            Flux::toast(heading: 'Enrichment Queued', text: "{$count} listings queued for processing", variant: 'info');
         }
-
-        // Mark all as processing and dispatch jobs
-        foreach ($listings as $listing) {
-            $listing->update(['ai_status' => AiEnrichmentStatus::Processing]);
-            EnrichListingJob::dispatch($listing->id);
-        }
-
-        $count = $listings->count();
-        $this->selected = [];
-        $this->selectAll = false;
-
-        Flux::toast(
-            heading: 'Enrichment Queued',
-            text: "{$count} listings queued for processing",
-            variant: 'info',
-        );
     }
 
     public function runBulkDeduplication(): void
@@ -129,82 +115,98 @@ class Index extends Component
             ->where('dedup_status', '!=', DedupStatus::Processing)
             ->get();
 
-        if ($listings->isEmpty()) {
-            Flux::toast(text: 'No enriched listings eligible for dedup', variant: 'warning');
+        $count = $this->dispatchDeduplicationJobs($listings, 'No enriched listings eligible for dedup');
 
-            return;
+        if ($count > 0) {
+            $this->selected = [];
+            $this->selectAll = false;
+            Flux::toast(heading: 'Deduplication Queued', text: "{$count} listings queued for processing", variant: 'info');
         }
-
-        // Mark all as processing and dispatch jobs
-        foreach ($listings as $listing) {
-            $listing->update(['dedup_status' => DedupStatus::Processing]);
-            DeduplicateListingJob::dispatch($listing->id);
-        }
-
-        $count = $listings->count();
-        $this->selected = [];
-        $this->selectAll = false;
-
-        Flux::toast(
-            heading: 'Deduplication Queued',
-            text: "{$count} listings queued for processing",
-            variant: 'info',
-        );
     }
 
     public function runBatchEnrichment(): void
     {
-        $listings = Listing::pendingAiEnrichment()
-            ->whereNotNull('raw_data')
-            ->limit(10)
-            ->get();
+        $listings = Listing::pendingAiEnrichment()->whereNotNull('raw_data')->get();
+        $count = $this->dispatchEnrichmentJobs($listings, 'No listings pending enrichment');
 
+        if ($count > 0) {
+            Flux::toast(heading: 'Batch Enrichment Queued', text: "{$count} listings queued for processing", variant: 'info');
+        }
+    }
+
+    public function runBatchDeduplication(): void
+    {
+        $listings = Listing::pendingDedup()->whereNotNull('raw_data')->get();
+        $count = $this->dispatchDeduplicationJobs($listings, 'No listings pending deduplication');
+
+        if ($count > 0) {
+            Flux::toast(heading: 'Batch Deduplication Queued', text: "{$count} listings queued for processing", variant: 'info');
+        }
+    }
+
+    /**
+     * Dispatch enrichment jobs for the given listings.
+     *
+     * @param  \Illuminate\Database\Eloquent\Collection<int, Listing>  $listings
+     */
+    protected function dispatchEnrichmentJobs($listings, string $emptyMessage): int
+    {
         if ($listings->isEmpty()) {
-            Flux::toast(text: 'No listings pending enrichment', variant: 'warning');
+            Flux::toast(text: $emptyMessage, variant: 'warning');
 
-            return;
+            return 0;
         }
 
-        // Mark all as processing and dispatch jobs
         foreach ($listings as $listing) {
             $listing->update(['ai_status' => AiEnrichmentStatus::Processing]);
             EnrichListingJob::dispatch($listing->id);
         }
 
-        $count = $listings->count();
-
-        Flux::toast(
-            heading: 'Batch Enrichment Queued',
-            text: "{$count} listings queued for processing",
-            variant: 'info',
-        );
+        return $listings->count();
     }
 
-    public function runBatchDeduplication(): void
+    /**
+     * Dispatch deduplication jobs for the given listings.
+     *
+     * @param  \Illuminate\Database\Eloquent\Collection<int, Listing>  $listings
+     */
+    protected function dispatchDeduplicationJobs($listings, string $emptyMessage): int
     {
-        $listings = Listing::pendingDedup()
-            ->whereNotNull('raw_data')
-            ->limit(10)
-            ->get();
-
         if ($listings->isEmpty()) {
-            Flux::toast(text: 'No listings pending deduplication', variant: 'warning');
+            Flux::toast(text: $emptyMessage, variant: 'warning');
 
-            return;
+            return 0;
         }
 
-        // Mark all as processing and dispatch jobs
         foreach ($listings as $listing) {
             $listing->update(['dedup_status' => DedupStatus::Processing]);
             DeduplicateListingJob::dispatch($listing->id);
         }
 
-        $count = $listings->count();
+        return $listings->count();
+    }
+
+    public function cancelEnrichment(): void
+    {
+        $count = Listing::where('ai_status', AiEnrichmentStatus::Processing)
+            ->update(['ai_status' => AiEnrichmentStatus::Pending]);
 
         Flux::toast(
-            heading: 'Batch Deduplication Queued',
-            text: "{$count} listings queued for processing",
-            variant: 'info',
+            heading: 'Enrichment Cancelled',
+            text: "{$count} listings reset to pending",
+            variant: 'warning',
+        );
+    }
+
+    public function cancelDeduplication(): void
+    {
+        $count = Listing::where('dedup_status', DedupStatus::Processing)
+            ->update(['dedup_status' => DedupStatus::Pending]);
+
+        Flux::toast(
+            heading: 'Deduplication Cancelled',
+            text: "{$count} listings reset to pending",
+            variant: 'warning',
         );
     }
 
@@ -218,7 +220,7 @@ class Index extends Component
             'ai_pending' => Listing::where('ai_status', AiEnrichmentStatus::Pending)->count(),
             'ai_processing' => Listing::where('ai_status', AiEnrichmentStatus::Processing)->count(),
             'ai_completed' => Listing::where('ai_status', AiEnrichmentStatus::Completed)->count(),
-            'dedup_pending' => Listing::where('dedup_status', DedupStatus::Pending)->count(),
+            'dedup_pending' => Listing::pendingDedup()->count(),
             'dedup_processing' => Listing::where('dedup_status', DedupStatus::Processing)->count(),
             'dedup_matched' => Listing::where('dedup_status', DedupStatus::Matched)->count(),
             'dedup_needs_review' => Listing::where('dedup_status', DedupStatus::NeedsReview)->count(),
@@ -229,7 +231,38 @@ class Index extends Component
     #[Computed]
     public function isProcessing(): bool
     {
+        // Auto-reset stale processing jobs (stuck for more than 5 minutes)
+        $this->resetStaleProcessingJobs();
+
         return $this->stats['ai_processing'] > 0 || $this->stats['dedup_processing'] > 0;
+    }
+
+    #[Computed]
+    public function isEnrichmentProcessing(): bool
+    {
+        return $this->stats['ai_processing'] > 0;
+    }
+
+    #[Computed]
+    public function isDeduplicationProcessing(): bool
+    {
+        return $this->stats['dedup_processing'] > 0;
+    }
+
+    /**
+     * Reset listings stuck in processing status for more than 5 minutes.
+     */
+    protected function resetStaleProcessingJobs(): void
+    {
+        $staleThreshold = now()->subMinutes(5);
+
+        Listing::where('ai_status', AiEnrichmentStatus::Processing)
+            ->where('updated_at', '<', $staleThreshold)
+            ->update(['ai_status' => AiEnrichmentStatus::Pending]);
+
+        Listing::where('dedup_status', DedupStatus::Processing)
+            ->where('updated_at', '<', $staleThreshold)
+            ->update(['dedup_status' => DedupStatus::Pending]);
     }
 
     /**

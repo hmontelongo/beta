@@ -5,7 +5,7 @@ namespace App\Services\Scrapers;
 use App\Contracts\ScraperConfigInterface;
 use App\Contracts\SearchParserInterface;
 
-class Inmuebles24SearchParser implements SearchParserInterface
+class VivanunciosSearchParser implements SearchParserInterface
 {
     public function __construct(protected ScraperConfigInterface $config) {}
 
@@ -21,8 +21,9 @@ class Inmuebles24SearchParser implements SearchParserInterface
         $listings = [];
         $seenUrls = [];
 
-        // Get URLs array - ZenRows returns arrays when multiple elements match
+        // Get arrays - ZenRows returns arrays when multiple elements match
         $urls = $this->toArray($extracted['urls'] ?? []);
+        $externalIds = $this->toArray($extracted['external_ids'] ?? []);
         $titles = $this->toArray($extracted['titles'] ?? []);
         $prices = $this->toArray($extracted['prices'] ?? []);
         $locations = $this->toArray($extracted['locations'] ?? []);
@@ -41,9 +42,12 @@ class Inmuebles24SearchParser implements SearchParserInterface
             }
             $seenUrls[$fullUrl] = true;
 
+            // Get external ID from data-id or extract from URL
+            $externalId = $externalIds[$i] ?? $this->config->extractExternalId($fullUrl);
+
             $listings[] = [
                 'url' => $fullUrl,
-                'external_id' => $this->extractExternalId($fullUrl),
+                'external_id' => $externalId,
                 'preview' => [
                     'title' => $this->cleanText($titles[$i] ?? null),
                     'price' => $this->cleanText($prices[$i] ?? null),
@@ -101,28 +105,16 @@ class Inmuebles24SearchParser implements SearchParserInterface
             return rtrim($baseUrl, '/').explode('?', $url)[0];
         }
 
-        return $url;
-    }
-
-    /**
-     * Extract external ID from URL.
-     */
-    protected function extractExternalId(string $url): ?string
-    {
-        if (preg_match($this->config->externalIdPattern(), $url, $matches)) {
-            return $matches[1];
-        }
-
-        return null;
+        return $baseUrl.'/'.explode('?', $url)[0];
     }
 
     /**
      * Parse total results from page title.
-     * Example: "954 Departamentos en renta en Jalisco"
+     * Example: "60 Propiedades en renta en Tonalá" or "120 Departamentos en renta"
      */
     protected function parseTotalResults(string $pageTitle): int
     {
-        if (preg_match('/^([\d,\.]+)\s+(departamentos?|inmuebles?|propiedades?|casas?)/iu', $pageTitle, $matches)) {
+        if (preg_match('/^([\d,\.]+)\s+(propiedades?|departamentos?|inmuebles?|casas?)/iu', $pageTitle, $matches)) {
             return (int) preg_replace('/[,\.]/', '', $matches[1]);
         }
 
@@ -148,10 +140,10 @@ class Inmuebles24SearchParser implements SearchParserInterface
             }
         }
 
-        // Calculate from total results (Inmuebles24 shows ~30 per page)
+        // Calculate from total results (Vivanuncios shows ~20 per page)
         // Use calculated if higher (pagination may only show first few pages)
         if ($totalResults > 0) {
-            $calculated = (int) ceil($totalResults / 30);
+            $calculated = (int) ceil($totalResults / 20);
             if ($calculated > $maxPage) {
                 $maxPage = $calculated;
             }
@@ -184,7 +176,7 @@ class Inmuebles24SearchParser implements SearchParserInterface
             return null;
         }
 
-        // Upgrade to higher resolution if possible
+        // Upgrade to higher resolution if possible (same CDN as Inmuebles24)
         $url = str_replace(['360x266', '720x532'], '1200x1200', $url);
 
         return $url;

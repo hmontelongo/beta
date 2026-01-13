@@ -87,15 +87,14 @@
 
                     {{-- Image --}}
                     @php
-                        $images = collect($listing->raw_data['images'] ?? [])
+                        $firstImage = collect($listing->raw_data['images'] ?? [])
                             ->map(fn ($img) => is_array($img) ? $img['url'] : $img)
                             ->filter(fn ($url) => !str_contains($url, '.svg') && !str_contains($url, 'placeholder'))
-                            ->take(1)
-                            ->toArray();
+                            ->first();
                     @endphp
-                    @if (!empty($images))
+                    @if ($firstImage)
                         <div class="mb-4 aspect-video overflow-hidden rounded-lg bg-zinc-100 dark:bg-zinc-800">
-                            <img src="{{ $images[0] }}" alt="Property" class="h-full w-full object-cover" />
+                            <img src="{{ $firstImage }}" alt="Property" class="h-full w-full object-cover" />
                         </div>
                     @endif
 

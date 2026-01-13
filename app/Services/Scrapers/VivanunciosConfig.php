@@ -4,7 +4,7 @@ namespace App\Services\Scrapers;
 
 use App\Contracts\ScraperConfigInterface;
 
-class Inmuebles24Config implements ScraperConfigInterface
+class VivanunciosConfig implements ScraperConfigInterface
 {
     /**
      * CSS extractor configuration for search pages.
@@ -14,14 +14,17 @@ class Inmuebles24Config implements ScraperConfigInterface
     public function searchExtractor(): array
     {
         return [
-            // Listing URLs - extract href attributes
-            'urls' => '[data-qa^="posting"] a[href*="/propiedades/"] @href',
+            // Listing URLs - use data-to-posting attribute
+            'urls' => '[data-qa="posting PROPERTY"] @data-to-posting',
+
+            // External IDs from data-id attribute
+            'external_ids' => '[data-qa="posting PROPERTY"] @data-id',
 
             // Preview data (shown during discovery)
             'titles' => '[data-qa="POSTING_CARD_DESCRIPTION"]',
             'prices' => '[data-qa="POSTING_CARD_PRICE"]',
             'locations' => '[data-qa="POSTING_CARD_LOCATION"]',
-            'images' => '[data-qa^="posting"] img @src',
+            'images' => '[data-qa="POSTING_CARD_GALLERY"] img @src',
 
             // Pagination - extract title for total count
             'page_title' => 'title',
@@ -37,53 +40,44 @@ class Inmuebles24Config implements ScraperConfigInterface
     public function listingExtractor(): array
     {
         return [
+            // JSON-LD structured data (most reliable)
+            'json_ld' => 'script[type="application/ld+json"]',
+
             // Core info
-            'title' => 'h1',
-            'description' => '#longDescription, [class*="descriptionContent"], [data-qa="POSTING_DESCRIPTION"]',
+            'title' => 'article h1',
+            'description' => 'article [class*="description"], #description',
 
-            // Features (icon-based elements)
-            'bedrooms_text' => '.icon-dormitorio',
-            'bathrooms_text' => '.icon-bano',
-            'half_bathrooms_text' => '.icon-toilete',
-            'parking_text' => '.icon-cochera',
-            'area_total_text' => '.icon-stotal',
-            'area_built_text' => '.icon-scubierta',
-            'age_text' => '.icon-antiguedad',
+            // Features (icon-based elements - similar to Inmuebles24)
+            'bedrooms_text' => '.icon-dormitorio, [class*="bed"]',
+            'bathrooms_text' => '.icon-bano, [class*="bath"]',
+            'parking_text' => '.icon-cochera, [class*="parking"]',
+            'area_text' => '[class*="totalArea"], [class*="area"]',
 
-            // All feature items for fallback parsing
-            'feature_items' => 'li.icon-feature',
+            // Feature items
+            'feature_items' => 'article ul li',
 
             // Location
-            'location_header' => '.section-location-property h4',
+            'location_header' => 'article h4, [class*="address"]',
             'breadcrumbs' => '[class*="breadcrumb"] a',
 
-            // Images - multiple selectors for fallback (also grab data-src for lazy loading)
-            'gallery_images' => '[class*="gallery"] img @src, [class*="gallery"] img @data-src',
-            'carousel_images' => '[class*="carousel"] img @src, [class*="carousel"] img @data-src',
-            'picture_images' => '[class*="picture"] img @src, [class*="picture"] img @data-src',
-            'multimedia_images' => '[class*="multimedia"] img @src, [data-qa*="GALLERY"] img @src',
-            'all_listing_images' => '[class*="posting-image"] img @src, [class*="PostingImage"] img @src',
-            'preview_gallery_images' => '[class*="preview-gallery"] img @src, [class*="preview-gallery"] img @data-src',
-            'modal_gallery_images' => '[class*="modal"] img @src, [class*="lightbox"] img @src, [class*="fullscreen"] img @src',
+            // Images
+            'gallery_images' => '[class*="gallery"] img @src, [class*="carousel"] img @src',
 
             // Publisher info
-            'publisher_name' => '[data-qa="publisher-name"], [class*="publisher-name"]',
-            'whatsapp_link' => 'a[href*="wa.me"] @href',
+            'publisher_name' => '[class*="seller"] a, a[href*="u-anuncios-del-vendedor"]',
+            'phone_link' => 'a[href*="tel:"] @href',
 
-            // Stats
-            'stats_text' => '.view-users-container',
+            // External codes
+            'vivanuncios_code' => '[class*="code"], [class*="id"]',
 
-            // Amenities - use flexible selector since CSS module classes change
-            'amenities' => '[class*="generalFeatures"] [class*="description"], [class*="amenities"] li, [data-qa*="AMENITY"]',
-
-            // Price containers for dual operations
-            'price_containers' => '[data-qa="POSTING_CARD_PRICE"], [class*="price-value"]',
-            'operation_tags' => '[data-qa="POSTING_CARD_FEATURES"] span, [class*="operation-type"]',
+            // Price containers
+            'price_containers' => '[class*="price"]',
         ];
     }
 
     /**
      * Regex patterns for extracting data from JavaScript variables.
+     * Vivanuncios uses similar patterns to Inmuebles24 (same parent company).
      *
      * @return array<string, string>
      */
@@ -93,17 +87,9 @@ class Inmuebles24Config implements ScraperConfigInterface
             'price' => "/'price':\s*'(\d+)'/",
             'currency_id' => "/'currencyId':\s*'(\d+)'/",
             'operation_type_id' => "/'operationTypeId':\s*'(\d+)'/",
-            'province_id' => "/'provinceId':\s*'(\d+)'/",
-            'city_id' => "/'cityId':\s*'(\d+)'/",
-            'neighborhood_id' => "/'neighborhoodId':\s*'(\d+)'/",
             'property_type_id' => "/'propertyTypeId':\s*'(\d+)'/",
             'posting_id' => "/'postingId':\s*'(\d+)'/",
             'publisher_id' => "/'publisherId':\s*'(\d+)'/",
-            'publisher_name' => "/'name':\s*'([^']+)'/",
-            'publisher_type_id' => "/'publisherTypeId':\s*'(\d+)'/",
-            'publisher_url' => "/'url':\s*'(\\/(?:inmobiliaria|agencia|desarrolladora)[^']+)'/",
-            'publisher_logo' => "/'urlLogo':\s*'([^']+)'/",
-            'whatsapp' => "/'whatsApp':\s*'([^']+)'/",
             'latitude' => '/"latitude":\s*([-\d.]+)/',
             'longitude' => '/"longitude":\s*([-\d.]+)/',
         ];
@@ -111,24 +97,27 @@ class Inmuebles24Config implements ScraperConfigInterface
 
     /**
      * URL pattern for extracting external ID.
+     * Vivanuncios uses numeric IDs at the end of URLs.
      */
     public function externalIdPattern(): string
     {
-        return '/(?:propiedades|propiedad|clasificado)[\\/-].*?(\\d{6,})/';
+        return '/(\d{6,})$/';
     }
 
     /**
      * Generate paginated URL from base URL and page number.
+     * Vivanuncios uses p1, p2, p3 format at the end of URLs.
      */
     public function paginateUrl(string $baseUrl, int $page): string
     {
-        // Inmuebles24 uses -pagina-N format
-        if (preg_match('/-pagina-\d+/', $baseUrl)) {
-            return preg_replace('/-pagina-\d+/', "-pagina-{$page}", $baseUrl);
+        // Vivanuncios uses pN format at end of URL
+        // Example: /s-renta-inmuebles/tonala-jalisco/v1c1098l16498p1
+        if (preg_match('/p\d+$/', $baseUrl)) {
+            return preg_replace('/p\d+$/', "p{$page}", $baseUrl);
         }
 
-        // Add pagination to URL
-        return rtrim($baseUrl, '/')."-pagina-{$page}";
+        // Add pagination if not present
+        return rtrim($baseUrl, '/')."p{$page}";
     }
 
     /**
@@ -158,15 +147,12 @@ class Inmuebles24Config implements ScraperConfigInterface
             'neighborhood' => '/"barrio"\s*:\s*"([^"]+)"/',
             'city' => '/"ciudad"\s*:\s*"([^"]+)"/',
             'state' => '/"provincia"\s*:\s*"([^"]+)"/',
-            'bedrooms' => '/"ambientes"\s*:\s*"?(\d+)"?/',
-            'bathrooms' => '/"banos"\s*:\s*"?(\d+)"?/',
-            'area' => '/"superficieTotal"\s*:\s*"?(\d+)"?/',
-            'publisher_type' => '/"tipoDePropietario"\s*:\s*"([^"]+)"/',
         ];
     }
 
     /**
      * Map Spanish property type names to standard types.
+     * Vivanuncios uses similar property type names to Inmuebles24.
      *
      * @return array<string, string>
      */
@@ -189,13 +175,9 @@ class Inmuebles24Config implements ScraperConfigInterface
             'local en centro comercial' => 'commercial',
             'cuarto' => 'room',
             'habitación' => 'room',
-            'terreno comercial' => 'land',
-            'nave industrial' => 'industrial',
-            'consultorio' => 'office',
-            'villa' => 'house',
-            'bodega comercial' => 'warehouse',
-            'penthouse' => 'apartment',
-            'loft' => 'apartment',
+            'apartment' => 'apartment',
+            'house' => 'house',
+            'singlefamilyresidence' => 'house',
         ];
     }
 
@@ -213,7 +195,7 @@ class Inmuebles24Config implements ScraperConfigInterface
     }
 
     /**
-     * Currency type mappings (platform ID => ISO code).
+     * Currency type mappings (platform ID => standard code).
      *
      * @return array<int, string>
      */
@@ -227,6 +209,7 @@ class Inmuebles24Config implements ScraperConfigInterface
 
     /**
      * Property type mappings (platform ID => standard type).
+     * Same mappings as Inmuebles24 (same parent company).
      *
      * @return array<int, string>
      */
@@ -281,7 +264,6 @@ class Inmuebles24Config implements ScraperConfigInterface
             'alberca' => 'pool',
             'piscina' => 'pool',
             'gimnasio' => 'gym',
-            'gym' => 'gym',
             'seguridad' => 'security_24h',
             'vigilancia' => 'security_24h',
             'elevador' => 'elevator',
@@ -291,60 +273,12 @@ class Inmuebles24Config implements ScraperConfigInterface
             'jardín' => 'garden',
             'jardin' => 'garden',
             'áreas verdes' => 'green_areas',
-            'areas verdes' => 'green_areas',
             'pet friendly' => 'pet_friendly',
             'mascotas' => 'pet_friendly',
             'estacionamiento' => 'parking',
             'bodega' => 'storage',
-            'cuarto de servicio' => 'service_room',
             'aire acondicionado' => 'ac',
-            'calefacción' => 'heating',
             'amueblado' => 'furnished',
-            'jacuzzi' => 'jacuzzi',
-            'bbq' => 'bbq_area',
-            'asador' => 'bbq_area',
-            'parrilla' => 'bbq_area',
-            'sala de juntas' => 'meeting_room',
-            'salón de eventos' => 'event_room',
-            'business center' => 'business_center',
-            'usos múltiples' => 'multipurpose_room',
-            'juegos' => 'playground',
-            'ludoteca' => 'playground',
-            'biblioteca' => 'library',
-            'cancha' => 'sports_court',
-            'tenis' => 'sports_court',
-            'padel' => 'sports_court',
-            'lobby' => 'lobby',
-            'cctv' => 'cctv',
-            'cámaras' => 'cctv',
-            'pista para correr' => 'jogging_track',
-            'jogging' => 'jogging_track',
-            'coworking' => 'coworking',
-            'spa' => 'spa',
-            'vapor' => 'spa',
-            'sauna' => 'spa',
-            'cine' => 'cinema',
-            'cocina integral' => 'integrated_kitchen',
-            'área de lavado' => 'laundry_area',
-            'balcón' => 'balcony',
-            'balcon' => 'balcony',
-        ];
-    }
-
-    /**
-     * Property subtype patterns (regex => subtype).
-     *
-     * @return array<string, string>
-     */
-    public function subtypePatterns(): array
-    {
-        return [
-            '/\\bPH\\b|PENTHOUSE/i' => 'penthouse',
-            '/GARDEN|PLANTA\\s+BAJA|\\bPB\\b/i' => 'ground_floor',
-            '/\\bLOFT\\b/i' => 'loft',
-            '/DUPLEX|D[ÚU]PLEX/i' => 'duplex',
-            '/TRIPLEX/i' => 'triplex',
-            '/ESTUDIO/i' => 'studio',
         ];
     }
 }
