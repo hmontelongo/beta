@@ -1,4 +1,11 @@
-<div class="space-y-6" @if($this->isProcessing) wire:poll.2s @endif>
+{{-- Always poll: fast when processing, slow when idle --}}
+<div class="space-y-6"
+    @if($this->isProcessing)
+        wire:poll.2s
+    @else
+        wire:poll.10s="checkForChanges"
+    @endif
+>
     {{-- Page Header --}}
     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -78,6 +85,50 @@
                     {{ __('Review Matches') }} ({{ $this->stats['candidates_pending_review'] }})
                 </flux:button>
             @endif
+
+            {{-- Retry Failed Enrichment --}}
+            @if ($this->stats['ai_failed'] > 0)
+                <flux:button
+                    wire:click="retryFailedEnrichment"
+                    wire:loading.attr="disabled"
+                    :disabled="$this->isProcessing"
+                    variant="filled"
+                    size="sm"
+                    icon="arrow-path"
+                >
+                    <span wire:loading.remove wire:target="retryFailedEnrichment">
+                        {{ __('Retry Enrich') }} ({{ $this->stats['ai_failed'] }})
+                    </span>
+                    <span wire:loading wire:target="retryFailedEnrichment">{{ __('Queueing...') }}</span>
+                </flux:button>
+            @endif
+
+            {{-- Retry Failed Dedup --}}
+            @if ($this->stats['dedup_failed'] > 0)
+                <flux:button
+                    wire:click="retryFailedDedup"
+                    wire:loading.attr="disabled"
+                    :disabled="$this->isProcessing"
+                    variant="filled"
+                    size="sm"
+                    icon="arrow-path"
+                >
+                    <span wire:loading.remove wire:target="retryFailedDedup">
+                        {{ __('Retry Dedup') }} ({{ $this->stats['dedup_failed'] }})
+                    </span>
+                    <span wire:loading wire:target="retryFailedDedup">{{ __('Queueing...') }}</span>
+                </flux:button>
+            @endif
+
+            {{-- Reset Stuck Jobs --}}
+            <flux:dropdown>
+                <flux:button size="sm" variant="ghost" icon="ellipsis-vertical" />
+                <flux:menu>
+                    <flux:menu.item wire:click="resetStuckJobs" icon="arrow-path">
+                        {{ __('Reset Stuck Jobs') }}
+                    </flux:menu.item>
+                </flux:menu>
+            </flux:dropdown>
         </div>
     </div>
 
@@ -111,6 +162,14 @@
             <flux:text size="sm" class="text-zinc-500">{{ __('Needs Review') }}</flux:text>
             <flux:heading size="lg" class="text-amber-600">{{ $this->stats['dedup_needs_review'] }}</flux:heading>
         </flux:card>
+        @if ($this->stats['ai_failed'] > 0 || $this->stats['dedup_failed'] > 0)
+            <flux:card class="p-4 bg-red-50 dark:bg-red-900/20 cursor-pointer hover:bg-red-100 dark:hover:bg-red-900/30" wire:click="$set('aiStatus', 'failed')">
+                <flux:text size="sm" class="text-red-600 dark:text-red-400">{{ __('Failed') }}</flux:text>
+                <flux:heading size="lg" class="text-red-600">
+                    {{ $this->stats['ai_failed'] + $this->stats['dedup_failed'] }}
+                </flux:heading>
+            </flux:card>
+        @endif
     </div>
 
     {{-- Filters --}}

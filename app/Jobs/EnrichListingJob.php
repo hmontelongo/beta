@@ -50,6 +50,9 @@ class EnrichListingJob implements ShouldQueue
             return;
         }
 
+        // Job owns state transition - set Processing at start of actual work
+        $listing->update(['ai_status' => AiEnrichmentStatus::Processing]);
+
         $enrichmentService->enrichListing($listing);
     }
 

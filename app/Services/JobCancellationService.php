@@ -1,0 +1,230 @@
+<?php
+
+namespace App\Services;
+
+use App\Enums\AiEnrichmentStatus;
+use App\Enums\DedupStatus;
+use App\Enums\DiscoveredListingStatus;
+use App\Enums\ScrapeJobStatus;
+use App\Enums\ScrapeRunStatus;
+use App\Models\DiscoveredListing;
+use App\Models\Listing;
+use App\Models\ScrapeJob;
+use App\Models\ScrapeRun;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Redis;
+
+class JobCancellationService
+{
+    /**
+     * Cancel enrichment jobs and reset listings to pending.
+     *
+     * @return array{cancelled: int, reset: int}
+     */
+    public function cancelEnrichmentJobs(): array
+    {
+        $processingCount = Listing::where('ai_status', AiEnrichmentStatus::Processing)->count();
+
+        // Clear the enrichment queue
+        $this->clearQueue('ai-enrichment');
+
+        // Reset all processing listings to pending
+        $resetCount = Listing::where('ai_status', AiEnrichmentStatus::Processing)
+            ->update(['ai_status' => AiEnrichmentStatus::Pending]);
+
+        Log::info('Enrichment jobs cancelled', [
+            'queue_cleared' => 'ai-enrichment',
+            'listings_reset' => $resetCount,
+        ]);
+
+        return [
+            'cancelled' => $processingCount,
+            'reset' => $resetCount,
+        ];
+    }
+
+    /**
+     * Cancel deduplication jobs and reset listings to pending.
+     *
+     * @return array{cancelled: int, reset: int}
+     */
+    public function cancelDeduplicationJobs(): array
+    {
+        $processingCount = Listing::where('dedup_status', DedupStatus::Processing)->count();
+
+        // Clear the dedup queue
+        $this->clearQueue('dedup');
+
+        // Reset all processing listings to pending
+        $resetCount = Listing::where('dedup_status', DedupStatus::Processing)
+            ->update(['dedup_status' => DedupStatus::Pending]);
+
+        Log::info('Deduplication jobs cancelled', [
+            'queue_cleared' => 'dedup',
+            'listings_reset' => $resetCount,
+        ]);
+
+        return [
+            'cancelled' => $processingCount,
+            'reset' => $resetCount,
+        ];
+    }
+
+    /**
+     * Cancel scraping jobs for a specific run.
+     *
+     * @return array{scrape_jobs_reset: int, discovered_listings_reset: int}
+     */
+    public function cancelScrapingJobs(?int $scrapeRunId = null): array
+    {
+        // Clear the scraping queue
+        $this->clearQueue('scraping');
+
+        $scrapeJobsReset = 0;
+        $discoveredListingsReset = 0;
+
+        if ($scrapeRunId) {
+            // Reset scrape jobs for this run
+            $scrapeJobsReset = ScrapeJob::where('scrape_run_id', $scrapeRunId)
+                ->where('status', ScrapeJobStatus::Running)
+                ->update([
+                    'status' => ScrapeJobStatus::Failed,
+                    'completed_at' => now(),
+                ]);
+
+            // Reset queued listings back to pending (their jobs were cleared from the queue)
+            // This allows them to be resumed later
+            $discoveredListingsReset = DiscoveredListing::where('scrape_run_id', $scrapeRunId)
+                ->where('status', DiscoveredListingStatus::Queued)
+                ->update(['status' => DiscoveredListingStatus::Pending]);
+
+            // Update the scrape run status
+            ScrapeRun::where('id', $scrapeRunId)
+                ->whereIn('status', [
+                    ScrapeRunStatus::Discovering,
+                    ScrapeRunStatus::Scraping,
+                ])
+                ->update([
+                    'status' => ScrapeRunStatus::Stopped,
+                    'completed_at' => now(),
+                ]);
+        } else {
+            // Reset all running scrape jobs
+            $scrapeJobsReset = ScrapeJob::where('status', ScrapeJobStatus::Running)
+                ->update([
+                    'status' => ScrapeJobStatus::Failed,
+                    'completed_at' => now(),
+                ]);
+        }
+
+        Log::info('Scraping jobs cancelled', [
+            'scrape_run_id' => $scrapeRunId,
+            'scrape_jobs_reset' => $scrapeJobsReset,
+            'discovered_listings_reset' => $discoveredListingsReset,
+        ]);
+
+        return [
+            'scrape_jobs_reset' => $scrapeJobsReset,
+            'discovered_listings_reset' => $discoveredListingsReset,
+        ];
+    }
+
+    /**
+     * Cancel discovery jobs and associated scraping.
+     *
+     * @return array{scrape_jobs_reset: int}
+     */
+    public function cancelDiscoveryJobs(?int $scrapeRunId = null): array
+    {
+        // Clear the discovery queue
+        $this->clearQueue('discovery');
+
+        $scrapeJobsReset = 0;
+
+        if ($scrapeRunId) {
+            $scrapeJobsReset = ScrapeJob::where('scrape_run_id', $scrapeRunId)
+                ->where('status', ScrapeJobStatus::Running)
+                ->update([
+                    'status' => ScrapeJobStatus::Failed,
+                    'completed_at' => now(),
+                ]);
+
+            ScrapeRun::where('id', $scrapeRunId)
+                ->where('status', ScrapeRunStatus::Discovering)
+                ->update([
+                    'status' => ScrapeRunStatus::Stopped,
+                    'completed_at' => now(),
+                ]);
+        }
+
+        Log::info('Discovery jobs cancelled', [
+            'scrape_run_id' => $scrapeRunId,
+            'scrape_jobs_reset' => $scrapeJobsReset,
+        ]);
+
+        return [
+            'scrape_jobs_reset' => $scrapeJobsReset,
+        ];
+    }
+
+    /**
+     * Clear all jobs from a specific queue.
+     */
+    protected function clearQueue(string $queueName): void
+    {
+        $connection = config('queue.default');
+
+        if ($connection !== 'redis') {
+            Log::warning('Queue clearing only supported for Redis', [
+                'connection' => $connection,
+                'queue' => $queueName,
+            ]);
+
+            return;
+        }
+
+        $prefix = config('database.redis.options.prefix', '');
+
+        // Clear pending jobs
+        Redis::del("{$prefix}queues:{$queueName}");
+
+        // Clear reserved jobs (currently processing)
+        Redis::del("{$prefix}queues:{$queueName}:reserved");
+
+        // Clear delayed jobs
+        Redis::del("{$prefix}queues:{$queueName}:delayed");
+
+        // Clear notify key (used by Horizon)
+        Redis::del("{$prefix}queues:{$queueName}:notify");
+
+        Log::info('Queue cleared', ['queue' => $queueName]);
+    }
+
+    /**
+     * Get queue statistics for monitoring.
+     *
+     * @return array<string, array{pending: int, reserved: int, delayed: int}>
+     */
+    public function getQueueStats(): array
+    {
+        $queues = ['ai-enrichment', 'dedup', 'scraping', 'discovery'];
+        $stats = [];
+
+        $connection = config('queue.default');
+        if ($connection !== 'redis') {
+            return $stats;
+        }
+
+        $prefix = config('database.redis.options.prefix', '');
+
+        foreach ($queues as $queue) {
+            $stats[$queue] = [
+                'pending' => (int) Redis::llen("{$prefix}queues:{$queue}"),
+                'reserved' => (int) Redis::zcard("{$prefix}queues:{$queue}:reserved"),
+                'delayed' => (int) Redis::zcard("{$prefix}queues:{$queue}:delayed"),
+            ];
+        }
+
+        return $stats;
+    }
+}

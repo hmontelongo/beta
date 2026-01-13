@@ -8,9 +8,10 @@ The Laravel Boost guidelines are specifically curated by Laravel maintainers for
 ## Foundational Context
 This application is a Laravel application and its main Laravel ecosystems package & versions are below. You are an expert with them all. Ensure you abide by these specific packages & versions.
 
-- php - 8.4.13
+- php - 8.4.16
 - laravel/fortify (FORTIFY) - v1
 - laravel/framework (LARAVEL) - v12
+- laravel/horizon (HORIZON) - v5
 - laravel/prompts (PROMPTS) - v0
 - livewire/flux (FLUXUI_FREE) - v2
 - livewire/flux-pro (FLUXUI_PRO) - v2
@@ -522,6 +523,16 @@ Always look up documentation through context-7 MCP before implementing anything.
 - **Listing**: A single scraped entry from a platform (many listings can point to one property)
 - **Agency**: Real estate company
 - **Agent**: Individual person (may be independent or belong to an agency)
+
+### Code Validation Requirements (CRITICAL)
+Before writing any code that uses enums, classes, methods, or properties:
+1. **Read the source files first** - Never assume an enum case, method, or property exists. Always read the actual file to verify.
+2. **Check available enum cases** - When using an enum, read the enum file to see exactly which cases exist.
+3. **Expand context beyond immediate need** - Read related files (sibling classes, parent interfaces, related enums) to understand the full picture.
+4. **Test the code path** - After implementing, verify the code path works by running it or writing a test.
+5. **Write tests for new functionality** - Every new feature or change needs test coverage.
+
+This prevents errors like referencing `ScrapeJobStatus::Cancelled` when only `Pending`, `Running`, `Completed`, `Failed` exist.
 
 
 

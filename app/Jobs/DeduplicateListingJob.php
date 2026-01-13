@@ -48,6 +48,9 @@ class DeduplicateListingJob implements ShouldQueue
             return;
         }
 
+        // Job owns state transition - set Processing at start of actual work
+        $listing->update(['dedup_status' => DedupStatus::Processing]);
+
         $dedupService->processListing($listing);
     }
 

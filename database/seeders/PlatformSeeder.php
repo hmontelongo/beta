@@ -15,18 +15,22 @@ class PlatformSeeder extends Seeder
         $platforms = [
             [
                 'name' => 'inmuebles24',
+                'slug' => 'inmuebles24',
                 'base_url' => 'https://www.inmuebles24.com',
             ],
             [
                 'name' => 'vivanuncios',
+                'slug' => 'vivanuncios',
                 'base_url' => 'https://www.vivanuncios.com.mx',
             ],
             [
                 'name' => 'mercadolibre',
+                'slug' => 'mercadolibre',
                 'base_url' => 'https://inmuebles.mercadolibre.com.mx',
             ],
             [
                 'name' => 'easybroker',
+                'slug' => 'easybroker',
                 'base_url' => 'https://www.easybroker.com',
             ],
         ];

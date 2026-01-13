@@ -1,12 +1,15 @@
 <?php
 
 use App\Enums\DiscoveredListingStatus;
+use App\Enums\ScrapeJobStatus;
+use App\Enums\ScrapeJobType;
 use App\Enums\ScrapePhase;
 use App\Enums\ScrapeRunStatus;
 use App\Events\ScrapeRunProgress;
 use App\Jobs\DiscoverSearchJob;
 use App\Jobs\ScrapeListingJob;
 use App\Models\DiscoveredListing;
+use App\Models\ScrapeJob;
 use App\Models\ScrapeRun;
 use App\Models\SearchQuery;
 use App\Services\ScrapeOrchestrator;
@@ -126,7 +129,14 @@ it('updates stats and dispatches progress event', function () {
 
 it('checks discovery complete when all pages done', function () {
     $run = ScrapeRun::factory()->create([
-        'stats' => ['pages_total' => 10, 'pages_done' => 10],
+        'stats' => ['pages_total' => 3],
+    ]);
+
+    // Create 3 completed discovery jobs to match pages_total
+    ScrapeJob::factory()->count(3)->create([
+        'scrape_run_id' => $run->id,
+        'job_type' => ScrapeJobType::Discovery,
+        'status' => ScrapeJobStatus::Completed,
     ]);
 
     $orchestrator = app(ScrapeOrchestrator::class);
@@ -145,8 +155,12 @@ it('checks discovery incomplete when pages remaining', function () {
 });
 
 it('checks scraping complete when all listings scraped', function () {
-    $run = ScrapeRun::factory()->create([
-        'stats' => ['listings_found' => 100, 'listings_scraped' => 100],
+    $run = ScrapeRun::factory()->create();
+
+    // Create 10 discovered listings all with 'scraped' status
+    DiscoveredListing::factory()->count(10)->create([
+        'scrape_run_id' => $run->id,
+        'status' => DiscoveredListingStatus::Scraped,
     ]);
 
     $orchestrator = app(ScrapeOrchestrator::class);

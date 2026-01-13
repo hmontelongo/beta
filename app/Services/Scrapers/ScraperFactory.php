@@ -15,10 +15,12 @@ class ScraperFactory
      */
     public function createConfig(Platform $platform): ScraperConfigInterface
     {
-        return match ($platform->slug) {
+        $identifier = $platform->slug ?? $platform->name;
+
+        return match ($identifier) {
             'inmuebles24' => new Inmuebles24Config,
             'vivanuncios' => new VivanunciosConfig,
-            default => throw new InvalidArgumentException("No scraper config for platform: {$platform->slug}"),
+            default => throw new InvalidArgumentException("No scraper config for platform: {$identifier}"),
         };
     }
 
@@ -28,11 +30,12 @@ class ScraperFactory
     public function createSearchParser(Platform $platform, ?ScraperConfigInterface $config = null): SearchParserInterface
     {
         $config ??= $this->createConfig($platform);
+        $identifier = $platform->slug ?? $platform->name;
 
-        return match ($platform->slug) {
+        return match ($identifier) {
             'inmuebles24' => new Inmuebles24SearchParser($config),
             'vivanuncios' => new VivanunciosSearchParser($config),
-            default => throw new InvalidArgumentException("No search parser for platform: {$platform->slug}"),
+            default => throw new InvalidArgumentException("No search parser for platform: {$identifier}"),
         };
     }
 
@@ -42,11 +45,12 @@ class ScraperFactory
     public function createListingParser(Platform $platform, ?ScraperConfigInterface $config = null): ListingParserInterface
     {
         $config ??= $this->createConfig($platform);
+        $identifier = $platform->slug ?? $platform->name;
 
-        return match ($platform->slug) {
+        return match ($identifier) {
             'inmuebles24' => new Inmuebles24ListingParser($config),
             'vivanuncios' => new VivanunciosListingParser($config),
-            default => throw new InvalidArgumentException("No listing parser for platform: {$platform->slug}"),
+            default => throw new InvalidArgumentException("No listing parser for platform: {$identifier}"),
         };
     }
 

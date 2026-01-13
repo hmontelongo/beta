@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Enums\ScrapeJobStatus;
+use App\Enums\ScrapeJobType;
 use App\Enums\ScrapePhase;
 use App\Enums\ScrapeRunStatus;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -63,5 +65,50 @@ class ScrapeRun extends Model
     public function scrapeJobs(): HasMany
     {
         return $this->hasMany(ScrapeJob::class);
+    }
+
+    /**
+     * @return HasMany<DiscoveredListing, $this>
+     */
+    public function discoveredListings(): HasMany
+    {
+        return $this->hasMany(DiscoveredListing::class);
+    }
+
+    /**
+     * Compute accurate stats from actual records.
+     * This is the single source of truth for progress tracking.
+     *
+     * @return array{pages_total: int, pages_done: int, pages_failed: int, listings_found: int, listings_scraped: int, listings_failed: int}
+     */
+    public function computeStats(): array
+    {
+        // Discovery stats from scrape_jobs
+        $discoveryStats = $this->scrapeJobs()
+            ->where('job_type', ScrapeJobType::Discovery)
+            ->selectRaw('
+                COUNT(*) as total,
+                SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as done,
+                SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as failed
+            ', [ScrapeJobStatus::Completed->value, ScrapeJobStatus::Failed->value])
+            ->first();
+
+        // Scraping stats from discovered_listings
+        $scrapingStats = $this->discoveredListings()
+            ->selectRaw("
+                COUNT(*) as total,
+                SUM(CASE WHEN status = 'scraped' THEN 1 ELSE 0 END) as scraped,
+                SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed
+            ")
+            ->first();
+
+        return [
+            'pages_total' => $this->stats['pages_total'] ?? ($discoveryStats->total ?? 0),
+            'pages_done' => (int) ($discoveryStats->done ?? 0),
+            'pages_failed' => (int) ($discoveryStats->failed ?? 0),
+            'listings_found' => (int) ($scrapingStats->total ?? 0),
+            'listings_scraped' => (int) ($scrapingStats->scraped ?? 0),
+            'listings_failed' => (int) ($scrapingStats->failed ?? 0),
+        ];
     }
 }

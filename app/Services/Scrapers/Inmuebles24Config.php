@@ -347,4 +347,20 @@ class Inmuebles24Config implements ScraperConfigInterface
             '/ESTUDIO/i' => 'studio',
         ];
     }
+
+    /**
+     * CSS selector to wait for on search pages before extracting data.
+     */
+    public function searchWaitFor(): string
+    {
+        return '[data-qa^="posting"]';
+    }
+
+    /**
+     * CSS selector to wait for on listing pages before extracting data.
+     */
+    public function listingWaitFor(): string
+    {
+        return '#longDescription, [class*="description"]';
+    }
 }

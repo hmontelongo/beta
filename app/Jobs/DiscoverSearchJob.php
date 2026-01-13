@@ -16,6 +16,7 @@ use App\Services\ScraperService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class DiscoverSearchJob implements ShouldQueue
 {
@@ -73,10 +74,9 @@ class DiscoverSearchJob implements ShouldQueue
             $this->storeListings($platform, $result['listings'], $scrapeJob->id);
 
             if ($scrapeRun) {
+                // Only store pages_total upfront - other stats computed from actual records
                 $orchestrator->updateStats($scrapeRun, [
                     'pages_total' => $result['total_pages'],
-                    'pages_done' => 1,
-                    'listings_found' => count($result['listings']),
                 ]);
 
                 // Start scraping page 1 listings immediately
@@ -145,6 +145,30 @@ class DiscoverSearchJob implements ShouldQueue
                     'preview_image' => $preview['image'] ?? null,
                 ]
             );
+        }
+    }
+
+    /**
+     * Handle permanent job failure after all retries exhausted.
+     */
+    public function failed(?Throwable $exception): void
+    {
+        Log::error('DiscoverSearchJob failed permanently', [
+            'platform_id' => $this->platformId,
+            'search_url' => $this->searchUrl,
+            'scrape_run_id' => $this->scrapeRunId,
+            'error' => $exception?->getMessage(),
+        ]);
+
+        // Mark the scrape run as failed
+        if ($this->scrapeRunId) {
+            $scrapeRun = ScrapeRun::find($this->scrapeRunId);
+            if ($scrapeRun) {
+                app(ScrapeOrchestrator::class)->markFailed(
+                    $scrapeRun,
+                    $exception?->getMessage() ?? 'Discovery search failed'
+                );
+            }
         }
     }
 }

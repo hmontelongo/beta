@@ -8,10 +8,10 @@ use App\Jobs\DiscoverPageJob;
 use App\Jobs\ScrapeListingJob;
 use App\Models\ScrapeJob;
 use App\Models\ScrapeRun;
+use App\Services\JobCancellationService;
 use App\Services\ScrapeOrchestrator;
 use Carbon\CarbonInterval;
 use Flux\Flux;
-use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
@@ -57,14 +57,8 @@ class Show extends Component
     #[Computed]
     public function stats(): array
     {
-        return $this->run->stats ?? [
-            'pages_total' => 0,
-            'pages_done' => 0,
-            'pages_failed' => 0,
-            'listings_found' => 0,
-            'listings_scraped' => 0,
-            'listings_failed' => 0,
-        ];
+        // Compute stats from actual records - single source of truth
+        return $this->run->computeStats();
     }
 
     #[Computed]
@@ -195,36 +189,19 @@ class Show extends Component
 
     public function stopRun(): void
     {
-        $this->run->update([
-            'status' => ScrapeRunStatus::Stopped,
-            'error_message' => 'Manually stopped by user',
-            'completed_at' => now(),
-        ]);
+        // Use JobCancellationService for proper queue cleanup
+        $cancellationService = app(JobCancellationService::class);
 
-        // Cancel any running jobs
-        $this->run->scrapeJobs()
-            ->where('status', ScrapeJobStatus::Running)
-            ->update([
-                'status' => ScrapeJobStatus::Failed,
-                'error_message' => 'Run stopped by user',
-                'completed_at' => now(),
-            ]);
+        // Cancel discovery and scraping jobs for this run
+        $cancellationService->cancelDiscoveryJobs($this->run->id);
+        $result = $cancellationService->cancelScrapingJobs($this->run->id);
 
-        // Prune queued jobs from database queue
-        $this->pruneQueuedJobs();
+        Flux::toast(
+            text: 'Run stopped. Pending listings preserved for resume.',
+            variant: 'warning'
+        );
 
-        Flux::toast('Run stopped. Pending listings preserved for future scraping.', variant: 'warning');
         $this->refresh();
-    }
-
-    protected function pruneQueuedJobs(): void
-    {
-        // Delete jobs from queue that belong to this run
-        // Jobs have scrapeRunId serialized in their payload
-        DB::table('jobs')
-            ->where('payload', 'like', '%"scrapeRunId";i:'.$this->run->id.';%')
-            ->orWhere('payload', 'like', '%"scrapeRunId":'.$this->run->id.'%')
-            ->delete();
     }
 
     public function restartRun(): void

@@ -112,7 +112,8 @@ class ScrapeOrchestrator
 
     public function checkDiscoveryComplete(ScrapeRun $run): bool
     {
-        $stats = $run->stats ?? [];
+        // Use computed stats from actual records - single source of truth
+        $stats = $run->computeStats();
         $pagesTotal = $stats['pages_total'] ?? 0;
         $pagesDone = $stats['pages_done'] ?? 0;
 
@@ -147,7 +148,8 @@ class ScrapeOrchestrator
 
     public function checkScrapingComplete(ScrapeRun $run): bool
     {
-        $stats = $run->stats ?? [];
+        // Use computed stats from actual records - single source of truth
+        $stats = $run->computeStats();
         $listingsFound = $stats['listings_found'] ?? 0;
         $listingsScraped = $stats['listings_scraped'] ?? 0;
         $listingsFailed = $stats['listings_failed'] ?? 0;

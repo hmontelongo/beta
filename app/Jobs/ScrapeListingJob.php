@@ -16,6 +16,7 @@ use App\Services\ScraperService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class ScrapeListingJob implements ShouldQueue
 {
@@ -95,7 +96,7 @@ class ScrapeListingJob implements ShouldQueue
             ]);
 
             if ($scrapeRun) {
-                $orchestrator->incrementStat($scrapeRun, 'listings_scraped');
+                // Stats are now computed from actual records - no incrementStat needed
 
                 if ($orchestrator->checkScrapingComplete($scrapeRun->fresh())) {
                     ScrapingCompleted::dispatch($scrapeRun->fresh());
@@ -119,12 +120,31 @@ class ScrapeListingJob implements ShouldQueue
                 'error_message' => $e->getMessage(),
             ]);
 
-            // Track failure in run stats
-            if ($scrapeRun) {
-                $orchestrator->incrementStat($scrapeRun, 'listings_failed');
-            }
+            // Stats are now computed from actual records - no incrementStat needed
 
             throw $e;
         }
+    }
+
+    /**
+     * Handle permanent job failure after all retries exhausted.
+     */
+    public function failed(?Throwable $exception): void
+    {
+        Log::error('ScrapeListingJob failed permanently', [
+            'discovered_listing_id' => $this->discoveredListingId,
+            'scrape_run_id' => $this->scrapeRunId,
+            'error' => $exception?->getMessage(),
+        ]);
+
+        // Ensure discovered listing is marked as failed
+        DiscoveredListing::where('id', $this->discoveredListingId)
+            ->update([
+                'status' => DiscoveredListingStatus::Failed,
+                'last_attempt_at' => now(),
+            ]);
+
+        // Stats are computed from actual records (DiscoveredListing.status = Failed)
+        // No manual incrementStat needed - the failed record is the source of truth
     }
 }

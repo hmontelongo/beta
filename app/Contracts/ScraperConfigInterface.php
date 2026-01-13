@@ -62,4 +62,14 @@ interface ScraperConfigInterface
      * Extract external ID from a listing URL.
      */
     public function extractExternalId(string $url): ?string;
+
+    /**
+     * CSS selector to wait for on search pages before extracting data.
+     */
+    public function searchWaitFor(): string;
+
+    /**
+     * CSS selector to wait for on listing pages before extracting data.
+     */
+    public function listingWaitFor(): string;
 }

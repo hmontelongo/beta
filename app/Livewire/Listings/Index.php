@@ -10,6 +10,7 @@ use App\Jobs\EnrichListingJob;
 use App\Models\DedupCandidate;
 use App\Models\Listing;
 use App\Models\Platform;
+use App\Services\JobCancellationService;
 use Flux\Flux;
 use Illuminate\View\View;
 use Livewire\Attributes\Computed;
@@ -158,7 +159,7 @@ class Index extends Component
         }
 
         foreach ($listings as $listing) {
-            $listing->update(['ai_status' => AiEnrichmentStatus::Processing]);
+            // Job owns state transition - dispatches with Pending status
             EnrichListingJob::dispatch($listing->id);
         }
 
@@ -179,7 +180,7 @@ class Index extends Component
         }
 
         foreach ($listings as $listing) {
-            $listing->update(['dedup_status' => DedupStatus::Processing]);
+            // Job owns state transition - dispatches with Pending status
             DeduplicateListingJob::dispatch($listing->id);
         }
 
@@ -188,30 +189,117 @@ class Index extends Component
 
     public function cancelEnrichment(): void
     {
-        $count = Listing::where('ai_status', AiEnrichmentStatus::Processing)
-            ->update(['ai_status' => AiEnrichmentStatus::Pending]);
+        $result = app(JobCancellationService::class)->cancelEnrichmentJobs();
 
         Flux::toast(
             heading: 'Enrichment Cancelled',
-            text: "{$count} listings reset to pending",
+            text: "{$result['reset']} listings reset to pending, queue cleared",
             variant: 'warning',
         );
     }
 
     public function cancelDeduplication(): void
     {
-        $count = Listing::where('dedup_status', DedupStatus::Processing)
-            ->update(['dedup_status' => DedupStatus::Pending]);
+        $result = app(JobCancellationService::class)->cancelDeduplicationJobs();
 
         Flux::toast(
             heading: 'Deduplication Cancelled',
-            text: "{$count} listings reset to pending",
+            text: "{$result['reset']} listings reset to pending, queue cleared",
             variant: 'warning',
         );
     }
 
     /**
-     * @return array{ai_pending: int, ai_processing: int, ai_completed: int, dedup_pending: int, dedup_processing: int, dedup_matched: int, dedup_needs_review: int, candidates_pending_review: int}
+     * Retry all failed enrichment jobs.
+     */
+    public function retryFailedEnrichment(): void
+    {
+        $listings = Listing::where('ai_status', AiEnrichmentStatus::Failed)
+            ->whereNotNull('raw_data')
+            ->get();
+
+        if ($listings->isEmpty()) {
+            Flux::toast(text: 'No failed enrichment jobs to retry', variant: 'warning');
+
+            return;
+        }
+
+        // Reset to pending and dispatch
+        Listing::whereIn('id', $listings->pluck('id'))
+            ->update(['ai_status' => AiEnrichmentStatus::Pending]);
+
+        foreach ($listings as $listing) {
+            EnrichListingJob::dispatch($listing->id);
+        }
+
+        Flux::toast(
+            heading: 'Retry Queued',
+            text: "{$listings->count()} failed listings queued for retry",
+            variant: 'info',
+        );
+    }
+
+    /**
+     * Retry all failed deduplication jobs.
+     */
+    public function retryFailedDedup(): void
+    {
+        $listings = Listing::where('dedup_status', DedupStatus::Failed)
+            ->whereNotNull('raw_data')
+            ->where('ai_status', AiEnrichmentStatus::Completed)
+            ->get();
+
+        if ($listings->isEmpty()) {
+            Flux::toast(text: 'No failed deduplication jobs to retry', variant: 'warning');
+
+            return;
+        }
+
+        // Reset to pending and dispatch
+        Listing::whereIn('id', $listings->pluck('id'))
+            ->update(['dedup_status' => DedupStatus::Pending]);
+
+        foreach ($listings as $listing) {
+            DeduplicateListingJob::dispatch($listing->id);
+        }
+
+        Flux::toast(
+            heading: 'Retry Queued',
+            text: "{$listings->count()} failed listings queued for retry",
+            variant: 'info',
+        );
+    }
+
+    /**
+     * Manually reset stuck processing jobs.
+     */
+    public function resetStuckJobs(): void
+    {
+        $staleThreshold = now()->subMinutes(5);
+
+        $aiCount = Listing::where('ai_status', AiEnrichmentStatus::Processing)
+            ->where('updated_at', '<', $staleThreshold)
+            ->update(['ai_status' => AiEnrichmentStatus::Pending]);
+
+        $dedupCount = Listing::where('dedup_status', DedupStatus::Processing)
+            ->where('updated_at', '<', $staleThreshold)
+            ->update(['dedup_status' => DedupStatus::Pending]);
+
+        if ($aiCount === 0 && $dedupCount === 0) {
+            Flux::toast(text: 'No stuck jobs to reset', variant: 'info');
+
+            return;
+        }
+
+        Flux::toast(
+            heading: 'Stuck Jobs Reset',
+            text: "{$aiCount} enrichment, {$dedupCount} dedup jobs reset to pending",
+            variant: 'info',
+        );
+    }
+
+    /**
+     * @return array{ai_pending: int, ai_processing: int, ai_completed: int, ai_failed: int, dedup_pending: int, dedup_processing: int, dedup_matched: int, dedup_needs_review: int, dedup_failed: int, candidates_pending_review: int}
      */
     #[Computed]
     public function stats(): array
@@ -220,10 +308,12 @@ class Index extends Component
             'ai_pending' => Listing::where('ai_status', AiEnrichmentStatus::Pending)->count(),
             'ai_processing' => Listing::where('ai_status', AiEnrichmentStatus::Processing)->count(),
             'ai_completed' => Listing::where('ai_status', AiEnrichmentStatus::Completed)->count(),
+            'ai_failed' => Listing::where('ai_status', AiEnrichmentStatus::Failed)->count(),
             'dedup_pending' => Listing::pendingDedup()->count(),
             'dedup_processing' => Listing::where('dedup_status', DedupStatus::Processing)->count(),
             'dedup_matched' => Listing::where('dedup_status', DedupStatus::Matched)->count(),
             'dedup_needs_review' => Listing::where('dedup_status', DedupStatus::NeedsReview)->count(),
+            'dedup_failed' => Listing::where('dedup_status', DedupStatus::Failed)->count(),
             'candidates_pending_review' => DedupCandidate::where('status', DedupCandidateStatus::NeedsReview)->count(),
         ];
     }
@@ -231,10 +321,20 @@ class Index extends Component
     #[Computed]
     public function isProcessing(): bool
     {
+        return $this->stats['ai_processing'] > 0 || $this->stats['dedup_processing'] > 0;
+    }
+
+    /**
+     * Lightweight check for changes during slow polling.
+     * Triggers re-render if processing count changed.
+     */
+    public function checkForChanges(): void
+    {
         // Auto-reset stale processing jobs (stuck for more than 5 minutes)
         $this->resetStaleProcessingJobs();
 
-        return $this->stats['ai_processing'] > 0 || $this->stats['dedup_processing'] > 0;
+        // Force computed property refresh
+        unset($this->stats);
     }
 
     #[Computed]

@@ -95,3 +95,96 @@ it('can be created with failed state', function () {
     expect($run->status)->toBe(ScrapeRunStatus::Failed)
         ->and($run->error_message)->not->toBeNull();
 });
+
+it('has many discovered listings', function () {
+    $run = ScrapeRun::factory()->create();
+    $listing = \App\Models\DiscoveredListing::factory()->create([
+        'platform_id' => $run->platform_id,
+        'scrape_run_id' => $run->id,
+    ]);
+
+    expect($run->discoveredListings)->toBeInstanceOf(Collection::class)
+        ->and($run->discoveredListings)->toHaveCount(1)
+        ->and($run->discoveredListings->first()->id)->toBe($listing->id);
+});
+
+it('computes stats from actual records', function () {
+    $run = ScrapeRun::factory()->create([
+        'stats' => ['pages_total' => 5],
+    ]);
+
+    // Create discovery jobs
+    ScrapeJob::factory()->forRun($run)->discovery()->completed()->count(3)->create();
+    ScrapeJob::factory()->forRun($run)->discovery()->failed()->count(1)->create();
+    ScrapeJob::factory()->forRun($run)->discovery()->running()->create();
+
+    // Create discovered listings with various statuses
+    \App\Models\DiscoveredListing::factory()->count(10)->create([
+        'platform_id' => $run->platform_id,
+        'scrape_run_id' => $run->id,
+        'status' => \App\Enums\DiscoveredListingStatus::Pending,
+    ]);
+    \App\Models\DiscoveredListing::factory()->scraped()->count(7)->create([
+        'platform_id' => $run->platform_id,
+        'scrape_run_id' => $run->id,
+    ]);
+    \App\Models\DiscoveredListing::factory()->failed()->count(2)->create([
+        'platform_id' => $run->platform_id,
+        'scrape_run_id' => $run->id,
+    ]);
+
+    $stats = $run->computeStats();
+
+    expect($stats['pages_total'])->toBe(5) // From JSON stats
+        ->and($stats['pages_done'])->toBe(3) // 3 completed discovery jobs
+        ->and($stats['pages_failed'])->toBe(1) // 1 failed discovery job
+        ->and($stats['listings_found'])->toBe(19) // 10 + 7 + 2 total
+        ->and($stats['listings_scraped'])->toBe(7) // 7 scraped
+        ->and($stats['listings_failed'])->toBe(2); // 2 failed
+});
+
+it('computes pages_total from discovery jobs when not in stats', function () {
+    $run = ScrapeRun::factory()->create([
+        'stats' => [], // Empty stats
+    ]);
+
+    // Create 4 discovery jobs
+    ScrapeJob::factory()->forRun($run)->discovery()->completed()->count(4)->create();
+
+    $stats = $run->computeStats();
+
+    // pages_total should fall back to count of discovery jobs
+    expect($stats['pages_total'])->toBe(4);
+});
+
+it('returns zero stats when no records exist', function () {
+    $run = ScrapeRun::factory()->create([
+        'stats' => [],
+    ]);
+
+    $stats = $run->computeStats();
+
+    expect($stats['pages_total'])->toBe(0)
+        ->and($stats['pages_done'])->toBe(0)
+        ->and($stats['pages_failed'])->toBe(0)
+        ->and($stats['listings_found'])->toBe(0)
+        ->and($stats['listings_scraped'])->toBe(0)
+        ->and($stats['listings_failed'])->toBe(0);
+});
+
+it('only counts discovery jobs for page stats not listing jobs', function () {
+    $run = ScrapeRun::factory()->create([
+        'stats' => ['pages_total' => 3],
+    ]);
+
+    // Create discovery jobs
+    ScrapeJob::factory()->forRun($run)->discovery()->completed()->count(2)->create();
+
+    // Create listing jobs (should NOT be counted in page stats)
+    ScrapeJob::factory()->forRun($run)->listing()->completed()->count(5)->create();
+
+    $stats = $run->computeStats();
+
+    expect($stats['pages_done'])->toBe(2) // Only discovery jobs
+        ->and($stats['pages_total'])->toBe(3);
+});

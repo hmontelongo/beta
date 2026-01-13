@@ -33,10 +33,10 @@ class ZenRowsClient
      *
      * @throws \RuntimeException
      */
-    public function fetchSearchPage(string $url, array $cssExtractor): array
+    public function fetchSearchPage(string $url, array $cssExtractor, string $waitFor = '[data-qa^="posting"]'): array
     {
         return $this->fetch($url, [
-            'wait_for' => '[data-qa^="posting"]',
+            'wait_for' => $waitFor,
             'wait' => 5000,
             'block_resources' => 'image,font,media',
             'css_extractor' => json_encode($cssExtractor),
@@ -51,10 +51,10 @@ class ZenRowsClient
      *
      * @throws \RuntimeException
      */
-    public function fetchListingPage(string $url, array $cssExtractor): array
+    public function fetchListingPage(string $url, array $cssExtractor, string $waitFor = '#longDescription, [class*="description"]'): array
     {
         return $this->fetch($url, [
-            'wait_for' => '#longDescription, [class*="description"]',
+            'wait_for' => $waitFor,
             'wait' => 5000,
             'block_resources' => 'font,media',
             'css_extractor' => json_encode($cssExtractor),
@@ -67,10 +67,10 @@ class ZenRowsClient
      *
      * @throws \RuntimeException
      */
-    public function fetchRawHtml(string $url): string
+    public function fetchRawHtml(string $url, string $waitFor = '#longDescription, [class*="description"]'): string
     {
         return $this->fetch($url, [
-            'wait_for' => '#longDescription, [class*="description"]',
+            'wait_for' => $waitFor,
             'wait' => 2000,
             'block_resources' => 'stylesheet,font,media',
         ], 'body');

@@ -15,6 +15,7 @@ use App\Services\ScraperService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class DiscoverPageJob implements ShouldQueue
 {
@@ -77,8 +78,7 @@ class DiscoverPageJob implements ShouldQueue
             ]);
 
             if ($scrapeRun) {
-                $orchestrator->incrementStat($scrapeRun, 'pages_done');
-                $orchestrator->incrementStat($scrapeRun, 'listings_found', count($result['listings']));
+                // Stats are now computed from actual records - no incrementStat needed
 
                 // Dispatch scrape jobs for newly discovered listings immediately
                 $orchestrator->dispatchScrapeBatch($scrapeRun->fresh());
@@ -100,10 +100,7 @@ class DiscoverPageJob implements ShouldQueue
                 'error_message' => $e->getMessage(),
             ]);
 
-            // Track failure in run stats
-            if ($scrapeRun) {
-                $orchestrator->incrementStat($scrapeRun, 'pages_failed');
-            }
+            // Stats are now computed from actual records - no incrementStat needed
 
             throw $e;
         }
@@ -135,5 +132,21 @@ class DiscoverPageJob implements ShouldQueue
                 ]
             );
         }
+    }
+
+    /**
+     * Handle permanent job failure after all retries exhausted.
+     */
+    public function failed(?Throwable $exception): void
+    {
+        Log::error('DiscoverPageJob failed permanently', [
+            'parent_job_id' => $this->parentJobId,
+            'page' => $this->pageNumber,
+            'scrape_run_id' => $this->scrapeRunId,
+            'error' => $exception?->getMessage(),
+        ]);
+
+        // Stats are computed from actual records (ScrapeJob.status = Failed)
+        // No manual incrementStat needed - the failed ScrapeJob record is the source of truth
     }
 }
