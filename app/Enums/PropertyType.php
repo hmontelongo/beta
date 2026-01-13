@@ -9,4 +9,11 @@ enum PropertyType: string
     case Office = 'office';
     case Commercial = 'commercial';
     case Land = 'land';
+    case Warehouse = 'warehouse';
+    case Building = 'building';
+    case Hotel = 'hotel';
+    case Ranch = 'ranch';
+    case Industrial = 'industrial';
+    case Parking = 'parking';
+    case Room = 'room';
 }

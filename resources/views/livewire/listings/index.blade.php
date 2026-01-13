@@ -32,6 +32,17 @@
                 </span>
                 <span wire:loading wire:target="runBatchDeduplication">{{ __('Processing...') }}</span>
             </flux:button>
+            @if ($this->stats['candidates_pending_review'] > 0)
+                <flux:button
+                    :href="route('dedup.review')"
+                    wire:navigate
+                    variant="filled"
+                    size="sm"
+                    icon="eye"
+                >
+                    {{ __('Review Matches') }} ({{ $this->stats['candidates_pending_review'] }})
+                </flux:button>
+            @endif
         </div>
     </div>
 

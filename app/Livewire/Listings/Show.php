@@ -54,6 +54,17 @@ class Show extends Component
 
     public function runDeduplication(): void
     {
+        // Skip if already linked to a property
+        if ($this->listing->property_id) {
+            Flux::toast(
+                heading: 'Already Processed',
+                text: 'This listing is already linked to a property.',
+                variant: 'warning',
+            );
+
+            return;
+        }
+
         $this->listing->update(['dedup_status' => DedupStatus::Processing]);
 
         DeduplicateListingJob::dispatch($this->listing->id);
@@ -77,7 +88,8 @@ class Show extends Component
     {
         return $this->listing->raw_data !== null
             && $this->listing->ai_status === AiEnrichmentStatus::Completed
-            && ! $this->listing->dedup_status->isActive();
+            && ! $this->listing->dedup_status->isActive()
+            && ! $this->listing->property_id;
     }
 
     #[Computed]

@@ -221,10 +221,10 @@ class Inmuebles24Config
             14 => 'commercial',      // local en centro comercial
             15 => 'room',            // cuarto/habitación
             16 => 'land',            // terreno comercial
-            17 => 'commercial',      // nave industrial
+            17 => 'industrial',      // nave industrial
             18 => 'office',          // consultorio
             19 => 'house',           // villa
-            20 => 'commercial',      // bodega comercial
+            20 => 'warehouse',       // bodega comercial
         ];
     }
 

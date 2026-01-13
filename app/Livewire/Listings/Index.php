@@ -3,9 +3,11 @@
 namespace App\Livewire\Listings;
 
 use App\Enums\AiEnrichmentStatus;
+use App\Enums\DedupCandidateStatus;
 use App\Enums\DedupStatus;
 use App\Jobs\DeduplicateListingJob;
 use App\Jobs\EnrichListingJob;
+use App\Models\DedupCandidate;
 use App\Models\Listing;
 use App\Models\Platform;
 use Flux\Flux;
@@ -207,7 +209,7 @@ class Index extends Component
     }
 
     /**
-     * @return array{ai_pending: int, ai_processing: int, ai_completed: int, dedup_pending: int, dedup_processing: int, dedup_matched: int, dedup_needs_review: int}
+     * @return array{ai_pending: int, ai_processing: int, ai_completed: int, dedup_pending: int, dedup_processing: int, dedup_matched: int, dedup_needs_review: int, candidates_pending_review: int}
      */
     #[Computed]
     public function stats(): array
@@ -220,6 +222,7 @@ class Index extends Component
             'dedup_processing' => Listing::where('dedup_status', DedupStatus::Processing)->count(),
             'dedup_matched' => Listing::where('dedup_status', DedupStatus::Matched)->count(),
             'dedup_needs_review' => Listing::where('dedup_status', DedupStatus::NeedsReview)->count(),
+            'candidates_pending_review' => DedupCandidate::where('status', DedupCandidateStatus::NeedsReview)->count(),
         ];
     }
 

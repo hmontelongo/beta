@@ -1,5 +1,6 @@
 <?php
 
+use App\Livewire\Dedup\ReviewCandidates;
 use App\Livewire\Listings\Index as ListingsIndex;
 use App\Livewire\Listings\Show as ListingsShow;
 use App\Livewire\Platforms\Index as PlatformsIndex;
@@ -43,6 +44,8 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('listings', ListingsIndex::class)->name('listings.index');
     Route::get('listings/{listing}', ListingsShow::class)->name('listings.show');
+
+    Route::get('dedup/review', ReviewCandidates::class)->name('dedup.review');
 
     Route::get('runs/{run}', ScrapeRunsShow::class)->name('runs.show');
 });

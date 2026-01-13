@@ -2,6 +2,8 @@
 
 namespace App\Jobs;
 
+use App\Enums\AiEnrichmentStatus;
+use App\Enums\DedupStatus;
 use App\Models\Listing;
 use App\Services\ScraperService;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -48,6 +50,12 @@ class RescrapeListingJob implements ShouldQueue
                 'raw_data' => $data,
                 'data_quality' => $data['data_quality'] ?? null,
                 'scraped_at' => now(),
+                // Reset processing pipeline since raw_data changed
+                'ai_status' => AiEnrichmentStatus::Pending,
+                'ai_processed_at' => null,
+                'dedup_status' => DedupStatus::Pending,
+                'dedup_checked_at' => null,
+                'property_id' => null,
             ]);
 
             Log::info('Re-scrape completed', [
