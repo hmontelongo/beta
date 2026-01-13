@@ -3,12 +3,14 @@
 namespace App\Services;
 
 use App\Enums\DiscoveredListingStatus;
+use App\Enums\ScrapeJobStatus;
 use App\Enums\ScrapePhase;
 use App\Enums\ScrapeRunStatus;
 use App\Events\ScrapeRunProgress;
 use App\Jobs\DiscoverSearchJob;
 use App\Jobs\ScrapeListingJob;
 use App\Models\DiscoveredListing;
+use App\Models\ScrapeJob;
 use App\Models\ScrapeRun;
 use App\Models\SearchQuery;
 
@@ -125,9 +127,15 @@ class ScrapeOrchestrator
      */
     public function dispatchScrapeBatch(ScrapeRun $run): int
     {
+        // Get IDs of listings that already have running jobs to prevent duplicates
+        $listingsWithRunningJobs = ScrapeJob::where('scrape_run_id', $run->id)
+            ->where('status', ScrapeJobStatus::Running)
+            ->pluck('discovered_listing_id');
+
         $pendingListingIds = DiscoveredListing::query()
             ->where('scrape_run_id', $run->id)
             ->where('status', DiscoveredListingStatus::Pending)
+            ->whereNotIn('id', $listingsWithRunningJobs)
             ->pluck('id');
 
         if ($pendingListingIds->isEmpty()) {
@@ -195,11 +203,35 @@ class ScrapeOrchestrator
     }
 
     /**
+     * Clean up stale scrape jobs that are stuck in "running" status.
+     * Jobs older than the timeout period are marked as failed.
+     */
+    public function cleanupStaleJobs(ScrapeRun $run): int
+    {
+        return ScrapeJob::where('scrape_run_id', $run->id)
+            ->where('status', ScrapeJobStatus::Running)
+            ->where('started_at', '<', now()->subSeconds(180)) // Job timeout is 180s
+            ->update([
+                'status' => ScrapeJobStatus::Failed,
+                'completed_at' => now(),
+                'error_message' => 'Job timed out or worker crashed',
+            ]);
+    }
+
+    /**
      * Resume a stopped/failed run by re-queuing pending, queued, and failed listings.
      * Queued listings need re-dispatching because their jobs were pruned when stopped.
      */
     public function resumeRun(ScrapeRun $run): int
     {
+        // Clean up any stale "running" jobs before resuming to prevent duplicates
+        $this->cleanupStaleJobs($run);
+
+        // Get IDs of listings that already have running jobs
+        $listingsWithRunningJobs = ScrapeJob::where('scrape_run_id', $run->id)
+            ->where('status', ScrapeJobStatus::Running)
+            ->pluck('discovered_listing_id');
+
         $listingsToResume = DiscoveredListing::query()
             ->where('scrape_run_id', $run->id)
             ->whereIn('status', [
@@ -207,6 +239,7 @@ class ScrapeOrchestrator
                 DiscoveredListingStatus::Queued,
                 DiscoveredListingStatus::Failed,
             ])
+            ->whereNotIn('id', $listingsWithRunningJobs)
             ->get();
 
         if ($listingsToResume->isEmpty()) {

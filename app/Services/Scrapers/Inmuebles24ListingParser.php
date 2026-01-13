@@ -1111,8 +1111,13 @@ class Inmuebles24ListingParser implements ListingParserInterface
             return null;
         }
 
-        // Skip icons/logos/placeholders
-        if (preg_match('/icon|logo|placeholder/i', $url)) {
+        // Skip icons/logos/placeholders/badges
+        if (preg_match('/icon|logo|placeholder|badge/i', $url)) {
+            return null;
+        }
+
+        // Skip UI elements from /ficha/ path (badges, checkmarks, etc.)
+        if (str_contains($url, '/ficha/')) {
             return null;
         }
 

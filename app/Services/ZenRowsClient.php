@@ -27,7 +27,7 @@ class ZenRowsClient
 
     /**
      * Fetch a search page with CSS extraction.
-     * Uses load event to ensure page is fully loaded.
+     * Uses networkidle event to wait for all JS content to load.
      *
      * @param  array<string, string>  $cssExtractor
      * @return array<string, mixed>
@@ -37,7 +37,7 @@ class ZenRowsClient
     public function fetchSearchPage(string $url, array $cssExtractor): array
     {
         return $this->fetch($url, [
-            'js_instructions' => json_encode([['wait_event' => 'load']]),
+            'js_instructions' => json_encode([['wait_event' => 'networkidle']]),
             'block_resources' => 'image,font,media',
             'css_extractor' => json_encode($cssExtractor),
         ], 'json');
@@ -45,7 +45,7 @@ class ZenRowsClient
 
     /**
      * Fetch a listing page with CSS extraction.
-     * Uses load event to ensure page is fully loaded.
+     * Uses networkidle event to wait for all JS content to load.
      *
      * @param  array<string, string>  $cssExtractor
      * @return array<string, mixed>
@@ -55,7 +55,7 @@ class ZenRowsClient
     public function fetchListingPage(string $url, array $cssExtractor): array
     {
         return $this->fetch($url, [
-            'js_instructions' => json_encode([['wait_event' => 'load']]),
+            'js_instructions' => json_encode([['wait_event' => 'networkidle']]),
             'block_resources' => 'image,font,media',
             'css_extractor' => json_encode($cssExtractor),
         ], 'json');
@@ -63,14 +63,14 @@ class ZenRowsClient
 
     /**
      * Fetch raw HTML for JavaScript variable extraction.
-     * Uses load event to ensure all JS has executed.
+     * Uses networkidle event to wait for all JS content to load.
      *
      * @throws \RuntimeException
      */
     public function fetchRawHtml(string $url): string
     {
         return $this->fetch($url, [
-            'js_instructions' => json_encode([['wait_event' => 'load']]),
+            'js_instructions' => json_encode([['wait_event' => 'networkidle']]),
             'block_resources' => 'image,font,media',
         ], 'body');
     }

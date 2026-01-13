@@ -562,7 +562,7 @@ class VivanunciosListingParser implements ListingParserInterface
             }
         }
 
-        // Tertiary: Extract from HTML
+        // Tertiary: Extract from HTML - JS objects
         preg_match_all('/"(?:url|src|image)"\s*:\s*"(https?:\/\/[^"]+\.(?:jpg|jpeg|png|webp)[^"]*)"/i', $html, $htmlMatches);
         foreach ($htmlMatches[1] ?? [] as $url) {
             if (preg_match('/(?:naventcdn|vivanuncios|img)/i', $url)) {
@@ -570,6 +570,16 @@ class VivanunciosListingParser implements ListingParserInterface
                 if ($cleaned && ! in_array($cleaned, $images)) {
                     $images[] = $cleaned;
                 }
+            }
+        }
+
+        // Quaternary: Extract all naventcdn property images via regex
+        // This catches images from img tags: src="https://img10.naventcdn.com/avisos/..."
+        preg_match_all('/https:\/\/img10\.naventcdn\.com\/avisos\/[^\s"\']+\.jpg/i', $html, $naventMatches);
+        foreach ($naventMatches[0] ?? [] as $url) {
+            $cleaned = $this->cleanImageUrl($url);
+            if ($cleaned && ! in_array($cleaned, $images)) {
+                $images[] = $cleaned;
             }
         }
 
@@ -830,10 +840,18 @@ class VivanunciosListingParser implements ListingParserInterface
             return null;
         }
 
-        // Skip icons/logos/placeholders
-        if (preg_match('/icon|logo|placeholder/i', $url)) {
+        // Skip icons/logos/placeholders/badges
+        if (preg_match('/icon|logo|placeholder|badge/i', $url)) {
             return null;
         }
+
+        // Skip UI elements from /ficha/ path (badges, checkmarks, etc.)
+        if (str_contains($url, '/ficha/')) {
+            return null;
+        }
+
+        // Remove query parameters for cleaner URLs and better deduplication
+        $url = preg_replace('/\?.*$/', '', $url);
 
         // Upgrade to higher resolution
         $url = str_replace(['360x266', '720x532'], '1200x1200', $url);

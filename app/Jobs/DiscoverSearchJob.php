@@ -91,7 +91,7 @@ class DiscoverSearchJob implements ShouldQueue
                 'status' => ScrapeJobStatus::Completed,
                 'completed_at' => now(),
                 'result' => [
-                    'page_1_listings' => count($result['listings']),
+                    'listings_found' => count($result['listings']),
                     'pages_dispatched' => max(0, $result['total_pages'] - 1),
                 ],
             ]);
