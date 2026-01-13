@@ -53,8 +53,11 @@ class Inmuebles24SearchParser implements SearchParserInterface
             ];
         }
 
-        // Parse pagination from page title
+        // Parse pagination from page title (may be array from ZenRows)
         $pageTitle = $extracted['page_title'] ?? '';
+        if (is_array($pageTitle)) {
+            $pageTitle = $pageTitle[0] ?? '';
+        }
         $totalResults = $this->parseTotalResults($pageTitle);
         $totalPages = $this->parseTotalPages(
             $this->toArray($extracted['page_links'] ?? []),
