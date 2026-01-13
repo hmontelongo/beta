@@ -433,14 +433,31 @@ class Inmuebles24ListingParser
 
     /**
      * Extract maintenance fee from HTML.
+     * Returns null if maintenance is included in rent.
      */
     protected function extractMaintenanceFee(string $html): ?int
     {
+        // First check if maintenance is included in rent (no separate fee)
+        if (preg_match('/mantenimiento\s+incluid[oa]/i', $html)) {
+            return null; // Maintenance included in rent
+        }
+
+        // Also check for "incluye mantenimiento"
+        if (preg_match('/incluy[ea]\s+mantenimiento/i', $html)) {
+            return null;
+        }
+
+        // Look for explicit maintenance fee patterns
         $patterns = [
-            '/Mantenimiento\s*(?:MN|USD|\$)?\s*([\d,]+)/i',
-            '/MN\s*([\d,]+)\s*Mantenimiento/i',
-            '/mantenimiento[:\s]*\$?\s*([\d,]+)/i',
-            '/\$\s*([\d,]+)\s*(?:de\s+)?mant/i',
+            // "Mantenimiento: $1,500" or "Mantenimiento MN 1500"
+            '/Mantenimiento\s*[:]\s*(?:MN|USD|\$)?\s*([\d,]+)/i',
+            // "MN 1500 Mantenimiento" (but not "MN 8500 mantenimiento incluido")
+            '/MN\s*([\d,]+)\s*(?:de\s+)?Mantenimiento(?!\s+incluid)/i',
+            // "+$1,500 mantenimiento" or "+ mantenimiento $1,500"
+            '/\+\s*\$?\s*([\d,]+)\s*(?:de\s+)?mant/i',
+            '/\+\s*mant[^\d]*([\d,]+)/i',
+            // "cuota de mantenimiento: $1,500"
+            '/cuota\s+(?:de\s+)?mant[^\d]*([\d,]+)/i',
         ];
 
         foreach ($patterns as $pattern) {

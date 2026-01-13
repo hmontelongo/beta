@@ -309,3 +309,51 @@ it('parses address from location header', function () {
         ->and($result['city'])->toBe('Guadalajara')
         ->and($result['state'])->toBe('Jalisco');
 });
+
+it('handles maintenance included in rent', function () {
+    $extracted = [
+        'title' => 'Departamento en Renta',
+        'description' => '$8,500 mantenimiento incluido',
+    ];
+
+    $rawHtml = "
+        <script>
+        window.dataLayer = [{
+            'price': '8500',
+            'currencyId': '10',
+            'operationTypeId': '2'
+        }];
+        </script>
+        <div>Renta: \$8,500 mantenimiento incluido</div>
+    ";
+
+    $result = $this->parser->parse($extracted, $rawHtml, 'https://example.com/prop-123456.html');
+
+    // Maintenance should be null when "mantenimiento incluido" is present
+    expect($result['operations'])->toHaveCount(1)
+        ->and($result['operations'][0]['price'])->toBe(8500)
+        ->and($result['operations'][0]['type'])->toBe('rent')
+        ->and($result['operations'][0]['maintenance_fee'])->toBeNull();
+});
+
+it('extracts explicit maintenance fee', function () {
+    $extracted = [
+        'title' => 'Departamento en Renta',
+    ];
+
+    $rawHtml = "
+        <script>
+        window.dataLayer = [{
+            'price': '15000',
+            'currencyId': '10',
+            'operationTypeId': '2'
+        }];
+        </script>
+        <div>Renta: \$15,000</div>
+        <div>Mantenimiento: \$2,500</div>
+    ";
+
+    $result = $this->parser->parse($extracted, $rawHtml, 'https://example.com/prop-123456.html');
+
+    expect($result['operations'][0]['maintenance_fee'])->toBe(2500);
+});

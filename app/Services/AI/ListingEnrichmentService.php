@@ -403,7 +403,12 @@ YOUR TASKS:
    - ⚠️ CRITICAL: OUTPUT IN THE SAME LANGUAGE AS INPUT - DO NOT TRANSLATE ⚠️
    - If input is Spanish, output MUST be Spanish
    - If input is English, output MUST be English
-   - REMOVE all pricing information (rent amounts, sale prices, maintenance fees)
+   - REMOVE the main listing price (since it's already captured in operations data)
+   - PRESERVE these important details (do NOT remove):
+     * Rental requirements/conditions (deposits, contracts, documentation needed)
+     * Pricing variations (e.g., furnished vs unfurnished price options)
+     * Maintenance/HOA fee details (whether included or separate)
+     * Move-in costs, contract fees, or any costs the tenant must pay
    - REMOVE promotional phrases like "¡GRAN OPORTUNIDAD!", "NO TE LO PIERDAS!", "PRECIO NEGOCIABLE"
    - REMOVE contact information (phone numbers, WhatsApp, email)
    - REMOVE repeated phrases and duplicate paragraphs
@@ -417,8 +422,9 @@ YOUR TASKS:
      * Don't just clean - rewrite into flowing, readable text
      * Start with a brief intro sentence describing the property
      * Group features logically (bedrooms, common areas, amenities, parking)
+     * Include rental requirements section at the end if present
      * Use complete sentences where appropriate
-   - Focus on describing the PROPERTY ITSELF (features, location, condition)
+   - Focus on describing the PROPERTY ITSELF (features, location, condition, rental terms)
    - Return null ONLY if description is already well-formatted
 
 4. GEOCODING ADDRESS (geocoding_address):
@@ -482,7 +488,7 @@ PROMPT;
                     ],
                     'cleaned_description' => [
                         'type' => ['string', 'null'],
-                        'description' => 'Description with prices, promotional text, and contact info REMOVED. Same language as original. Null only if no cleaning needed.',
+                        'description' => 'Description with main price and promotional text REMOVED, but PRESERVE rental requirements, pricing variations, and move-in costs. Same language as original. Null only if no cleaning needed.',
                     ],
                     'geocoding_address' => [
                         'type' => ['string', 'null'],
