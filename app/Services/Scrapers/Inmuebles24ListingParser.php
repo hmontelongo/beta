@@ -25,15 +25,15 @@ class Inmuebles24ListingParser
         // Extract features from icon-based elements
         $features = $this->extractFeatures($extracted, $dataLayerData);
 
-        // Build operations array (price/rent info) - now supports multiple operations
-        $operations = $this->buildOperations($jsData, $dataLayerData, $rawHtml);
+        // Parse description for additional data (do this early so we can use it for operations)
+        $description = $this->cleanDescription($extracted['description'] ?? '');
+        $descriptionData = $this->parseDescription($description, $extracted['title'] ?? '');
+
+        // Build operations array (price/rent info) - pass description to check for maintenance included
+        $operations = $this->buildOperations($jsData, $dataLayerData, $rawHtml, $description);
 
         // Parse location (enhanced with dataLayer)
         $location = $this->parseLocation($extracted, $jsData, $dataLayerData);
-
-        // Parse description for additional data
-        $description = $this->cleanDescription($extracted['description'] ?? '');
-        $descriptionData = $this->parseDescription($description, $extracted['title'] ?? '');
 
         // Merge amenities from extraction and description
         $amenities = $this->mergeAmenities(
@@ -295,12 +295,12 @@ class Inmuebles24ListingParser
      *
      * @return array<array{type: string, price: int, currency: string, maintenance_fee: int|null}>
      */
-    protected function buildOperations(array $jsData, array $dataLayerData, string $html): array
+    protected function buildOperations(array $jsData, array $dataLayerData, string $html, ?string $description = null): array
     {
         $operations = [];
         $operationTypes = $this->config->operationTypes();
         $currencyTypes = $this->config->currencyTypes();
-        $maintenanceFee = $this->extractMaintenanceFee($html);
+        $maintenanceFee = $this->extractMaintenanceFee($html, $description);
 
         // Primary operation from JS data
         if (isset($jsData['price']) && isset($jsData['operation_type_id'])) {
@@ -432,18 +432,21 @@ class Inmuebles24ListingParser
     }
 
     /**
-     * Extract maintenance fee from HTML.
+     * Extract maintenance fee from HTML and description.
      * Returns null if maintenance is included in rent.
      */
-    protected function extractMaintenanceFee(string $html): ?int
+    protected function extractMaintenanceFee(string $html, ?string $description = null): ?int
     {
+        // Combine HTML and description for pattern matching
+        $searchText = $html.($description ? ' '.$description : '');
+
         // First check if maintenance is included in rent (no separate fee)
-        if (preg_match('/mantenimiento\s+incluid[oa]/i', $html)) {
+        if (preg_match('/mantenimiento\s+incluid[oa]/i', $searchText)) {
             return null; // Maintenance included in rent
         }
 
         // Also check for "incluye mantenimiento"
-        if (preg_match('/incluy[ea]\s+mantenimiento/i', $html)) {
+        if (preg_match('/incluy[ea]\s+mantenimiento/i', $searchText)) {
             return null;
         }
 
@@ -461,7 +464,7 @@ class Inmuebles24ListingParser
         ];
 
         foreach ($patterns as $pattern) {
-            if (preg_match($pattern, $html, $matches)) {
+            if (preg_match($pattern, $searchText, $matches)) {
                 return (int) str_replace(',', '', $matches[1]);
             }
         }
