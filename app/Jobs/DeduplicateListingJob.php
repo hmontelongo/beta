@@ -2,11 +2,13 @@
 
 namespace App\Jobs;
 
+use App\Enums\DedupStatus;
 use App\Models\Listing;
 use App\Services\Dedup\DeduplicationService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class DeduplicateListingJob implements ShouldQueue
 {
@@ -47,5 +49,20 @@ class DeduplicateListingJob implements ShouldQueue
         }
 
         $dedupService->processListing($listing);
+    }
+
+    /**
+     * Handle job failure - reset status so it can be retried.
+     */
+    public function failed(?Throwable $exception): void
+    {
+        Log::error('DeduplicateListingJob failed', [
+            'listing_id' => $this->listingId,
+            'error' => $exception?->getMessage(),
+        ]);
+
+        Listing::where('id', $this->listingId)->update([
+            'dedup_status' => DedupStatus::Failed,
+        ]);
     }
 }

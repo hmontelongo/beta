@@ -2,11 +2,13 @@
 
 namespace App\Jobs;
 
+use App\Enums\AiEnrichmentStatus;
 use App\Models\Listing;
 use App\Services\AI\ListingEnrichmentService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class EnrichListingJob implements ShouldQueue
 {
@@ -47,5 +49,20 @@ class EnrichListingJob implements ShouldQueue
         }
 
         $enrichmentService->enrichListing($listing);
+    }
+
+    /**
+     * Handle job failure - reset status so it doesn't stay stuck.
+     */
+    public function failed(?Throwable $exception): void
+    {
+        Log::error('EnrichListingJob failed', [
+            'listing_id' => $this->listingId,
+            'error' => $exception?->getMessage(),
+        ]);
+
+        Listing::where('id', $this->listingId)->update([
+            'ai_status' => AiEnrichmentStatus::Failed,
+        ]);
     }
 }
