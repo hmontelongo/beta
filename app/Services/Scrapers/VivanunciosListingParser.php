@@ -29,13 +29,26 @@ class VivanunciosListingParser implements ListingParserInterface
         // Secondary: dataLayer
         $dataLayerData = $this->extractDataLayer($rawHtml);
 
-        // Parse description (check for maintenance included)
-        // Handle array descriptions (ZenRows may return arrays for multiple matches)
-        $rawDescription = $jsonLd['description'] ?? $extracted['description'] ?? '';
-        if (is_array($rawDescription)) {
-            $rawDescription = implode(' ', array_filter($rawDescription));
+        // Parse description - prefer CSS extracted over JSON-LD
+        // JSON-LD often has truncated SEO descriptions like "Casas en Renta con 3 recamaras..."
+        // CSS extracted has the full property description
+        $cssDescription = $extracted['description'] ?? '';
+        if (is_array($cssDescription)) {
+            $cssDescription = implode(' ', array_filter($cssDescription));
         }
-        $description = $this->cleanDescription($rawDescription);
+        $cssDescription = $this->cleanDescription($cssDescription);
+
+        $jsonLdDescription = $jsonLd['description'] ?? '';
+        if (is_array($jsonLdDescription)) {
+            $jsonLdDescription = implode(' ', array_filter($jsonLdDescription));
+        }
+        $jsonLdDescription = $this->cleanDescription($jsonLdDescription);
+
+        // Use CSS description if available and longer (it's the full text)
+        // JSON-LD descriptions are often truncated with SEO prefixes
+        $description = (strlen($cssDescription ?? '') > strlen($jsonLdDescription ?? ''))
+            ? $cssDescription
+            : ($jsonLdDescription ?: $cssDescription);
 
         // Extract features (from JSON-LD or HTML)
         $features = $this->extractFeatures($jsonLd, $extracted, $dataLayerData);
@@ -483,13 +496,13 @@ class VivanunciosListingParser implements ListingParserInterface
 
         // Tertiary: dataLayer
         if (! $location['colonia'] && isset($dataLayerData['neighborhood'])) {
-            $location['colonia'] = $dataLayerData['neighborhood'];
+            $location['colonia'] = $this->filterNullString($dataLayerData['neighborhood']);
         }
         if (! $location['city'] && isset($dataLayerData['city'])) {
-            $location['city'] = $dataLayerData['city'];
+            $location['city'] = $this->filterNullString($dataLayerData['city']);
         }
         if (! $location['state'] && isset($dataLayerData['state'])) {
-            $location['state'] = $dataLayerData['state'];
+            $location['state'] = $this->filterNullString($dataLayerData['state']);
         }
 
         return $location;
@@ -875,5 +888,17 @@ class VivanunciosListingParser implements ListingParserInterface
         }
 
         return [];
+    }
+
+    /**
+     * Filter out the literal string "null" which appears in dataLayer.
+     */
+    protected function filterNullString(?string $value): ?string
+    {
+        if ($value === null || mb_strtolower($value) === 'null') {
+            return null;
+        }
+
+        return $value;
     }
 }

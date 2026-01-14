@@ -45,16 +45,22 @@ class PropertyMergerService
         // Build address with fallbacks - use colonia or city if no street address
         $address = $rawData['address'] ?? $rawData['colonia'] ?? $rawData['city'] ?? 'Sin dirección';
 
+        // Required fields need fallback values
+        $colonia = $rawData['colonia'] ?? 'Desconocida';
+        $city = $rawData['city'] ?? 'Desconocida';
+        $state = $rawData['state'] ?? 'Desconocido';
+        $propertyType = $rawData['property_type'] ?? 'other';
+
         $property = Property::create([
             'address' => $address,
             'interior_number' => $rawData['interior_number'] ?? null,
-            'colonia' => $rawData['colonia'] ?? null,
-            'city' => $rawData['city'] ?? null,
-            'state' => $rawData['state'] ?? null,
+            'colonia' => $colonia,
+            'city' => $city,
+            'state' => $state,
             'postal_code' => $rawData['postal_code'] ?? null,
             'latitude' => $rawData['latitude'] ?? null,
             'longitude' => $rawData['longitude'] ?? null,
-            'property_type' => $rawData['property_type'] ?? null,
+            'property_type' => $propertyType,
             'property_subtype' => $rawData['property_subtype'] ?? null,
             'bedrooms' => $rawData['bedrooms'] ?? null,
             'bathrooms' => $rawData['bathrooms'] ?? null,

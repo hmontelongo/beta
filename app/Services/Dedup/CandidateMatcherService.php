@@ -180,7 +180,8 @@ class CandidateMatcherService
 
     /**
      * Calculate coordinate-based similarity score (0-1).
-     * Score decreases with distance.
+     * Uses exponential decay - score drops quickly for nearby, slower for far.
+     * This accounts for imprecise geocoding where coordinates can be 500m+ off.
      *
      * @param  array<string, mixed>  $dataA
      * @param  array<string, mixed>  $dataB
@@ -190,20 +191,24 @@ class CandidateMatcherService
         $distance = $this->calculateDistance($dataA, $dataB);
 
         if ($distance === null) {
-            return 0.0;
+            return 0.5; // Unknown - neutral score
         }
 
-        // Perfect match at 0 meters, score decreases linearly
-        // At threshold distance, score is 0
-        if ($distance >= $this->distanceThreshold) {
-            return 0.0;
+        // Perfect match at 0 meters
+        if ($distance <= 10) {
+            return 1.0;
         }
 
-        return 1.0 - ($distance / $this->distanceThreshold);
+        // Use exponential decay: e^(-distance/halflife)
+        // At 200m: ~0.61, at 500m: ~0.29, at 1000m: ~0.08
+        $halfLife = 300; // Distance at which score is ~0.37
+
+        return exp(-$distance / $halfLife);
     }
 
     /**
      * Calculate address similarity score (0-1).
+     * Street address is weighted highest - it's the most specific identifier.
      *
      * @param  array<string, mixed>  $dataA
      * @param  array<string, mixed>  $dataB
@@ -211,11 +216,14 @@ class CandidateMatcherService
     protected function calculateAddressScore(array $dataA, array $dataB): float
     {
         $score = 0.0;
+        $totalWeight = 0.0;
+
+        // Street address is most important, then colonia, city, state
         $weights = [
-            'colonia' => 0.4,
-            'city' => 0.3,
-            'state' => 0.2,
-            'address' => 0.1,
+            'address' => 0.40,
+            'colonia' => 0.30,
+            'city' => 0.20,
+            'state' => 0.10,
         ];
 
         foreach ($weights as $field => $weight) {
@@ -226,16 +234,22 @@ class CandidateMatcherService
                 continue;
             }
 
+            $totalWeight += $weight;
             $similarity = $this->stringSimilarity($valueA, $valueB);
             $score += $similarity * $weight;
         }
 
-        return min(1.0, $score);
+        // Normalize by actual weight used (in case some fields missing)
+        if ($totalWeight === 0.0) {
+            return 0.0;
+        }
+
+        return min(1.0, $score / $totalWeight);
     }
 
     /**
      * Calculate features similarity score (0-1).
-     * Compares bedrooms, bathrooms, size, property type.
+     * Compares bedrooms, bathrooms, size, property type, and price.
      *
      * @param  array<string, mixed>  $dataA
      * @param  array<string, mixed>  $dataB
@@ -297,6 +311,15 @@ class CandidateMatcherService
             }
         }
 
+        // Price comparison (within 5% for same currency/operation)
+        $priceMatch = $this->comparePrices($dataA, $dataB);
+        if ($priceMatch !== null) {
+            $total++;
+            if ($priceMatch) {
+                $matches++;
+            }
+        }
+
         if ($total === 0) {
             return 0.5; // Neutral score if no features to compare
         }
@@ -305,17 +328,57 @@ class CandidateMatcherService
     }
 
     /**
+     * Compare prices between two listings.
+     * Returns true if prices match (within 5%), false if different, null if can't compare.
+     *
+     * @param  array<string, mixed>  $dataA
+     * @param  array<string, mixed>  $dataB
+     */
+    protected function comparePrices(array $dataA, array $dataB): ?bool
+    {
+        $opsA = $dataA['operations'] ?? [];
+        $opsB = $dataB['operations'] ?? [];
+
+        if (empty($opsA) || empty($opsB)) {
+            return null;
+        }
+
+        // Compare matching operation types
+        foreach ($opsA as $opA) {
+            foreach ($opsB as $opB) {
+                // Same operation type and currency
+                if (($opA['type'] ?? '') === ($opB['type'] ?? '') &&
+                    ($opA['currency'] ?? 'MXN') === ($opB['currency'] ?? 'MXN')) {
+                    $priceA = (float) ($opA['price'] ?? 0);
+                    $priceB = (float) ($opB['price'] ?? 0);
+
+                    if ($priceA > 0 && $priceB > 0) {
+                        $difference = abs($priceA - $priceB) / max($priceA, $priceB);
+
+                        return $difference <= 0.05; // Within 5%
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * Calculate overall weighted score.
+     *
+     * Features are most reliable - bedrooms, bathrooms, price, size are unique to a unit.
+     * Coordinates help with geographic clustering but are often imprecise.
+     * Address is least reliable - same building different units, or enrichment-generated.
      *
      * @param  array{coordinate: float, address: float, features: float}  $scores
      */
     public function calculateOverallScore(array $scores): float
     {
-        // Weights as defined in the plan
         $weights = [
-            'coordinate' => 0.35,
-            'address' => 0.25,
-            'features' => 0.40,
+            'coordinate' => 0.20,
+            'address' => 0.15,
+            'features' => 0.65,
         ];
 
         $weighted = 0.0;
