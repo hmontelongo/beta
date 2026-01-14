@@ -189,5 +189,20 @@ it('returns zero stats when no listings exist', function () {
         ->and($instance->stats['dedup_matched'])->toBe(0)
         ->and($instance->stats['dedup_needs_review'])->toBe(0)
         ->and($instance->stats['dedup_failed'])->toBe(0)
-        ->and($instance->stats['candidates_pending_review'])->toBe(0);
+        ->and($instance->stats['candidates_pending_review'])->toBe(0)
+        ->and($instance->stats['ai_queued'])->toBe(0)
+        ->and($instance->stats['dedup_queued'])->toBe(0);
+});
+
+it('includes queue depth in processing detection', function () {
+    // When no jobs in queue and no processing in DB, should not be processing
+    $component = Livewire::test(Index::class);
+    $instance = $component->instance();
+
+    expect($instance->isProcessing)->toBeFalse()
+        ->and($instance->isEnrichmentProcessing)->toBeFalse()
+        ->and($instance->isDeduplicationProcessing)->toBeFalse();
+
+    // Stats should include queue depth keys
+    expect($instance->stats)->toHaveKeys(['ai_queued', 'dedup_queued']);
 });

@@ -183,19 +183,20 @@ class JobCancellationService
             return;
         }
 
-        $prefix = config('database.redis.options.prefix', '');
+        // Note: Redis facade already applies the prefix from config,
+        // so we don't need to add it manually
 
         // Clear pending jobs
-        Redis::del("{$prefix}queues:{$queueName}");
+        Redis::del("queues:{$queueName}");
 
         // Clear reserved jobs (currently processing)
-        Redis::del("{$prefix}queues:{$queueName}:reserved");
+        Redis::del("queues:{$queueName}:reserved");
 
         // Clear delayed jobs
-        Redis::del("{$prefix}queues:{$queueName}:delayed");
+        Redis::del("queues:{$queueName}:delayed");
 
         // Clear notify key (used by Horizon)
-        Redis::del("{$prefix}queues:{$queueName}:notify");
+        Redis::del("queues:{$queueName}:notify");
 
         Log::info('Queue cleared', ['queue' => $queueName]);
     }
@@ -215,13 +216,13 @@ class JobCancellationService
             return $stats;
         }
 
-        $prefix = config('database.redis.options.prefix', '');
-
+        // Note: Redis facade already applies the prefix from config,
+        // so we don't need to add it manually
         foreach ($queues as $queue) {
             $stats[$queue] = [
-                'pending' => (int) Redis::llen("{$prefix}queues:{$queue}"),
-                'reserved' => (int) Redis::zcard("{$prefix}queues:{$queue}:reserved"),
-                'delayed' => (int) Redis::zcard("{$prefix}queues:{$queue}:delayed"),
+                'pending' => (int) Redis::llen("queues:{$queue}"),
+                'reserved' => (int) Redis::zcard("queues:{$queue}:reserved"),
+                'delayed' => (int) Redis::zcard("queues:{$queue}:delayed"),
             ];
         }
 

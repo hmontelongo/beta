@@ -299,11 +299,14 @@ class Index extends Component
     }
 
     /**
-     * @return array{ai_pending: int, ai_processing: int, ai_completed: int, ai_failed: int, dedup_pending: int, dedup_processing: int, dedup_matched: int, dedup_needs_review: int, dedup_failed: int, candidates_pending_review: int}
+     * @return array{ai_pending: int, ai_processing: int, ai_completed: int, ai_failed: int, dedup_pending: int, dedup_processing: int, dedup_matched: int, dedup_needs_review: int, dedup_failed: int, candidates_pending_review: int, ai_queued: int, dedup_queued: int}
      */
     #[Computed]
     public function stats(): array
     {
+        // Get queue stats for real-time job counts
+        $queueStats = app(JobCancellationService::class)->getQueueStats();
+
         return [
             'ai_pending' => Listing::where('ai_status', AiEnrichmentStatus::Pending)->count(),
             'ai_processing' => Listing::where('ai_status', AiEnrichmentStatus::Processing)->count(),
@@ -315,13 +318,24 @@ class Index extends Component
             'dedup_needs_review' => Listing::where('dedup_status', DedupStatus::NeedsReview)->count(),
             'dedup_failed' => Listing::where('dedup_status', DedupStatus::Failed)->count(),
             'candidates_pending_review' => DedupCandidate::where('status', DedupCandidateStatus::NeedsReview)->count(),
+            // Queue depth: pending + reserved (currently executing) + delayed
+            'ai_queued' => ($queueStats['ai-enrichment']['pending'] ?? 0)
+                + ($queueStats['ai-enrichment']['reserved'] ?? 0)
+                + ($queueStats['ai-enrichment']['delayed'] ?? 0),
+            'dedup_queued' => ($queueStats['dedup']['pending'] ?? 0)
+                + ($queueStats['dedup']['reserved'] ?? 0)
+                + ($queueStats['dedup']['delayed'] ?? 0),
         ];
     }
 
     #[Computed]
     public function isProcessing(): bool
     {
-        return $this->stats['ai_processing'] > 0 || $this->stats['dedup_processing'] > 0;
+        // Check both database state AND queue depth for accurate processing detection
+        return $this->stats['ai_processing'] > 0
+            || $this->stats['dedup_processing'] > 0
+            || $this->stats['ai_queued'] > 0
+            || $this->stats['dedup_queued'] > 0;
     }
 
     /**
@@ -340,13 +354,15 @@ class Index extends Component
     #[Computed]
     public function isEnrichmentProcessing(): bool
     {
-        return $this->stats['ai_processing'] > 0;
+        // Check both database state AND queue depth
+        return $this->stats['ai_processing'] > 0 || $this->stats['ai_queued'] > 0;
     }
 
     #[Computed]
     public function isDeduplicationProcessing(): bool
     {
-        return $this->stats['dedup_processing'] > 0;
+        // Check both database state AND queue depth
+        return $this->stats['dedup_processing'] > 0 || $this->stats['dedup_queued'] > 0;
     }
 
     /**

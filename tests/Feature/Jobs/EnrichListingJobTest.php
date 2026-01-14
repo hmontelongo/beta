@@ -6,7 +6,6 @@ use App\Models\AiEnrichment;
 use App\Models\Listing;
 use App\Models\Platform;
 use App\Services\AI\ListingEnrichmentService;
-use DateTime;
 
 it('sets status to processing before calling service', function () {
     $platform = Platform::factory()->create();

@@ -8,7 +8,6 @@ use App\Services\AI\ListingEnrichmentService;
 use DateTime;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
-use Illuminate\Queue\Middleware\RateLimitedWithRedis;
 use Illuminate\Queue\Middleware\ThrottlesExceptionsWithRedis;
 use Illuminate\Support\Facades\Log;
 use Throwable;
@@ -45,11 +44,10 @@ class EnrichListingJob implements ShouldQueue
     public function middleware(): array
     {
         return [
-            // Rate limit to 3 requests per minute (10k tokens/min limit, ~2.5k per request)
-            (new RateLimitedWithRedis('claude-api'))->releaseAfter(20),
-
-            // Throttle on 429 errors - after 2 consecutive rate limit errors, wait 60s
-            (new ThrottlesExceptionsWithRedis(2, 60))
+            // Throttle on 429 errors - after 3 consecutive rate limit errors, wait 30s
+            // No rate limiter needed - with 1K req/min limit and ~10s per job,
+            // even 10 workers only use ~60 req/min
+            (new ThrottlesExceptionsWithRedis(3, 30))
                 ->by('claude-api-throttle')
                 ->when(fn (Throwable $e) => str_contains($e->getMessage(), '429')),
         ];

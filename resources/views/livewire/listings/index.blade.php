@@ -23,7 +23,7 @@
                     icon="x-mark"
                 >
                     <span wire:loading.remove wire:target="cancelEnrichment">
-                        {{ __('Cancel Enrich') }} ({{ $this->stats['ai_processing'] }})
+                        {{ __('Cancel Enrich') }} ({{ $this->stats['ai_queued'] + $this->stats['ai_processing'] }})
                     </span>
                     <span wire:loading wire:target="cancelEnrichment">{{ __('Cancelling...') }}</span>
                 </flux:button>
@@ -53,7 +53,7 @@
                     icon="x-mark"
                 >
                     <span wire:loading.remove wire:target="cancelDeduplication">
-                        {{ __('Cancel Dedup') }} ({{ $this->stats['dedup_processing'] }})
+                        {{ __('Cancel Dedup') }} ({{ $this->stats['dedup_queued'] + $this->stats['dedup_processing'] }})
                     </span>
                     <span wire:loading wire:target="cancelDeduplication">{{ __('Cancelling...') }}</span>
                 </flux:button>
@@ -142,11 +142,11 @@
             <flux:text size="sm" class="text-zinc-500">{{ __('AI Pending') }}</flux:text>
             <flux:heading size="lg" class="text-zinc-600">{{ $this->stats['ai_pending'] }}</flux:heading>
         </flux:card>
-        @if ($this->stats['ai_processing'] > 0 || $this->stats['dedup_processing'] > 0)
+        @if ($this->isProcessing)
             <flux:card class="p-4 bg-blue-50 dark:bg-blue-900/20">
-                <flux:text size="sm" class="text-blue-600 dark:text-blue-400">{{ __('Processing') }}</flux:text>
+                <flux:text size="sm" class="text-blue-600 dark:text-blue-400">{{ __('Queue / Active') }}</flux:text>
                 <flux:heading size="lg" class="text-blue-600">
-                    {{ $this->stats['ai_processing'] + $this->stats['dedup_processing'] }}
+                    {{ $this->stats['ai_queued'] + $this->stats['dedup_queued'] }} / {{ $this->stats['ai_processing'] + $this->stats['dedup_processing'] }}
                 </flux:heading>
             </flux:card>
         @endif

@@ -227,12 +227,13 @@ return [
             'nice' => 0,
         ],
 
-        // AI Enrichment - rate limited, keep workers low
+        // AI Enrichment - parallel processing with 429 throttling
         'enrichment-supervisor' => [
             'connection' => 'redis',
             'queue' => ['ai-enrichment'],
-            'balance' => 'false',
-            'maxProcesses' => 1,
+            'balance' => 'auto',
+            'autoScalingStrategy' => 'time',
+            'maxProcesses' => 5,
             'maxTime' => 0,
             'maxJobs' => 0,
             'memory' => 128,
@@ -270,7 +271,7 @@ return [
                 'balanceCooldown' => 3,
             ],
             'enrichment-supervisor' => [
-                'maxProcesses' => 1, // Keep at 1 due to API rate limits
+                'maxProcesses' => 5,
             ],
             'dedup-supervisor' => [
                 'maxProcesses' => 3,
@@ -287,7 +288,7 @@ return [
                 'maxProcesses' => 6,
             ],
             'enrichment-supervisor' => [
-                'maxProcesses' => 1, // Keep at 1 due to API rate limits
+                'maxProcesses' => 5,
             ],
             'dedup-supervisor' => [
                 'maxProcesses' => 2,
