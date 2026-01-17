@@ -25,6 +25,7 @@ class CandidateMatcherService
 
     /**
      * Find potential duplicate candidates for a listing.
+     * Only uses coordinate-based matching to avoid excessive false positives.
      *
      * @return Collection<int, DedupCandidate>
      */
@@ -32,33 +33,17 @@ class CandidateMatcherService
     {
         $candidates = collect();
 
-        // Get raw data for coordinates and address info
+        // Get raw data for coordinates
         $rawData = $listing->raw_data ?? [];
         $latitude = $rawData['latitude'] ?? null;
         $longitude = $rawData['longitude'] ?? null;
 
-        // Find nearby listings by coordinates first
+        // Only match by coordinates - address-only matching creates too many false positives
+        // (same colonia doesn't mean same property)
         if ($latitude && $longitude) {
             $nearbyListings = $this->findByCoordinates($listing, $latitude, $longitude);
 
             foreach ($nearbyListings as $candidate) {
-                $dedupCandidate = $this->createCandidate($listing, $candidate);
-                if ($dedupCandidate) {
-                    $candidates->push($dedupCandidate);
-                }
-            }
-        }
-
-        // Also check by address if we have address info
-        if (! empty($rawData['colonia']) || ! empty($rawData['city'])) {
-            $addressMatches = $this->findByAddress($listing, $rawData);
-
-            foreach ($addressMatches as $candidate) {
-                // Skip if already added via coordinate match
-                if ($candidates->contains(fn ($c) => $c->listing_b_id === $candidate->id)) {
-                    continue;
-                }
-
                 $dedupCandidate = $this->createCandidate($listing, $candidate);
                 if ($dedupCandidate) {
                     $candidates->push($dedupCandidate);
@@ -98,6 +83,7 @@ class CandidateMatcherService
 
     /**
      * Find listings by address similarity.
+     * Requires exact colonia match and same property type to reduce false positives.
      *
      * @param  array<string, mixed>  $rawData
      * @return Collection<int, Listing>
@@ -106,15 +92,19 @@ class CandidateMatcherService
     {
         $query = Listing::query()->where('id', '!=', $listing->id);
 
-        // Match by colonia and city (most specific)
-        if (! empty($rawData['colonia'])) {
-            $colonia = $this->normalizeAddress($rawData['colonia']);
-            $query->whereRaw("LOWER(JSON_UNQUOTE(JSON_EXTRACT(raw_data, '$.colonia'))) LIKE ?", ["%{$colonia}%"]);
+        // Require same property type to reduce candidates
+        if (! empty($rawData['property_type'])) {
+            $query->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(raw_data, '$.property_type')) = ?", [$rawData['property_type']]);
         }
 
+        // Require exact colonia match (not LIKE)
+        if (! empty($rawData['colonia'])) {
+            $query->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(raw_data, '$.colonia')) = ?", [$rawData['colonia']]);
+        }
+
+        // Require same city
         if (! empty($rawData['city'])) {
-            $city = $this->normalizeAddress($rawData['city']);
-            $query->whereRaw("LOWER(JSON_UNQUOTE(JSON_EXTRACT(raw_data, '$.city'))) LIKE ?", ["%{$city}%"]);
+            $query->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(raw_data, '$.city')) = ?", [$rawData['city']]);
         }
 
         return $query->limit(20)->get();
@@ -141,6 +131,11 @@ class CandidateMatcherService
 
         $rawDataA = $listingA->raw_data ?? [];
         $rawDataB = $listingB->raw_data ?? [];
+
+        // Early rejection - don't create candidate if obviously different
+        if (! $this->shouldCreateCandidate($rawDataA, $rawDataB)) {
+            return null;
+        }
 
         // Calculate scores
         $coordinateScore = $this->calculateCoordinateScore($rawDataA, $rawDataB);
@@ -176,6 +171,126 @@ class CandidateMatcherService
         ]);
 
         return $candidate;
+    }
+
+    /**
+     * Check if two listings should even be considered as potential duplicates.
+     * Rejects obvious non-matches early to reduce candidate count.
+     *
+     * @param  array<string, mixed>  $dataA
+     * @param  array<string, mixed>  $dataB
+     */
+    protected function shouldCreateCandidate(array $dataA, array $dataB): bool
+    {
+        // Property type must match (if both have it)
+        if (! empty($dataA['property_type']) && ! empty($dataB['property_type'])) {
+            if ($dataA['property_type'] !== $dataB['property_type']) {
+                return false;
+            }
+        }
+
+        // Operation type must match - rent vs sale are different listings
+        if (! $this->hasMatchingOperationType($dataA, $dataB)) {
+            return false;
+        }
+
+        // Price difference check - reject if prices differ by more than 20%
+        $priceDiff = $this->getPriceDifferenceRatio($dataA, $dataB);
+        if ($priceDiff !== null && $priceDiff > 0.20) {
+            return false;
+        }
+
+        // Size difference check - reject if sizes differ by more than 20%
+        $sizeDiff = $this->getSizeDifferenceRatio($dataA, $dataB);
+        if ($sizeDiff !== null && $sizeDiff > 0.20) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Check if two listings have at least one matching operation type.
+     * Rent vs Sale listings are definitely not the same.
+     *
+     * @param  array<string, mixed>  $dataA
+     * @param  array<string, mixed>  $dataB
+     */
+    protected function hasMatchingOperationType(array $dataA, array $dataB): bool
+    {
+        $opsA = $dataA['operations'] ?? [];
+        $opsB = $dataB['operations'] ?? [];
+
+        // If either has no operations, can't determine - allow comparison
+        if (empty($opsA) || empty($opsB)) {
+            return true;
+        }
+
+        $typesA = array_column($opsA, 'type');
+        $typesB = array_column($opsB, 'type');
+
+        // Must have at least one matching operation type
+        return ! empty(array_intersect($typesA, $typesB));
+    }
+
+    /**
+     * Get the price difference ratio between two listings.
+     * Returns null if prices can't be compared.
+     *
+     * @param  array<string, mixed>  $dataA
+     * @param  array<string, mixed>  $dataB
+     */
+    protected function getPriceDifferenceRatio(array $dataA, array $dataB): ?float
+    {
+        $opsA = $dataA['operations'] ?? [];
+        $opsB = $dataB['operations'] ?? [];
+
+        if (empty($opsA) || empty($opsB)) {
+            return null;
+        }
+
+        // Compare matching operation types
+        foreach ($opsA as $opA) {
+            foreach ($opsB as $opB) {
+                if (($opA['type'] ?? '') === ($opB['type'] ?? '') &&
+                    ($opA['currency'] ?? 'MXN') === ($opB['currency'] ?? 'MXN')) {
+                    $priceA = (float) ($opA['price'] ?? 0);
+                    $priceB = (float) ($opB['price'] ?? 0);
+
+                    if ($priceA > 0 && $priceB > 0) {
+                        return abs($priceA - $priceB) / max($priceA, $priceB);
+                    }
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Get the size difference ratio between two listings.
+     * Returns null if sizes can't be compared.
+     *
+     * @param  array<string, mixed>  $dataA
+     * @param  array<string, mixed>  $dataB
+     */
+    protected function getSizeDifferenceRatio(array $dataA, array $dataB): ?float
+    {
+        // Try built size first
+        $sizeA = (float) ($dataA['built_size_m2'] ?? 0);
+        $sizeB = (float) ($dataB['built_size_m2'] ?? 0);
+
+        // Fall back to lot size if no built size
+        if ($sizeA <= 0 || $sizeB <= 0) {
+            $sizeA = (float) ($dataA['lot_size_m2'] ?? 0);
+            $sizeB = (float) ($dataB['lot_size_m2'] ?? 0);
+        }
+
+        if ($sizeA <= 0 || $sizeB <= 0) {
+            return null;
+        }
+
+        return abs($sizeA - $sizeB) / max($sizeA, $sizeB);
     }
 
     /**
