@@ -26,10 +26,16 @@ return new class extends Migration
             $table->json('external_codes')->nullable();
             $table->json('raw_data');
             $table->json('data_quality')->nullable();
+            $table->string('ai_status')->default('pending');
+            $table->string('dedup_status')->default('pending');
+            $table->timestamp('ai_processed_at')->nullable();
+            $table->timestamp('dedup_checked_at')->nullable();
             $table->timestamp('scraped_at');
             $table->timestamps();
 
             $table->unique(['platform_id', 'external_id']);
+            $table->index(['ai_status', 'created_at']);
+            $table->index(['dedup_status', 'created_at']);
         });
     }
 

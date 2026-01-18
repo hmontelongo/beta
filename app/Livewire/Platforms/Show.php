@@ -3,6 +3,7 @@
 namespace App\Livewire\Platforms;
 
 use App\Enums\DiscoveredListingStatus;
+use App\Enums\RunFrequency;
 use App\Enums\ScrapeRunStatus;
 use App\Models\DiscoveredListing;
 use App\Models\Listing;
@@ -10,6 +11,7 @@ use App\Models\Platform;
 use App\Models\SearchQuery;
 use App\Services\ScrapeOrchestrator;
 use Flux\Flux;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\View\View;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
@@ -101,6 +103,39 @@ class Show extends Component
         return $this->redirect(route('runs.show', $run), navigate: true);
     }
 
+    public function updateScheduling(int $queryId, string $frequency, bool $enabled): void
+    {
+        $query = SearchQuery::findOrFail($queryId);
+        $runFrequency = RunFrequency::from($frequency);
+
+        if ($enabled && $runFrequency !== RunFrequency::None) {
+            $query->enableScheduling($runFrequency);
+            Flux::toast("Scheduling enabled: {$runFrequency->label()}", variant: 'success');
+        } else {
+            $query->update([
+                'run_frequency' => $runFrequency,
+                'auto_enabled' => false,
+                'next_run_at' => null,
+            ]);
+            Flux::toast('Scheduling disabled', variant: 'info');
+        }
+
+        unset($this->searchQueries);
+    }
+
+    public function runScheduledNow(): void
+    {
+        $exitCode = Artisan::call('scrape:run-scheduled', ['--force' => true]);
+
+        if ($exitCode === 0) {
+            Flux::toast('Scheduled scrapes triggered!', variant: 'success');
+        } else {
+            Flux::toast('Failed to run scheduled scrapes', variant: 'danger');
+        }
+
+        unset($this->searchQueries, $this->recentRuns);
+    }
+
     public function refreshStats(): void
     {
         unset($this->stats, $this->recentRuns, $this->searchQueries, $this->hasActiveRun);
@@ -137,6 +172,8 @@ class Show extends Component
 
     public function render(): View
     {
-        return view('livewire.platforms.show');
+        return view('livewire.platforms.show', [
+            'frequencies' => RunFrequency::cases(),
+        ]);
     }
 }

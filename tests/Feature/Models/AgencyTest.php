@@ -53,14 +53,12 @@ it('casts platform_profiles to array', function () {
 
 it('allows nullable fields', function () {
     $agency = Agency::factory()->create([
-        'website' => null,
         'email' => null,
         'phone' => null,
         'platform_profiles' => null,
     ]);
 
-    expect($agency->website)->toBeNull()
-        ->and($agency->email)->toBeNull()
+    expect($agency->email)->toBeNull()
         ->and($agency->phone)->toBeNull()
         ->and($agency->platform_profiles)->toBeNull();
 });

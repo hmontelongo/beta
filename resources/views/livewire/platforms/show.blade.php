@@ -14,6 +14,9 @@
             </div>
         </div>
         <div class="flex gap-2">
+            <flux:button variant="ghost" icon="clock" wire:click="runScheduledNow" wire:confirm="{{ __('Run all enabled scheduled scrapes now?') }}">
+                {{ __('Run Scheduled') }}
+            </flux:button>
             <flux:button variant="ghost" icon="document-text" :href="route('listings.index', ['platform' => $platform->id])" wire:navigate>
                 {{ __('View Listings') }}
             </flux:button>
@@ -61,11 +64,47 @@
                         <div wire:key="query-{{ $query->id }}" class="rounded-lg border border-zinc-200 dark:border-zinc-700 p-4">
                             <div class="flex justify-between items-start gap-3">
                                 <div class="min-w-0 flex-1">
-                                    <flux:heading size="sm">{{ $query->name }}</flux:heading>
+                                    <div class="flex items-center gap-2">
+                                        <flux:heading size="sm">{{ $query->name }}</flux:heading>
+                                        @if ($query->auto_enabled)
+                                            <flux:badge size="sm" color="blue">{{ $query->run_frequency->label() }}</flux:badge>
+                                        @endif
+                                    </div>
                                     <flux:subheading class="truncate">{{ $query->search_url }}</flux:subheading>
                                 </div>
-                                <flux:button size="sm" variant="ghost" icon="trash" wire:click="deleteSearchQuery({{ $query->id }})" wire:confirm="{{ __('Are you sure?') }}" />
+                                <div class="flex items-center gap-1">
+                                    {{-- Schedule Dropdown --}}
+                                    <flux:dropdown>
+                                        <flux:button size="sm" variant="ghost" icon="calendar" />
+                                        <flux:menu>
+                                            <flux:menu.heading>{{ __('Schedule') }}</flux:menu.heading>
+                                            @foreach ($frequencies as $freq)
+                                                <flux:menu.item
+                                                    wire:click="updateScheduling({{ $query->id }}, '{{ $freq->value }}', {{ $freq->value !== 'none' ? 'true' : 'false' }})"
+                                                    :icon="$query->run_frequency === $freq && $query->auto_enabled ? 'check' : null"
+                                                >
+                                                    {{ $freq->label() }}
+                                                </flux:menu.item>
+                                            @endforeach
+                                            @if ($query->auto_enabled)
+                                                <flux:menu.separator />
+                                                <flux:menu.item wire:click="updateScheduling({{ $query->id }}, '{{ $query->run_frequency->value }}', false)" icon="x-mark">
+                                                    {{ __('Disable') }}
+                                                </flux:menu.item>
+                                            @endif
+                                        </flux:menu>
+                                    </flux:dropdown>
+                                    <flux:button size="sm" variant="ghost" icon="trash" wire:click="deleteSearchQuery({{ $query->id }})" wire:confirm="{{ __('Are you sure?') }}" />
+                                </div>
                             </div>
+
+                            {{-- Next Run Info --}}
+                            @if ($query->auto_enabled && $query->next_run_at)
+                                <div class="mt-2 flex items-center gap-2 text-sm text-zinc-500">
+                                    <flux:icon name="clock" class="size-4" />
+                                    <span>{{ __('Next run') }}: {{ $query->next_run_at->diffForHumans() }}</span>
+                                </div>
+                            @endif
 
                             @if ($query->activeRun)
                                 <a href="{{ route('runs.show', $query->activeRun) }}" wire:navigate class="mt-3 block rounded-lg bg-blue-50 dark:bg-blue-900/20 p-3 hover:bg-blue-100 dark:hover:bg-blue-900/30">

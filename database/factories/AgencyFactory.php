@@ -16,17 +16,11 @@ class AgencyFactory extends Factory
      */
     public function definition(): array
     {
-        $name = fake()->company();
-
         return [
-            'name' => $name,
-            'normalized_name' => strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $name)),
+            'name' => fake()->company(),
             'phone' => fake()->optional(0.7)->numerify('+52 33 #### ####'),
             'email' => fake()->optional(0.8)->companyEmail(),
-            'website' => fake()->optional(0.5)->url(),
-            'logo_url' => fake()->optional(0.3)->imageUrl(200, 200, 'business'),
             'platform_profiles' => null,
-            'properties_count' => 0,
         ];
     }
 

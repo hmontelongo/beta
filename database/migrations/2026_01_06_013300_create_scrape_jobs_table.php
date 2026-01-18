@@ -16,6 +16,7 @@ return new class extends Migration
         Schema::create('scrape_jobs', function (Blueprint $table) {
             $table->id();
             $table->foreignId('platform_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('scrape_run_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('discovered_listing_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('parent_id')->nullable()->constrained('scrape_jobs')->nullOnDelete();
             $table->string('job_type')->default(ScrapeJobType::Listing->value);
@@ -33,6 +34,8 @@ return new class extends Migration
             $table->timestamp('started_at')->nullable();
             $table->timestamp('completed_at')->nullable();
             $table->timestamps();
+
+            $table->index('scrape_run_id');
         });
     }
 

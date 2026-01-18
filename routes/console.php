@@ -13,6 +13,9 @@ Artisan::command('inspire', function () {
 // Reset stale processing jobs every 5 minutes
 Schedule::command('listings:reset-stale')->everyFiveMinutes();
 
+// Scheduled Scraping: Check and run due scrapes every 5 minutes
+Schedule::command('scrape:run-scheduled')->everyFiveMinutes();
+
 // AI Enrichment: Process pending listings every 15 minutes
 Schedule::job(new ProcessAiEnrichmentBatchJob)->everyFifteenMinutes();
 

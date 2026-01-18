@@ -5,6 +5,8 @@ use App\Livewire\Listings\Index as ListingsIndex;
 use App\Livewire\Listings\Show as ListingsShow;
 use App\Livewire\Platforms\Index as PlatformsIndex;
 use App\Livewire\Platforms\Show as PlatformsShow;
+use App\Livewire\Properties\Index as PropertiesIndex;
+use App\Livewire\Properties\Show as PropertiesShow;
 use App\Livewire\ScrapeRuns\Show as ScrapeRunsShow;
 use App\Livewire\Settings\Appearance;
 use App\Livewire\Settings\Password;
@@ -44,6 +46,9 @@ Route::middleware(['auth'])->group(function () {
 
     Route::get('listings', ListingsIndex::class)->name('listings.index');
     Route::get('listings/{listing}', ListingsShow::class)->name('listings.show');
+
+    Route::get('properties', PropertiesIndex::class)->name('properties.index');
+    Route::get('properties/{property}', PropertiesShow::class)->name('properties.show');
 
     Route::get('dedup/review', ReviewCandidates::class)->name('dedup.review');
 

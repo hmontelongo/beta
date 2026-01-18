@@ -3,11 +3,16 @@
 namespace App\Models;
 
 use App\Enums\AiEnrichmentStatus;
+use Database\Factories\AiEnrichmentFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class AiEnrichment extends Model
 {
+    /** @use HasFactory<AiEnrichmentFactory> */
+    use HasFactory;
+
     protected $guarded = [];
 
     /**

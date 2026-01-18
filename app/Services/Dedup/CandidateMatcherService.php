@@ -82,35 +82,6 @@ class CandidateMatcherService
     }
 
     /**
-     * Find listings by address similarity.
-     * Requires exact colonia match and same property type to reduce false positives.
-     *
-     * @param  array<string, mixed>  $rawData
-     * @return Collection<int, Listing>
-     */
-    protected function findByAddress(Listing $listing, array $rawData): Collection
-    {
-        $query = Listing::query()->where('id', '!=', $listing->id);
-
-        // Require same property type to reduce candidates
-        if (! empty($rawData['property_type'])) {
-            $query->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(raw_data, '$.property_type')) = ?", [$rawData['property_type']]);
-        }
-
-        // Require exact colonia match (not LIKE)
-        if (! empty($rawData['colonia'])) {
-            $query->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(raw_data, '$.colonia')) = ?", [$rawData['colonia']]);
-        }
-
-        // Require same city
-        if (! empty($rawData['city'])) {
-            $query->whereRaw("JSON_UNQUOTE(JSON_EXTRACT(raw_data, '$.city')) = ?", [$rawData['city']]);
-        }
-
-        return $query->limit(20)->get();
-    }
-
-    /**
      * Create or retrieve a dedup candidate record with calculated scores.
      */
     protected function createCandidate(Listing $listingA, Listing $listingB): ?DedupCandidate

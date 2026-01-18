@@ -3,11 +3,16 @@
 namespace App\Models;
 
 use App\Enums\DedupCandidateStatus;
+use Database\Factories\DedupCandidateFactory;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class DedupCandidate extends Model
 {
+    /** @use HasFactory<DedupCandidateFactory> */
+    use HasFactory;
+
     protected $guarded = [];
 
     /**

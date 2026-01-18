@@ -96,22 +96,6 @@ class ScrapeOrchestrator
         ScrapeRunProgress::dispatch($run, 'stats_updated', $updates);
     }
 
-    /**
-     * Atomically increment a stat value using database locking.
-     * Use this for concurrent updates from multiple workers.
-     */
-    public function incrementStat(ScrapeRun $run, string $key, int $amount = 1): void
-    {
-        \DB::transaction(function () use ($run, $key, $amount) {
-            $lockedRun = ScrapeRun::lockForUpdate()->find($run->id);
-            $stats = $lockedRun->stats ?? [];
-            $stats[$key] = ($stats[$key] ?? 0) + $amount;
-            $lockedRun->update(['stats' => $stats]);
-        });
-
-        ScrapeRunProgress::dispatch($run->fresh(), 'stats_updated', [$key => $amount]);
-    }
-
     public function checkDiscoveryComplete(ScrapeRun $run): bool
     {
         // Use computed stats from actual records - single source of truth
