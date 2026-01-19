@@ -17,19 +17,51 @@
             </flux:subheading>
         </div>
         <div class="flex flex-wrap items-center gap-2">
-            <flux:badge size="lg" :color="$this->freshnessStatus['color']">
-                {{ $this->freshnessStatus['label'] }}
-            </flux:badge>
-            <flux:badge size="lg" color="purple">
-                {{ $property->listings->count() }} {{ Str::plural(__('source'), $property->listings->count()) }}
-            </flux:badge>
-            @if ($this->unificationStatus['is_unified'])
-                <flux:badge size="lg" color="blue">
-                    {{ __('AI Unified') }}
+            {{-- Freshness Badge with Tooltip --}}
+            <flux:tooltip content="{{ __('Last scraped:') }} {{ $property->last_scraped_at?->format('M j, Y') ?? __('Never') }} ({{ $this->freshnessStatus['days_ago'] }} {{ Str::plural(__('day'), $this->freshnessStatus['days_ago']) }} {{ __('ago') }})">
+                <flux:badge size="lg" :color="$this->freshnessStatus['color']">
+                    {{ $this->freshnessStatus['label'] }}
                 </flux:badge>
+            </flux:tooltip>
+
+            {{-- Sources Badge with Tooltip --}}
+            <flux:tooltip content="{{ collect($this->platforms)->pluck('name')->join(', ') }}">
+                <flux:badge size="lg" color="purple">
+                    {{ $property->listings->count() }} {{ Str::plural(__('source'), $property->listings->count()) }}
+                </flux:badge>
+            </flux:tooltip>
+
+            {{-- AI Unified Badge with Tooltip --}}
+            @if ($this->unificationStatus['is_unified'])
+                <flux:tooltip content="{{ __('Unified on') }} {{ $this->unificationStatus['unified_at']->format('M j, Y') }}. {{ __('Quality score:') }} {{ $property->confidence_score ?? 0 }}%">
+                    <flux:badge size="lg" color="blue">
+                        {{ __('AI Unified') }}
+                    </flux:badge>
+                </flux:tooltip>
             @endif
         </div>
     </div>
+
+    {{-- Reanalysis Banner --}}
+    @if ($property->needs_reanalysis)
+        <flux:callout variant="warning" icon="arrow-path">
+            <flux:callout.heading>{{ __('Re-analysis Pending') }}</flux:callout.heading>
+            <flux:callout.text>
+                {{ __('New listing data has been added. This property will be re-analyzed with AI to update unified data.') }}
+            </flux:callout.text>
+            <x-slot name="actions">
+                <flux:button
+                    wire:click="reanalyzeWithAi"
+                    wire:loading.attr="disabled"
+                    size="sm"
+                    variant="primary"
+                >
+                    <span wire:loading.remove wire:target="reanalyzeWithAi">{{ __('Analyze Now') }}</span>
+                    <span wire:loading wire:target="reanalyzeWithAi">{{ __('Processing...') }}</span>
+                </flux:button>
+            </x-slot>
+        </flux:callout>
+    @endif
 
     <div class="grid gap-6 lg:grid-cols-3">
         {{-- Main Content --}}
@@ -54,6 +86,7 @@
                         </div>
                     </div>
                     <div
+                        wire:key="carousel-{{ $selectedImagePlatform ?? 'all' }}"
                         x-data="{
                             currentIndex: 0,
                             images: @js($this->images),
@@ -61,7 +94,6 @@
                             prev() { this.currentIndex = (this.currentIndex - 1 + this.images.length) % this.images.length },
                             goTo(index) { this.currentIndex = index }
                         }"
-                        x-init="$watch('$wire.selectedImagePlatform', () => { currentIndex = 0; images = @js($this->images) })"
                         class="space-y-3"
                     >
                         {{-- Main Image --}}
@@ -345,6 +377,7 @@
                     @php
                         $pricesByType = collect($this->allPrices)->groupBy('type');
                         $hasMultipleTypes = $pricesByType->count() > 1;
+                        $variations = $this->priceVariations;
                     @endphp
                     <div class="mb-4 pb-4 border-b border-zinc-200 dark:border-zinc-700">
                         <div class="flex items-center gap-2 mb-1">
@@ -357,13 +390,41 @@
                                 </flux:text>
                             @endif
                         </div>
-                        <div class="flex items-baseline gap-1">
-                            <flux:heading size="xl">${{ number_format($this->primaryPrice['price']) }}</flux:heading>
-                            <flux:text size="sm" class="text-zinc-500">{{ $this->primaryPrice['currency'] }}</flux:text>
-                            @if ($this->primaryPrice['type'] === 'rent')
-                                <flux:text size="xs" class="text-zinc-400">/ {{ __('mo') }}</flux:text>
-                            @endif
-                        </div>
+
+                        {{-- Price with variation range --}}
+                        @if ($variations && $variations['has_variations'])
+                            <div class="flex items-baseline gap-1">
+                                <flux:heading size="xl">${{ number_format($variations['min']) }} - ${{ number_format($variations['max']) }}</flux:heading>
+                                <flux:text size="sm" class="text-zinc-500">{{ $this->primaryPrice['currency'] }}</flux:text>
+                                @if ($this->primaryPrice['type'] === 'rent')
+                                    <flux:text size="xs" class="text-zinc-400">/ {{ __('mo') }}</flux:text>
+                                @endif
+                            </div>
+                            {{-- Expandable price breakdown --}}
+                            <div x-data="{ showPriceDetails: false }" class="mt-2">
+                                <button @click="showPriceDetails = !showPriceDetails" class="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400">
+                                    <span x-text="showPriceDetails ? '{{ __('Hide prices') }}' : '{{ __('Show prices by platform') }}'"></span>
+                                    <flux:icon name="chevron-down" class="size-3 transition-transform" x-bind:class="showPriceDetails && 'rotate-180'" />
+                                </button>
+                                <div x-show="showPriceDetails" x-collapse class="mt-2 space-y-1">
+                                    @foreach ($variations['by_platform'] as $priceInfo)
+                                        <div class="flex items-center justify-between rounded bg-zinc-50 dark:bg-zinc-800 px-2 py-1">
+                                            <flux:text size="xs" class="text-zinc-600 dark:text-zinc-400">{{ $priceInfo['platform'] }}</flux:text>
+                                            <flux:text size="xs" class="font-medium">${{ number_format($priceInfo['price']) }}</flux:text>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @else
+                            <div class="flex items-baseline gap-1">
+                                <flux:heading size="xl">${{ number_format($this->primaryPrice['price']) }}</flux:heading>
+                                <flux:text size="sm" class="text-zinc-500">{{ $this->primaryPrice['currency'] }}</flux:text>
+                                @if ($this->primaryPrice['type'] === 'rent')
+                                    <flux:text size="xs" class="text-zinc-400">/ {{ __('mo') }}</flux:text>
+                                @endif
+                            </div>
+                        @endif
+
                         @if ($this->primaryPrice['maintenance_fee'])
                             <flux:text size="xs" class="text-zinc-500">
                                 + ${{ number_format($this->primaryPrice['maintenance_fee']) }} {{ __('maint.') }}

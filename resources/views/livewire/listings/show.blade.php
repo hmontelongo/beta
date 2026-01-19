@@ -29,69 +29,79 @@
     <div class="grid gap-6 lg:grid-cols-3">
         {{-- Main Content --}}
         <div class="space-y-6 lg:col-span-2">
-            {{-- Images --}}
+            {{-- Image Carousel --}}
             @if (!empty($this->images))
-                <flux:card x-data="{
-                    currentImage: 0,
-                    images: {{ json_encode($this->images) }},
-                    next() { this.currentImage = this.currentImage < this.images.length - 1 ? this.currentImage + 1 : 0 },
-                    prev() { this.currentImage = this.currentImage > 0 ? this.currentImage - 1 : this.images.length - 1 }
-                }">
-                    {{-- Image Grid --}}
-                    <div class="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                        @foreach (array_slice($this->images, 0, 6) as $index => $imageUrl)
-                            <button
-                                type="button"
-                                x-on:click="currentImage = {{ $index }}; $flux.modal('image-gallery').show()"
-                                class="aspect-video overflow-hidden rounded-lg bg-zinc-100 dark:bg-zinc-800 cursor-pointer focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            >
-                                <img src="{{ $imageUrl }}" alt="Property image" class="h-full w-full object-cover hover:scale-105 transition-transform" loading="lazy" />
-                            </button>
-                        @endforeach
+                <flux:card class="p-4">
+                    <div class="flex items-center justify-between mb-4">
+                        <flux:heading size="lg">{{ __('Photos') }}</flux:heading>
+                        <flux:badge size="sm" color="zinc">{{ count($this->images) }} {{ __('images') }}</flux:badge>
                     </div>
-
-                    @if (count($this->images) > 6)
-                        <flux:button
-                            variant="ghost"
-                            class="mt-2 w-full"
-                            x-on:click="currentImage = 6; $flux.modal('image-gallery').show()"
-                        >
-                            +{{ count($this->images) - 6 }} {{ __('more images') }}
-                        </flux:button>
-                    @endif
-
-                    {{-- Single Lightbox Modal --}}
-                    <flux:modal
-                        name="image-gallery"
-                        class="max-w-4xl"
-                        x-on:keydown.arrow-left.window="prev()"
-                        x-on:keydown.arrow-right.window="next()"
+                    <div
+                        x-data="{
+                            currentIndex: 0,
+                            images: @js($this->images),
+                            next() { this.currentIndex = (this.currentIndex + 1) % this.images.length },
+                            prev() { this.currentIndex = (this.currentIndex - 1 + this.images.length) % this.images.length },
+                            goTo(index) { this.currentIndex = index }
+                        }"
+                        class="space-y-3"
                     >
-                        <div class="space-y-4">
-                            {{-- Image Container --}}
-                            <div class="flex items-center justify-center rounded-lg bg-zinc-100 dark:bg-zinc-800 p-2">
-                                <img
-                                    x-bind:src="images[currentImage]"
-                                    alt="Property image"
-                                    class="max-h-[60vh] w-auto object-contain"
-                                />
-                            </div>
+                        {{-- Main Image --}}
+                        <div class="relative aspect-[4/3] overflow-hidden rounded-lg bg-zinc-100 dark:bg-zinc-800">
+                            <template x-for="(image, index) in images" :key="index">
+                                <a
+                                    :href="image"
+                                    target="_blank"
+                                    x-show="currentIndex === index"
+                                    x-transition:enter="transition ease-out duration-200"
+                                    x-transition:enter-start="opacity-0"
+                                    x-transition:enter-end="opacity-100"
+                                    class="absolute inset-0"
+                                >
+                                    <img :src="image" alt="" class="h-full w-full object-cover" />
+                                </a>
+                            </template>
 
-                            {{-- Navigation --}}
-                            <div class="flex items-center justify-center gap-4">
-                                <flux:button icon="chevron-left" variant="ghost" x-on:click="prev()" />
-                                <flux:badge color="zinc" size="lg">
-                                    <span x-text="currentImage + 1"></span> / <span x-text="images.length"></span>
-                                </flux:badge>
-                                <flux:button icon="chevron-right" variant="ghost" x-on:click="next()" />
-                            </div>
+                            {{-- Navigation Arrows --}}
+                            <button
+                                @click.prevent="prev"
+                                class="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white hover:bg-black/70 transition"
+                                x-show="images.length > 1"
+                            >
+                                <flux:icon name="chevron-left" class="size-5" />
+                            </button>
+                            <button
+                                @click.prevent="next"
+                                class="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white hover:bg-black/70 transition"
+                                x-show="images.length > 1"
+                            >
+                                <flux:icon name="chevron-right" class="size-5" />
+                            </button>
 
-                            {{-- Keyboard hint --}}
-                            <flux:subheading class="text-center">
-                                {{ __('Use arrow keys to navigate, ESC to close') }}
-                            </flux:subheading>
+                            {{-- Image Counter --}}
+                            <div class="absolute bottom-2 right-2 rounded-full bg-black/50 px-3 py-1 text-sm text-white">
+                                <span x-text="currentIndex + 1"></span> / <span x-text="images.length"></span>
+                            </div>
                         </div>
-                    </flux:modal>
+
+                        {{-- Thumbnail Strip --}}
+                        <div class="flex gap-2 overflow-x-auto pb-2" x-show="images.length > 1">
+                            <template x-for="(image, index) in images.slice(0, 10)" :key="index">
+                                <button
+                                    @click="goTo(index)"
+                                    :class="currentIndex === index ? 'ring-2 ring-blue-500' : 'opacity-70 hover:opacity-100'"
+                                    class="h-16 w-24 shrink-0 overflow-hidden rounded-lg transition"
+                                >
+                                    <img :src="image" alt="" class="h-full w-full object-cover" />
+                                </button>
+                            </template>
+                            <template x-if="images.length > 10">
+                                <div class="flex h-16 w-24 shrink-0 items-center justify-center rounded-lg bg-zinc-100 text-sm text-zinc-500 dark:bg-zinc-800">
+                                    +<span x-text="images.length - 10"></span> {{ __('more') }}
+                                </div>
+                            </template>
+                        </div>
+                    </div>
                 </flux:card>
             @endif
 
@@ -350,6 +360,27 @@
             <flux:card>
                 <flux:heading size="lg" class="mb-4">{{ __('Processing') }}</flux:heading>
 
+                {{-- Active Processing Indicator --}}
+                @if ($this->isProcessing)
+                    <div class="mb-4 flex items-center gap-2 rounded-lg bg-blue-50 dark:bg-blue-900/20 p-3 border border-blue-200 dark:border-blue-800">
+                        <flux:icon name="arrow-path" class="size-5 text-blue-600 dark:text-blue-400 animate-spin" />
+                        <div>
+                            <flux:text size="sm" class="font-medium text-blue-800 dark:text-blue-200">
+                                {{ __('Processing in progress...') }}
+                            </flux:text>
+                            <flux:text size="xs" class="text-blue-600 dark:text-blue-400">
+                                @if ($listing->geocode_status === null)
+                                    {{ __('Waiting for geocoding') }}
+                                @elseif ($listing->dedup_status->value === 'processing')
+                                    {{ __('Running deduplication') }}
+                                @else
+                                    {{ __('Completing pipeline') }}
+                                @endif
+                            </flux:text>
+                        </div>
+                    </div>
+                @endif
+
                 {{-- Deduplication --}}
                 <div class="space-y-3">
                     <div class="flex items-center justify-between">
@@ -397,28 +428,63 @@
                         <span wire:loading wire:target="runDeduplication">{{ __('Processing...') }}</span>
                     </flux:button>
 
-                    {{-- Listing Group --}}
+                    {{-- Listing Group & Sister Listings --}}
                     @if ($listing->listingGroup)
                         <flux:separator class="my-3" />
-                        <div class="space-y-2">
-                            <flux:text size="sm" class="text-zinc-500 font-medium">
-                                {{ __('Listing Group:') }}
-                            </flux:text>
-                            <div class="flex items-center justify-between gap-2 rounded-lg bg-zinc-50 dark:bg-zinc-800 p-2">
-                                <div class="min-w-0 flex-1">
-                                    <flux:text size="sm" class="truncate font-medium">
-                                        {{ $listing->listingGroup->listings->count() }} {{ __('listings') }}
-                                    </flux:text>
+                        <div class="space-y-3">
+                            <div class="flex items-center justify-between">
+                                <flux:text size="sm" class="text-zinc-500 font-medium">
+                                    {{ __('Listing Group') }}
+                                </flux:text>
+                                <div class="flex items-center gap-2">
                                     <flux:badge size="sm" :color="$listing->listingGroup->status->color()">
                                         {{ $listing->listingGroup->status->label() }}
                                     </flux:badge>
+                                    @if ($listing->listingGroup->match_score !== null)
+                                        <flux:badge size="sm" :color="$listing->listingGroup->match_score >= 0.8 ? 'green' : ($listing->listingGroup->match_score >= 0.6 ? 'amber' : 'red')">
+                                            {{ number_format($listing->listingGroup->match_score * 100) }}%
+                                        </flux:badge>
+                                    @endif
                                 </div>
-                                @if ($listing->listingGroup->match_score !== null)
-                                    <flux:badge size="sm" :color="$listing->listingGroup->match_score >= 0.8 ? 'green' : ($listing->listingGroup->match_score >= 0.6 ? 'amber' : 'red')">
-                                        {{ number_format($listing->listingGroup->match_score * 100) }}%
-                                    </flux:badge>
-                                @endif
                             </div>
+
+                            {{-- Current listing indicator --}}
+                            <div class="rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-2">
+                                <div class="flex items-center gap-2">
+                                    <flux:badge size="sm" color="blue">{{ __('Current') }}</flux:badge>
+                                    <flux:badge size="sm">{{ $listing->platform->name }}</flux:badge>
+                                    <flux:text size="sm" class="truncate flex-1">{{ $listing->external_id }}</flux:text>
+                                </div>
+                            </div>
+
+                            {{-- Sibling listings --}}
+                            @if ($this->siblingListings->isNotEmpty())
+                                <flux:text size="xs" class="text-zinc-400 uppercase tracking-wide">
+                                    {{ __('Related Listings') }}
+                                </flux:text>
+                                <div class="space-y-2">
+                                    @foreach ($this->siblingListings as $sibling)
+                                        <a
+                                            href="{{ route('listings.show', $sibling) }}"
+                                            wire:navigate
+                                            class="flex items-center gap-2 rounded-lg bg-zinc-50 dark:bg-zinc-800 p-2 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors"
+                                        >
+                                            <flux:badge size="sm">{{ $sibling->platform->name }}</flux:badge>
+                                            <div class="min-w-0 flex-1">
+                                                <flux:text size="sm" class="truncate font-medium">
+                                                    {{ Str::limit($sibling->raw_data['title'] ?? $sibling->external_id, 30) }}
+                                                </flux:text>
+                                                @if (!empty($sibling->raw_data['operations'][0]['price']))
+                                                    <flux:text size="xs" class="text-zinc-500">
+                                                        ${{ number_format($sibling->raw_data['operations'][0]['price']) }}
+                                                    </flux:text>
+                                                @endif
+                                            </div>
+                                            <flux:icon name="chevron-right" class="size-4 text-zinc-400" />
+                                        </a>
+                                    @endforeach
+                                </div>
+                            @endif
                         </div>
                     @endif
                 </div>

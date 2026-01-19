@@ -118,6 +118,24 @@ class Show extends Component
             ->get();
     }
 
+    /**
+     * Get sibling listings from the same listing group.
+     *
+     * @return Collection<int, Listing>
+     */
+    #[Computed]
+    public function siblingListings(): Collection
+    {
+        if (! $this->listing->listingGroup) {
+            return collect();
+        }
+
+        return $this->listing->listingGroup->listings()
+            ->with(['platform'])
+            ->where('id', '!=', $this->listing->id)
+            ->get();
+    }
+
     public function render(): View
     {
         // Refresh listing data to pick up job completion

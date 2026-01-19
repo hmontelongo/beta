@@ -408,32 +408,50 @@ YOUR TASKS:
    - Validate numeric values make sense
    - Only include fields where you have confidence
 
-2. DESCRIPTION:
+2. ADDRESS FORMATTING - CRITICAL:
+   - Use Title Case for street names (Avenida Reforma, not AVENIDA REFORMA)
+   - Use proper Mexican abbreviations:
+     * "Calle" (not "C." or "CALLE")
+     * "No." for numbers (not "Num" or "#")
+     * "Int." for interior numbers
+     * "Col." for colonia only in compact formats
+   - Format: "Calle Nombre No. 123" or "Avenida Principal No. 456 Int. 7"
+   - Capitalize colonia names properly: "Del Valle" not "DEL VALLE"
+   - City names in Title Case: "Ciudad de México" not "CIUDAD DE MEXICO"
+
+3. DESCRIPTION:
    - Write in the SAME LANGUAGE as input (usually Spanish)
    - Clean and professional
    - Remove: promotional phrases, contact info, duplicate text
    - Keep: rental requirements, maintenance fees, move-in costs
    - Structure: intro paragraph, features, amenities, location
 
-3. AMENITIES:
-   - Combine from all sources (if multiple)
-   - Extract additional from descriptions
-   - Use English snake_case: swimming_pool, gym, covered_parking, etc.
+4. AMENITIES - EXTRACT FROM DESCRIPTION:
+   Look for these patterns in the description and extract as amenities:
+   - Physical features: swimming_pool, gym, garden, terrace, balcony, rooftop
+   - Security: 24_hour_security, gated_community, security_cameras, doorman
+   - Parking: covered_parking, uncovered_parking, guest_parking
+   - Building: elevator, lobby, common_areas, meeting_room, business_center
+   - Outdoor: bbq_area, playground, sports_court, jogging_track
+   - Interior: air_conditioning, heating, fireplace, laundry_room, storage_room
+   - Services: water_tank, backup_power, gas, water_included, pet_friendly
+   - Location hints: near_park, near_schools, near_metro, near_shopping
+   - Always use English snake_case format
 
-4. GEOCODING ADDRESS:
+5. GEOCODING ADDRESS:
    - Create clean address string for Google Maps geocoding
    - Format: "Street Number, Colonia, City, State, Mexico"
    - Return null if address too incomplete
 
-5. FIELD SOURCES (for multiple listings):
+6. FIELD SOURCES (for multiple listings):
    - Indicate which listing each field value came from
    - Include confidence level
 
-6. DISCREPANCIES (for multiple listings):
+7. DISCREPANCIES (for multiple listings):
    - List all conflicts between sources
    - Include resolved value and reasoning
 
-7. QUALITY SCORE:
+8. QUALITY SCORE:
    - Rate 0-100 based on data completeness and consistency
 
 Always use the create_property tool to submit your analysis.

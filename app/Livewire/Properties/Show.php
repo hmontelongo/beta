@@ -96,7 +96,7 @@ class Show extends Component
     }
 
     /**
-     * Get images for the selected platform (or all if none selected).
+     * Get images for the selected platform (or combined unique images if none selected).
      *
      * @return array<string>
      */
@@ -109,13 +109,25 @@ class Show extends Component
             return $byPlatform[$this->selectedImagePlatform];
         }
 
-        // Return images from the most recently scraped listing (primary)
-        $listing = $this->primaryListing;
-        if (! $listing) {
-            return [];
+        // Combine and deduplicate images from all platforms
+        // Normalize URLs by removing query strings and size variations for comparison
+        $seen = [];
+        $combined = [];
+
+        foreach ($byPlatform as $images) {
+            foreach ($images as $url) {
+                // Extract the unique part of the URL (filename without size suffix)
+                $normalizedUrl = preg_replace('/\/\d+x\d+\//', '/', $url);
+                $normalizedUrl = preg_replace('/\?.*$/', '', $normalizedUrl);
+
+                if (! isset($seen[$normalizedUrl])) {
+                    $seen[$normalizedUrl] = true;
+                    $combined[] = $url;
+                }
+            }
         }
 
-        return $byPlatform[$listing->platform->slug] ?? [];
+        return array_slice($combined, 0, 30);
     }
 
     /**
@@ -155,6 +167,36 @@ class Show extends Component
         $prices = $this->allPrices;
 
         return $prices[0] ?? null;
+    }
+
+    /**
+     * Get price variations for the same operation type.
+     *
+     * @return array{has_variations: bool, min: float, max: float, by_platform: array<string, array{price: float, platform: string, listing_id: int}>}|null
+     */
+    #[Computed]
+    public function priceVariations(): ?array
+    {
+        if (! $this->primaryPrice) {
+            return null;
+        }
+
+        $type = $this->primaryPrice['type'];
+        $pricesForType = collect($this->allPrices)->where('type', $type);
+
+        if ($pricesForType->count() < 2) {
+            return ['has_variations' => false, 'min' => 0, 'max' => 0, 'by_platform' => []];
+        }
+
+        $uniquePrices = $pricesForType->pluck('price')->unique();
+        $hasVariations = $uniquePrices->count() > 1;
+
+        return [
+            'has_variations' => $hasVariations,
+            'min' => $pricesForType->min('price'),
+            'max' => $pricesForType->max('price'),
+            'by_platform' => $pricesForType->values()->toArray(),
+        ];
     }
 
     /**

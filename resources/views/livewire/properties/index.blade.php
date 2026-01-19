@@ -166,19 +166,41 @@
                                 </div>
                             </div>
                         </flux:table.cell>
-                        <flux:table.cell>
+                        <flux:table.cell class="max-w-[12rem]">
                             @php
-                                $agentCount = $property->agents->count();
-                                $agencyCount = $property->agencies->count();
+                                $agents = $property->agents;
+                                $agencies = $property->agencies;
+                                $firstAgent = $agents->first();
+                                $firstAgency = $agencies->first();
                             @endphp
-                            <div class="flex flex-col gap-0.5">
-                                @if ($agentCount > 0)
-                                    <flux:text size="sm">{{ $agentCount }} {{ Str::plural(__('agent'), $agentCount) }}</flux:text>
+                            <div class="flex flex-col gap-1">
+                                @if ($firstAgent)
+                                    <flux:tooltip content="{{ $agents->pluck('name')->join(', ') }}">
+                                        <div class="flex items-center gap-1">
+                                            <flux:icon name="user" variant="micro" class="text-zinc-400 shrink-0" />
+                                            <flux:text size="sm" class="truncate">
+                                                {{ Str::limit($firstAgent->name, 18) }}
+                                            </flux:text>
+                                            @if ($agents->count() > 1)
+                                                <flux:badge size="sm" color="zinc">+{{ $agents->count() - 1 }}</flux:badge>
+                                            @endif
+                                        </div>
+                                    </flux:tooltip>
                                 @endif
-                                @if ($agencyCount > 0)
-                                    <flux:text size="sm" class="text-zinc-500">{{ $agencyCount }} {{ Str::plural(__('agency'), $agencyCount) }}</flux:text>
+                                @if ($firstAgency)
+                                    <flux:tooltip content="{{ $agencies->pluck('name')->join(', ') }}">
+                                        <div class="flex items-center gap-1">
+                                            <flux:icon name="building-office" variant="micro" class="text-zinc-400 shrink-0" />
+                                            <flux:text size="sm" class="truncate text-zinc-500">
+                                                {{ Str::limit($firstAgency->name, 18) }}
+                                            </flux:text>
+                                            @if ($agencies->count() > 1)
+                                                <flux:badge size="sm" color="zinc">+{{ $agencies->count() - 1 }}</flux:badge>
+                                            @endif
+                                        </div>
+                                    </flux:tooltip>
                                 @endif
-                                @if ($agentCount === 0 && $agencyCount === 0)
+                                @if (!$firstAgent && !$firstAgency)
                                     <flux:text class="text-zinc-400">-</flux:text>
                                 @endif
                             </div>
