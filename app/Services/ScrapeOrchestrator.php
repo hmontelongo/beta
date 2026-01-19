@@ -58,7 +58,13 @@ class ScrapeOrchestrator
         ]);
 
         // Dispatch any remaining pending listings (batch scraping may have already queued some)
-        $this->dispatchScrapeBatch($run);
+        $dispatched = $this->dispatchScrapeBatch($run);
+
+        // If no listings were found during discovery, complete immediately
+        $stats = $run->computeStats();
+        if (($stats['listings_found'] ?? 0) === 0 && $dispatched === 0) {
+            $this->markCompleted($run);
+        }
     }
 
     public function markCompleted(ScrapeRun $run): void
