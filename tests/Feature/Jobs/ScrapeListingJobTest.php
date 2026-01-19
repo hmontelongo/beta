@@ -8,6 +8,7 @@ use App\Models\DiscoveredListing;
 use App\Models\Listing;
 use App\Models\Platform;
 use App\Models\ScrapeJob;
+use App\Services\AgentExtractionService;
 use App\Services\ScrapeOrchestrator;
 use App\Services\ScraperService;
 
@@ -26,7 +27,7 @@ it('updates discovered listing status to queued', function () {
         ]);
 
     $job = new ScrapeListingJob($discoveredListing->id);
-    $job->handle($mockService, app(ScrapeOrchestrator::class));
+    $job->handle($mockService, app(ScrapeOrchestrator::class), app(AgentExtractionService::class));
 
     $discoveredListing->refresh();
     expect($discoveredListing->status)->toBe(DiscoveredListingStatus::Scraped);
@@ -46,7 +47,7 @@ it('creates a scrape job with listing type', function () {
         ]);
 
     $job = new ScrapeListingJob($discoveredListing->id);
-    $job->handle($mockService, app(ScrapeOrchestrator::class));
+    $job->handle($mockService, app(ScrapeOrchestrator::class), app(AgentExtractionService::class));
 
     $scrapeJob = ScrapeJob::where('discovered_listing_id', $discoveredListing->id)->first();
     expect($scrapeJob)->not->toBeNull()
@@ -73,7 +74,7 @@ it('creates a listing record from scraped data', function () {
         ]);
 
     $job = new ScrapeListingJob($discoveredListing->id);
-    $job->handle($mockService, app(ScrapeOrchestrator::class));
+    $job->handle($mockService, app(ScrapeOrchestrator::class), app(AgentExtractionService::class));
 
     expect(Listing::count())->toBe(1);
 
@@ -101,7 +102,7 @@ it('uses discovered listing external_id when not in scraped data', function () {
         ]);
 
     $job = new ScrapeListingJob($discoveredListing->id);
-    $job->handle($mockService, app(ScrapeOrchestrator::class));
+    $job->handle($mockService, app(ScrapeOrchestrator::class), app(AgentExtractionService::class));
 
     $listing = Listing::first();
     expect($listing->external_id)->toBe('original-ext-id');
@@ -120,7 +121,7 @@ it('increments attempts on successful scrape', function () {
         ->andReturn(['external_id' => '12345', 'operations' => []]);
 
     $job = new ScrapeListingJob($discoveredListing->id);
-    $job->handle($mockService, app(ScrapeOrchestrator::class));
+    $job->handle($mockService, app(ScrapeOrchestrator::class), app(AgentExtractionService::class));
 
     $discoveredListing->refresh();
     expect($discoveredListing->attempts)->toBe(3)
@@ -141,7 +142,7 @@ it('marks discovered listing as failed on exception', function () {
     $job = new ScrapeListingJob($discoveredListing->id);
 
     try {
-        $job->handle($mockService, app(ScrapeOrchestrator::class));
+        $job->handle($mockService, app(ScrapeOrchestrator::class), app(AgentExtractionService::class));
     } catch (\RuntimeException) {
         // Expected
     }
@@ -164,7 +165,7 @@ it('marks scrape job as failed on exception', function () {
     $job = new ScrapeListingJob($discoveredListing->id);
 
     try {
-        $job->handle($mockService, app(ScrapeOrchestrator::class));
+        $job->handle($mockService, app(ScrapeOrchestrator::class), app(AgentExtractionService::class));
     } catch (\RuntimeException) {
         // Expected
     }
@@ -188,7 +189,7 @@ it('stores listing id in scrape job result', function () {
         ]);
 
     $job = new ScrapeListingJob($discoveredListing->id);
-    $job->handle($mockService, app(ScrapeOrchestrator::class));
+    $job->handle($mockService, app(ScrapeOrchestrator::class), app(AgentExtractionService::class));
 
     $scrapeJob = ScrapeJob::first();
     $listing = Listing::first();

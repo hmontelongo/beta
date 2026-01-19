@@ -26,11 +26,11 @@ Route::view('dashboard', 'dashboard')
 Route::middleware(['auth'])->group(function () {
     Route::redirect('settings', 'settings/profile');
 
-    Route::get('settings/profile', Profile::class)->name('profile.edit');
-    Route::get('settings/password', Password::class)->name('user-password.edit');
-    Route::get('settings/appearance', Appearance::class)->name('appearance.edit');
+    Route::livewire('settings/profile', Profile::class)->name('profile.edit');
+    Route::livewire('settings/password', Password::class)->name('user-password.edit');
+    Route::livewire('settings/appearance', Appearance::class)->name('appearance.edit');
 
-    Route::get('settings/two-factor', TwoFactor::class)
+    Route::livewire('settings/two-factor', TwoFactor::class)
         ->middleware(
             when(
                 Features::canManageTwoFactorAuthentication()
@@ -41,16 +41,16 @@ Route::middleware(['auth'])->group(function () {
         )
         ->name('two-factor.show');
 
-    Route::get('platforms', PlatformsIndex::class)->name('platforms.index');
-    Route::get('platforms/{platform}', PlatformsShow::class)->name('platforms.show');
+    Route::livewire('platforms', PlatformsIndex::class)->name('platforms.index');
+    Route::livewire('platforms/{platform}', PlatformsShow::class)->name('platforms.show');
 
-    Route::get('listings', ListingsIndex::class)->name('listings.index');
-    Route::get('listings/{listing}', ListingsShow::class)->name('listings.show');
+    Route::livewire('listings', ListingsIndex::class)->name('listings.index');
+    Route::livewire('listings/{listing}', ListingsShow::class)->name('listings.show');
 
-    Route::get('properties', PropertiesIndex::class)->name('properties.index');
-    Route::get('properties/{property}', PropertiesShow::class)->name('properties.show');
+    Route::livewire('properties', PropertiesIndex::class)->name('properties.index');
+    Route::livewire('properties/{property}', PropertiesShow::class)->name('properties.show');
 
-    Route::get('dedup/review', ReviewCandidates::class)->name('dedup.review');
+    Route::livewire('dedup/review', ReviewCandidates::class)->name('dedup.review');
 
-    Route::get('runs/{run}', ScrapeRunsShow::class)->name('runs.show');
+    Route::livewire('runs/{run}', ScrapeRunsShow::class)->name('runs.show');
 });
