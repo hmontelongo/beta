@@ -374,11 +374,13 @@ class Show extends Component
     #[Computed]
     public function aiStatus(): array
     {
-        $analysis = $this->property->ai_analysis;
+        // Quality score is stored in the ListingGroup's ai_analysis
+        $group = $this->property->listingGroups()->first();
+        $qualityScore = $group?->ai_analysis['quality_score'] ?? null;
 
         return [
-            'is_analyzed' => $analysis !== null,
-            'quality_score' => $analysis['quality_score'] ?? null,
+            'is_analyzed' => $this->property->ai_unified_at !== null,
+            'quality_score' => $qualityScore,
             'needs_reanalysis' => $this->property->needs_reanalysis ?? false,
         ];
     }
