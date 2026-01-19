@@ -594,12 +594,40 @@ class VivanunciosListingParser implements ListingParserInterface
 
     /**
      * Extract images from JSON-LD and HTML.
+     * Deduplicates images by their unique ID and keeps only the highest resolution.
      *
      * @return array<string>
      */
     protected function extractImages(array $jsonLd, array $extracted, string $html): array
     {
-        $images = [];
+        $imagesByHash = []; // Dedupe by image hash/ID
+
+        // Helper to add image with deduplication by image ID
+        $addImage = function (string $url) use (&$imagesByHash) {
+            $url = $this->cleanImageUrl($url);
+            if (! $url) {
+                return;
+            }
+
+            // Extract the unique image ID (e.g., 314065678 from the URL)
+            // Pattern: /avisos/[resize/]18/00/.../1200x1200/314065678.jpg
+            if (preg_match('/\/(\d{9,12})\.(?:jpg|jpeg|png|webp)/i', $url, $match)) {
+                $imageId = $match[1];
+
+                // Assign priority based on resolution
+                $priority = $this->getImagePriority($url);
+
+                if (! isset($imagesByHash[$imageId]) || $imagesByHash[$imageId]['priority'] < $priority) {
+                    $imagesByHash[$imageId] = ['url' => $url, 'priority' => $priority];
+                }
+            } else {
+                // For non-standard URLs, use URL hash as key
+                $hash = md5($url);
+                if (! isset($imagesByHash[$hash])) {
+                    $imagesByHash[$hash] = ['url' => $url, 'priority' => 0];
+                }
+            }
+        };
 
         // Primary: JSON-LD image(s)
         if (isset($jsonLd['image'])) {
@@ -607,41 +635,61 @@ class VivanunciosListingParser implements ListingParserInterface
             foreach ($jsonImages as $img) {
                 $url = is_array($img) ? ($img['url'] ?? $img['contentUrl'] ?? null) : $img;
                 if ($url && is_string($url)) {
-                    $images[] = $this->cleanImageUrl($url);
+                    $addImage($url);
                 }
             }
         }
 
         // Secondary: CSS extracted
         foreach ($this->toArray($extracted['gallery_images'] ?? []) as $url) {
-            $cleaned = $this->cleanImageUrl($url);
-            if ($cleaned && ! in_array($cleaned, $images)) {
-                $images[] = $cleaned;
-            }
+            $addImage($url);
         }
 
         // Tertiary: Extract from HTML - JS objects
         preg_match_all('/"(?:url|src|image)"\s*:\s*"(https?:\/\/[^"]+\.(?:jpg|jpeg|png|webp)[^"]*)"/i', $html, $htmlMatches);
         foreach ($htmlMatches[1] ?? [] as $url) {
             if (preg_match('/(?:naventcdn|vivanuncios|img)/i', $url)) {
-                $cleaned = $this->cleanImageUrl($url);
-                if ($cleaned && ! in_array($cleaned, $images)) {
-                    $images[] = $cleaned;
-                }
+                $addImage($url);
             }
         }
 
         // Quaternary: Extract all naventcdn property images via regex
-        // This catches images from img tags: src="https://img10.naventcdn.com/avisos/..."
         preg_match_all('/https:\/\/img10\.naventcdn\.com\/avisos\/[^\s"\']+\.jpg/i', $html, $naventMatches);
         foreach ($naventMatches[0] ?? [] as $url) {
-            $cleaned = $this->cleanImageUrl($url);
-            if ($cleaned && ! in_array($cleaned, $images)) {
-                $images[] = $cleaned;
-            }
+            $addImage($url);
         }
 
-        return array_filter($images);
+        // Extract just the URLs from the deduplicated array
+        return array_values(array_map(fn ($item) => $item['url'], $imagesByHash));
+    }
+
+    /**
+     * Get priority score for an image URL based on resolution.
+     * Higher score = better quality.
+     */
+    protected function getImagePriority(string $url): float
+    {
+        $priority = 0;
+
+        // Resolution priority: 1200x1200 > 720x532 > 360x266 > 215x159 > 100x75
+        if (str_contains($url, '1200x1200')) {
+            $priority = 5;
+        } elseif (str_contains($url, '720x532') || str_contains($url, '730x532')) {
+            $priority = 4;
+        } elseif (str_contains($url, '360x266')) {
+            $priority = 3;
+        } elseif (str_contains($url, '215x159')) {
+            $priority = 2;
+        } elseif (str_contains($url, '100x75')) {
+            $priority = 1;
+        }
+
+        // Prefer non-resize URLs over resize URLs for same resolution
+        if (! str_contains($url, '/resize/')) {
+            $priority += 0.5;
+        }
+
+        return $priority;
     }
 
     /**
