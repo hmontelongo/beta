@@ -103,6 +103,27 @@ class ReviewCandidates extends Component
         $this->loadNextGroup();
     }
 
+    public function retryAiProcessing(): void
+    {
+        if (! $this->group) {
+            return;
+        }
+
+        // Clear rejection reason and set back to pending_ai
+        $this->group->update([
+            'status' => ListingGroupStatus::PendingAi,
+            'rejection_reason' => null,
+        ]);
+
+        Flux::toast(
+            heading: 'Retrying AI Processing',
+            text: 'Group will be re-processed by AI shortly.',
+            variant: 'success',
+        );
+
+        $this->loadNextGroup();
+    }
+
     public function removeListingFromGroup(int $listingId): void
     {
         if (! $this->group) {

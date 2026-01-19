@@ -9,6 +9,25 @@
     </div>
 
     @if ($this->group)
+        {{-- AI Error Alert --}}
+        @if ($this->group->rejection_reason)
+            <flux:callout variant="danger" icon="exclamation-triangle">
+                <flux:callout.heading>{{ __('AI Processing Failed') }}</flux:callout.heading>
+                <flux:callout.text class="mb-3">{{ $this->group->rejection_reason }}</flux:callout.text>
+                <flux:button
+                    wire:click="retryAiProcessing"
+                    wire:loading.attr="disabled"
+                    wire:target="retryAiProcessing"
+                    size="sm"
+                    variant="filled"
+                    icon="arrow-path"
+                >
+                    <span wire:loading.remove wire:target="retryAiProcessing">{{ __('Retry AI Processing') }}</span>
+                    <span wire:loading wire:target="retryAiProcessing">{{ __('Retrying...') }}</span>
+                </flux:button>
+            </flux:callout>
+        @endif
+
         {{-- Group Info --}}
         <flux:card class="p-4">
             <div class="flex items-center justify-between">
@@ -20,7 +39,7 @@
                                 {{ number_format($this->group->match_score * 100) }}%
                             </flux:heading>
                         @else
-                            <flux:heading size="lg" class="text-green-600">{{ __('Unique') }}</flux:heading>
+                            <flux:heading size="lg" class="text-zinc-400">{{ __('N/A') }}</flux:heading>
                         @endif
                     </div>
                     <flux:separator vertical class="h-12" />
@@ -36,26 +55,30 @@
                     </div>
                 </div>
                 <div class="flex gap-2">
-                    <flux:button
-                        wire:click="rejectGroup"
-                        wire:loading.attr="disabled"
-                        wire:target="rejectGroup"
-                        variant="danger"
-                        icon="x-mark"
-                    >
-                        <span wire:loading.remove wire:target="rejectGroup">{{ __('Reject') }}</span>
-                        <span wire:loading wire:target="rejectGroup">{{ __('Rejecting...') }}</span>
-                    </flux:button>
-                    <flux:button
-                        wire:click="approveGroup"
-                        wire:loading.attr="disabled"
-                        wire:target="approveGroup"
-                        variant="primary"
-                        icon="check"
-                    >
-                        <span wire:loading.remove wire:target="approveGroup">{{ __('Approve') }}</span>
-                        <span wire:loading wire:target="approveGroup">{{ __('Approving...') }}</span>
-                    </flux:button>
+                    <flux:tooltip content="{{ __('These listings are NOT the same property. Separate and re-process them individually.') }}">
+                        <flux:button
+                            wire:click="rejectGroup"
+                            wire:loading.attr="disabled"
+                            wire:target="rejectGroup"
+                            variant="danger"
+                            icon="x-mark"
+                        >
+                            <span wire:loading.remove wire:target="rejectGroup">{{ __('Not a Match') }}</span>
+                            <span wire:loading wire:target="rejectGroup">{{ __('Separating...') }}</span>
+                        </flux:button>
+                    </flux:tooltip>
+                    <flux:tooltip content="{{ __('Confirm these listings represent the same property. Send to AI for property creation.') }}">
+                        <flux:button
+                            wire:click="approveGroup"
+                            wire:loading.attr="disabled"
+                            wire:target="approveGroup"
+                            variant="primary"
+                            icon="check"
+                        >
+                            <span wire:loading.remove wire:target="approveGroup">{{ __('Confirm Match') }}</span>
+                            <span wire:loading wire:target="approveGroup">{{ __('Confirming...') }}</span>
+                        </flux:button>
+                    </flux:tooltip>
                 </div>
             </div>
         </flux:card>

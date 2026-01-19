@@ -6,13 +6,14 @@ use App\Enums\ListingGroupStatus;
 use App\Models\ListingGroup;
 use App\Services\AI\PropertyCreationService;
 use DateTime;
+use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Queue\Middleware\ThrottlesExceptionsWithRedis;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
-class CreatePropertyFromListingsJob implements ShouldQueue
+class CreatePropertyFromListingsJob implements ShouldBeUnique, ShouldQueue
 {
     use Queueable;
 
@@ -25,6 +26,20 @@ class CreatePropertyFromListingsJob implements ShouldQueue
     ) {
         $this->onQueue('property-creation');
     }
+
+    /**
+     * Get the unique ID for the job.
+     * Prevents duplicate jobs for the same listing group.
+     */
+    public function uniqueId(): string
+    {
+        return 'create-property-group-'.$this->listingGroupId;
+    }
+
+    /**
+     * How long the unique lock should be maintained.
+     */
+    public int $uniqueFor = 300; // 5 minutes
 
     /**
      * Determine the time at which the job should timeout.
@@ -75,6 +90,15 @@ class CreatePropertyFromListingsJob implements ShouldQueue
         // Skip if not ready for AI (still pending review)
         if ($group->status === ListingGroupStatus::PendingReview) {
             Log::info('CreatePropertyFromListingsJob: Group still pending review', [
+                'listing_group_id' => $this->listingGroupId,
+            ]);
+
+            return;
+        }
+
+        // Skip if already being processed (race condition prevention)
+        if ($group->status === ListingGroupStatus::ProcessingAi) {
+            Log::info('CreatePropertyFromListingsJob: Group already being processed', [
                 'listing_group_id' => $this->listingGroupId,
             ]);
 

@@ -106,7 +106,9 @@ it('creates a match group for high confidence matches', function () {
         ->and($group->listings()->count())->toBe(2);
 });
 
-it('creates a review group for uncertain matches', function () {
+it('creates a review group with both listings for uncertain matches', function () {
+    // When a listing has a needs_review match with another listing that has no group,
+    // both listings are placed in the same group for human review
     $existingListing = Listing::factory()->unmatched()->create([
         'platform_id' => $this->platform->id,
         'dedup_status' => DedupStatus::Pending,
@@ -145,11 +147,19 @@ it('creates a review group for uncertain matches', function () {
     $service->processListing($newListing);
 
     $newListing->refresh();
+    $existingListing->refresh();
+
+    // Both listings should be in the same review group
+    expect($newListing->listing_group_id)->toBe($existingListing->listing_group_id);
 
     $group = ListingGroup::find($newListing->listing_group_id);
     expect($group->status)->toBe(ListingGroupStatus::PendingReview)
         ->and($group->match_score)->toBe('0.75')
         ->and($group->listings()->count())->toBe(2);
+
+    // Existing listing is primary, new listing is not
+    expect($existingListing->is_primary_in_group)->toBeTrue()
+        ->and($newListing->is_primary_in_group)->toBeFalse();
 });
 
 it('skips processing for listings already linked to a property', function () {

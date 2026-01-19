@@ -170,9 +170,9 @@ class CandidateMatcherService
             return false;
         }
 
-        // Size difference check - reject if sizes differ by more than 20%
+        // Size difference check - reject if sizes differ by more than 15%
         $sizeDiff = $this->getSizeDifferenceRatio($dataA, $dataB);
-        if ($sizeDiff !== null && $sizeDiff > 0.20) {
+        if ($sizeDiff !== null && $sizeDiff > 0.15) {
             return false;
         }
 
@@ -370,7 +370,7 @@ class CandidateMatcherService
             }
         }
 
-        // Built size (within 10%)
+        // Built size (within 5% - tight tolerance to distinguish similar units)
         if (isset($dataA['built_size_m2']) && isset($dataB['built_size_m2'])) {
             $sizeA = (float) $dataA['built_size_m2'];
             $sizeB = (float) $dataB['built_size_m2'];
@@ -378,13 +378,13 @@ class CandidateMatcherService
             if ($sizeA > 0 && $sizeB > 0) {
                 $total++;
                 $difference = abs($sizeA - $sizeB) / max($sizeA, $sizeB);
-                if ($difference <= 0.1) {
+                if ($difference <= 0.05) {
                     $matches++;
                 }
             }
         }
 
-        // Lot size (within 10%)
+        // Lot size (within 5% - tight tolerance to distinguish similar units)
         if (isset($dataA['lot_size_m2']) && isset($dataB['lot_size_m2'])) {
             $sizeA = (float) $dataA['lot_size_m2'];
             $sizeB = (float) $dataB['lot_size_m2'];
@@ -392,7 +392,7 @@ class CandidateMatcherService
             if ($sizeA > 0 && $sizeB > 0) {
                 $total++;
                 $difference = abs($sizeA - $sizeB) / max($sizeA, $sizeB);
-                if ($difference <= 0.1) {
+                if ($difference <= 0.05) {
                     $matches++;
                 }
             }

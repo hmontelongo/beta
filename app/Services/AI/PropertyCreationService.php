@@ -5,6 +5,8 @@ namespace App\Services\AI;
 use App\Enums\DedupStatus;
 use App\Enums\ListingGroupStatus;
 use App\Enums\PropertyStatus;
+use App\Enums\PropertySubtype;
+use App\Enums\PropertyType;
 use App\Models\Listing;
 use App\Models\ListingGroup;
 use App\Models\Property;
@@ -32,7 +34,23 @@ class PropertyCreationService
             throw new \InvalidArgumentException('ListingGroup has no listings');
         }
 
-        $group->markAsProcessingAi();
+        // Atomically claim the group to prevent race conditions
+        $claimed = ListingGroup::where('id', $group->id)
+            ->where('status', ListingGroupStatus::PendingAi)
+            ->update(['status' => ListingGroupStatus::ProcessingAi]);
+
+        if ($claimed === 0) {
+            // Group was already claimed by another process or is in wrong state
+            Log::info('PropertyCreationService: Group already claimed or not pending', [
+                'listing_group_id' => $group->id,
+                'current_status' => $group->fresh()->status->value ?? 'unknown',
+            ]);
+
+            throw new \RuntimeException('Group is not available for processing');
+        }
+
+        // Refresh the group model to get updated status
+        $group->refresh();
 
         try {
             $response = $this->claude->message(
@@ -131,6 +149,12 @@ class PropertyCreationService
             return $property;
 
         } catch (\Throwable $e) {
+            // Race condition - group was already claimed by another process
+            // Don't update status, just silently exit
+            if (str_contains($e->getMessage(), 'not available for processing')) {
+                throw $e;
+            }
+
             Log::error('Property creation from listing group failed', [
                 'listing_group_id' => $group->id,
                 'error' => $e->getMessage(),
@@ -219,6 +243,9 @@ class PropertyCreationService
             }
         }
 
+        // Sanitize enum fields - AI may return invalid values
+        $data = $this->sanitizeEnumFields($data);
+
         // Apply description
         if (! empty($toolResult['description'])) {
             $data['description'] = $toolResult['description'];
@@ -231,6 +258,39 @@ class PropertyCreationService
 
         // Apply geocoding if needed
         $data = $this->applyGeocoding($data, $toolResult, $listings);
+
+        return $data;
+    }
+
+    /**
+     * Sanitize enum fields to handle invalid AI responses.
+     *
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    protected function sanitizeEnumFields(array $data): array
+    {
+        // Validate property_type
+        if (isset($data['property_type'])) {
+            $validTypes = array_column(PropertyType::cases(), 'value');
+            if (! in_array($data['property_type'], $validTypes, true)) {
+                Log::warning('Invalid property_type from AI, removing', [
+                    'value' => $data['property_type'],
+                ]);
+                unset($data['property_type']);
+            }
+        }
+
+        // Validate property_subtype
+        if (isset($data['property_subtype'])) {
+            $validSubtypes = array_column(PropertySubtype::cases(), 'value');
+            if (! in_array($data['property_subtype'], $validSubtypes, true)) {
+                Log::warning('Invalid property_subtype from AI, removing', [
+                    'value' => $data['property_subtype'],
+                ]);
+                unset($data['property_subtype']);
+            }
+        }
 
         return $data;
     }

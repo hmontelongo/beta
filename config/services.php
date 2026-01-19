@@ -61,8 +61,8 @@ return [
     'dedup' => [
         'batch_size' => env('DEDUP_BATCH_SIZE', 100),
         'distance_threshold_meters' => env('DEDUP_DISTANCE_METERS', 300),
-        'auto_match_threshold' => 0.80,
-        'review_threshold' => 0.55,
+        'auto_match_threshold' => 0.92, // Require high confidence for auto-matching
+        'review_threshold' => 0.65, // Catch more edge cases for human review
         'enabled' => env('DEDUP_ENABLED', true),
     ],
 

@@ -45,8 +45,11 @@ class PublisherExtractionService
     {
         $rawData = $listing->raw_data ?? [];
         $publisherName = $rawData['publisher_name'] ?? null;
+        $publisherId = $rawData['publisher_id'] ?? null;
+        $phone = $this->normalizePhone($rawData['whatsapp'] ?? null);
 
-        if (empty($publisherName)) {
+        // Allow extraction if we have name OR platform ID OR phone
+        if (empty($publisherName) && empty($publisherId) && empty($phone)) {
             return;
         }
 
@@ -67,7 +70,7 @@ class PublisherExtractionService
         Log::debug('PublisherExtractionService: Linked publisher to listing', [
             'listing_id' => $listing->id,
             'publisher_id' => $publisher->id,
-            'publisher_name' => $publisherName,
+            'publisher_name' => $publisher->name,
         ]);
     }
 
@@ -78,10 +81,15 @@ class PublisherExtractionService
     {
         $processed = 0;
 
+        // Find listings with any publisher identifier (name, platform ID, or phone)
         $listings = Listing::query()
             ->whereNull('publisher_id')
             ->whereNotNull('raw_data')
-            ->whereRaw("JSON_EXTRACT(raw_data, '$.publisher_name') IS NOT NULL")
+            ->where(function ($query) {
+                $query->whereRaw("JSON_EXTRACT(raw_data, '$.publisher_name') IS NOT NULL")
+                    ->orWhereRaw("JSON_EXTRACT(raw_data, '$.publisher_id') IS NOT NULL")
+                    ->orWhereRaw("JSON_EXTRACT(raw_data, '$.whatsapp') IS NOT NULL");
+            })
             ->limit($limit)
             ->get();
 
@@ -102,7 +110,8 @@ class PublisherExtractionService
     {
         $publisherId = $rawData['publisher_id'] ?? null;
         $phone = $this->normalizePhone($rawData['whatsapp'] ?? null);
-        $name = trim($rawData['publisher_name']);
+        $providedName = trim($rawData['publisher_name'] ?? '');
+        $name = $providedName ?: $this->generatePlaceholderName($publisherId, $phone, $platform);
 
         $publisher = $this->findExistingPublisher($publisherId, $phone, $name, $platform);
 
@@ -121,6 +130,22 @@ class PublisherExtractionService
                 $platform->slug => $this->buildPlatformProfile($rawData),
             ],
         ]);
+    }
+
+    /**
+     * Generate a placeholder name when no publisher name is provided.
+     */
+    protected function generatePlaceholderName(?string $publisherId, ?string $phone, Platform $platform): string
+    {
+        if ($publisherId) {
+            return "Publisher #{$publisherId} ({$platform->name})";
+        }
+
+        if ($phone) {
+            return "Publisher {$phone}";
+        }
+
+        return "Unknown Publisher ({$platform->name})";
     }
 
     /**

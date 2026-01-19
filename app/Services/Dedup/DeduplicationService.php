@@ -155,12 +155,69 @@ class DeduplicationService
     }
 
     /**
-     * Create a listing group pending human review, or add to existing group.
+     * Create a listing group for human review containing both potential matches.
+     * Both listings are placed in the same group so the reviewer can compare them side-by-side.
      */
     protected function createReviewGroup(Listing $listing, DedupCandidate $candidate): void
     {
         DB::transaction(function () use ($listing, $candidate) {
-            $this->addListingToGroupWithCandidate($listing, $candidate, ListingGroupStatus::PendingReview);
+            $matchedListing = $candidate->listing_a_id === $listing->id
+                ? $candidate->listingB
+                : $candidate->listingA;
+
+            // If matched listing already has a completed group (property exists), don't disturb it
+            // Just create a standalone group for the new listing - UI will show the potential match
+            if ($matchedListing->listing_group_id) {
+                $existingGroup = ListingGroup::find($matchedListing->listing_group_id);
+                if ($existingGroup && $existingGroup->status === ListingGroupStatus::Completed) {
+                    $group = ListingGroup::create([
+                        'status' => ListingGroupStatus::PendingReview,
+                        'match_score' => $candidate->overall_score,
+                    ]);
+                    $this->markListingAsGrouped($listing, $group->id, isPrimary: true);
+
+                    Log::info('Created review group for listing matching completed property', [
+                        'listing_id' => $listing->id,
+                        'listing_group_id' => $group->id,
+                        'matched_listing_id' => $matchedListing->id,
+                        'matched_group_id' => $existingGroup->id,
+                        'match_score' => $candidate->overall_score,
+                    ]);
+
+                    return;
+                }
+
+                // Matched listing has a non-completed group - add new listing to that group
+                $existingGroup->update([
+                    'status' => ListingGroupStatus::PendingReview,
+                    'match_score' => $candidate->overall_score,
+                ]);
+                $this->markListingAsGrouped($listing, $existingGroup->id, isPrimary: false);
+
+                Log::info('Added listing to existing review group', [
+                    'listing_id' => $listing->id,
+                    'listing_group_id' => $existingGroup->id,
+                    'matched_listing_id' => $matchedListing->id,
+                    'match_score' => $candidate->overall_score,
+                ]);
+
+                return;
+            }
+
+            // Neither listing has a group - create new group with BOTH listings
+            $group = ListingGroup::create([
+                'status' => ListingGroupStatus::PendingReview,
+                'match_score' => $candidate->overall_score,
+            ]);
+
+            $this->markListingAsGrouped($matchedListing, $group->id, isPrimary: true);
+            $this->markListingAsGrouped($listing, $group->id, isPrimary: false);
+
+            Log::info('Created review group with both listings', [
+                'listing_group_id' => $group->id,
+                'listing_ids' => [$matchedListing->id, $listing->id],
+                'match_score' => $candidate->overall_score,
+            ]);
         });
     }
 
