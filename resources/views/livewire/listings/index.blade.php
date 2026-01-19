@@ -101,44 +101,95 @@
         </div>
     </div>
 
-    {{-- Stats Bar --}}
-    <div class="grid grid-cols-2 gap-4 sm:grid-cols-6">
-        <flux:card class="p-4">
-            <flux:text size="sm" class="text-zinc-500">{{ __('Total') }}</flux:text>
-            <flux:heading size="lg">{{ $listings->total() }}</flux:heading>
-        </flux:card>
-        <flux:card class="p-4 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50" wire:click="$set('dedupStatus', 'pending')">
-            <flux:text size="sm" class="text-zinc-500">{{ __('Pending') }}</flux:text>
-            <flux:heading size="lg" class="text-zinc-600">{{ $this->stats['dedup_pending'] }}</flux:heading>
-        </flux:card>
-        @if ($this->isProcessing)
-            <flux:card class="p-4 bg-blue-50 dark:bg-blue-900/20">
-                <flux:text size="sm" class="text-blue-600 dark:text-blue-400">{{ __('Queue / Active') }}</flux:text>
-                <flux:heading size="lg" class="text-blue-600">
-                    {{ $this->stats['dedup_queued'] + $this->stats['property_creation_queued'] }} / {{ $this->stats['dedup_processing'] + $this->stats['groups_processing_ai'] }}
-                </flux:heading>
+    {{-- Pipeline Stats - 2 rows of 4 cards --}}
+    <div class="space-y-3">
+        {{-- Row 1: Early pipeline stages --}}
+        <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <flux:card
+                class="p-3 cursor-pointer transition-colors {{ $pipelineStatus === 'awaiting_geocoding' ? 'ring-2 ring-zinc-400' : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/50' }}"
+                wire:click="$set('pipelineStatus', '{{ $pipelineStatus === 'awaiting_geocoding' ? '' : 'awaiting_geocoding' }}')"
+            >
+                <div class="flex items-center gap-2">
+                    <flux:icon name="map-pin" class="size-4 text-zinc-400" />
+                    <flux:text size="sm" class="text-zinc-500">{{ __('Awaiting Geo') }}</flux:text>
+                </div>
+                <flux:heading size="lg" class="text-zinc-600">{{ $this->pipelineStats['awaiting_geocoding'] }}</flux:heading>
             </flux:card>
-        @endif
-        <flux:card class="p-4 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50" wire:click="$set('dedupStatus', 'grouped')">
-            <flux:text size="sm" class="text-zinc-500">{{ __('Grouped') }}</flux:text>
-            <flux:heading size="lg" class="text-purple-600">{{ $this->stats['dedup_grouped'] }}</flux:heading>
-        </flux:card>
-        <flux:card class="p-4 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50" wire:click="$set('dedupStatus', 'completed')">
-            <flux:text size="sm" class="text-zinc-500">{{ __('Completed') }}</flux:text>
-            <flux:heading size="lg" class="text-green-600">{{ $this->stats['dedup_completed'] }}</flux:heading>
-        </flux:card>
-        @if ($this->stats['groups_pending_review'] > 0)
-            <flux:card class="p-4 bg-amber-50 dark:bg-amber-900/20 cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-900/30">
-                <flux:text size="sm" class="text-amber-600 dark:text-amber-400">{{ __('Review') }}</flux:text>
-                <flux:heading size="lg" class="text-amber-600">{{ $this->stats['groups_pending_review'] }}</flux:heading>
+            <flux:card
+                class="p-3 cursor-pointer transition-colors {{ $pipelineStatus === 'awaiting_dedup' ? 'ring-2 ring-zinc-400' : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/50' }}"
+                wire:click="$set('pipelineStatus', '{{ $pipelineStatus === 'awaiting_dedup' ? '' : 'awaiting_dedup' }}')"
+            >
+                <div class="flex items-center gap-2">
+                    <flux:icon name="clock" class="size-4 text-zinc-400" />
+                    <flux:text size="sm" class="text-zinc-500">{{ __('Awaiting Dedup') }}</flux:text>
+                </div>
+                <flux:heading size="lg" class="text-zinc-600">{{ $this->pipelineStats['awaiting_dedup'] }}</flux:heading>
             </flux:card>
-        @endif
-        @if ($this->stats['dedup_failed'] > 0)
-            <flux:card class="p-4 bg-red-50 dark:bg-red-900/20 cursor-pointer hover:bg-red-100 dark:hover:bg-red-900/30" wire:click="$set('dedupStatus', 'failed')">
-                <flux:text size="sm" class="text-red-600 dark:text-red-400">{{ __('Failed') }}</flux:text>
-                <flux:heading size="lg" class="text-red-600">{{ $this->stats['dedup_failed'] }}</flux:heading>
+            <flux:card
+                class="p-3 cursor-pointer transition-colors {{ $pipelineStatus === 'processing_dedup' ? 'ring-2 ring-blue-400' : '' }} {{ $this->pipelineStats['processing_dedup'] > 0 ? 'bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30' : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/50' }}"
+                wire:click="$set('pipelineStatus', '{{ $pipelineStatus === 'processing_dedup' ? '' : 'processing_dedup' }}')"
+            >
+                <div class="flex items-center gap-2">
+                    <flux:icon name="arrow-path" class="size-4 {{ $this->pipelineStats['processing_dedup'] > 0 ? 'text-blue-500 animate-spin' : 'text-zinc-400' }}" />
+                    <flux:text size="sm" class="{{ $this->pipelineStats['processing_dedup'] > 0 ? 'text-blue-600 dark:text-blue-400' : 'text-zinc-500' }}">{{ __('Processing') }}</flux:text>
+                </div>
+                <flux:heading size="lg" class="{{ $this->pipelineStats['processing_dedup'] > 0 ? 'text-blue-600' : 'text-zinc-600' }}">{{ $this->pipelineStats['processing_dedup'] }}</flux:heading>
             </flux:card>
-        @endif
+            <flux:card
+                class="p-3 cursor-pointer transition-colors {{ $pipelineStatus === 'needs_review' ? 'ring-2 ring-amber-400' : '' }} {{ $this->pipelineStats['needs_review'] > 0 ? 'bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/30' : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/50' }}"
+                wire:click="$set('pipelineStatus', '{{ $pipelineStatus === 'needs_review' ? '' : 'needs_review' }}')"
+            >
+                <div class="flex items-center gap-2">
+                    <flux:icon name="eye" class="size-4 {{ $this->pipelineStats['needs_review'] > 0 ? 'text-amber-500' : 'text-zinc-400' }}" />
+                    <flux:text size="sm" class="{{ $this->pipelineStats['needs_review'] > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-zinc-500' }}">{{ __('Needs Review') }}</flux:text>
+                </div>
+                <flux:heading size="lg" class="{{ $this->pipelineStats['needs_review'] > 0 ? 'text-amber-600' : 'text-zinc-600' }}">{{ $this->pipelineStats['needs_review'] }}</flux:heading>
+            </flux:card>
+        </div>
+
+        {{-- Row 2: Later pipeline stages --}}
+        <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <flux:card
+                class="p-3 cursor-pointer transition-colors {{ $pipelineStatus === 'queued_for_ai' ? 'ring-2 ring-purple-400' : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/50' }}"
+                wire:click="$set('pipelineStatus', '{{ $pipelineStatus === 'queued_for_ai' ? '' : 'queued_for_ai' }}')"
+            >
+                <div class="flex items-center gap-2">
+                    <flux:icon name="sparkles" class="size-4 text-purple-400" />
+                    <flux:text size="sm" class="text-zinc-500">{{ __('Queued for AI') }}</flux:text>
+                </div>
+                <flux:heading size="lg" class="text-purple-600">{{ $this->pipelineStats['queued_for_ai'] }}</flux:heading>
+            </flux:card>
+            <flux:card
+                class="p-3 cursor-pointer transition-colors {{ $pipelineStatus === 'processing_ai' ? 'ring-2 ring-purple-400' : '' }} {{ $this->pipelineStats['processing_ai'] > 0 ? 'bg-purple-50 dark:bg-purple-900/20 hover:bg-purple-100 dark:hover:bg-purple-900/30' : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/50' }}"
+                wire:click="$set('pipelineStatus', '{{ $pipelineStatus === 'processing_ai' ? '' : 'processing_ai' }}')"
+            >
+                <div class="flex items-center gap-2">
+                    <flux:icon name="cog-6-tooth" class="size-4 {{ $this->pipelineStats['processing_ai'] > 0 ? 'text-purple-500 animate-spin' : 'text-zinc-400' }}" />
+                    <flux:text size="sm" class="{{ $this->pipelineStats['processing_ai'] > 0 ? 'text-purple-600 dark:text-purple-400' : 'text-zinc-500' }}">{{ __('AI Processing') }}</flux:text>
+                </div>
+                <flux:heading size="lg" class="{{ $this->pipelineStats['processing_ai'] > 0 ? 'text-purple-600' : 'text-zinc-600' }}">{{ $this->pipelineStats['processing_ai'] }}</flux:heading>
+            </flux:card>
+            <flux:card
+                class="p-3 cursor-pointer transition-colors {{ $pipelineStatus === 'completed' ? 'ring-2 ring-green-400' : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/50' }}"
+                wire:click="$set('pipelineStatus', '{{ $pipelineStatus === 'completed' ? '' : 'completed' }}')"
+            >
+                <div class="flex items-center gap-2">
+                    <flux:icon name="check-circle" class="size-4 text-green-500" />
+                    <flux:text size="sm" class="text-zinc-500">{{ __('Completed') }}</flux:text>
+                </div>
+                <flux:heading size="lg" class="text-green-600">{{ $this->pipelineStats['completed'] }}</flux:heading>
+            </flux:card>
+            <flux:card
+                class="p-3 cursor-pointer transition-colors {{ $pipelineStatus === 'failed' ? 'ring-2 ring-red-400' : '' }} {{ $this->pipelineStats['failed'] > 0 ? 'bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30' : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/50' }}"
+                wire:click="$set('pipelineStatus', '{{ $pipelineStatus === 'failed' ? '' : 'failed' }}')"
+            >
+                <div class="flex items-center gap-2">
+                    <flux:icon name="x-circle" class="size-4 {{ $this->pipelineStats['failed'] > 0 ? 'text-red-500' : 'text-zinc-400' }}" />
+                    <flux:text size="sm" class="{{ $this->pipelineStats['failed'] > 0 ? 'text-red-600 dark:text-red-400' : 'text-zinc-500' }}">{{ __('Failed') }}</flux:text>
+                </div>
+                <flux:heading size="lg" class="{{ $this->pipelineStats['failed'] > 0 ? 'text-red-600' : 'text-zinc-600' }}">{{ $this->pipelineStats['failed'] }}</flux:heading>
+            </flux:card>
+        </div>
     </div>
 
     {{-- Filters --}}
@@ -260,8 +311,8 @@
                             @endif
                         </flux:table.cell>
                         <flux:table.cell>
-                            <flux:badge size="sm" :color="$listing->dedup_status->color()" :icon="$listing->dedup_status->icon()">
-                                {{ ucfirst(str_replace('_', ' ', $listing->dedup_status->value)) }}
+                            <flux:badge size="sm" :color="$listing->pipeline_status->color()" :icon="$listing->pipeline_status->icon()">
+                                {{ $listing->pipeline_status->label() }}
                             </flux:badge>
                         </flux:table.cell>
                         <flux:table.cell>

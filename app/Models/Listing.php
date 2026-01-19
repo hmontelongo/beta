@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Enums\DedupStatus;
+use App\Enums\ListingGroupStatus;
+use App\Enums\ListingPipelineStatus;
 use App\Enums\ListingStatus;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -36,6 +38,49 @@ class Listing extends Model
             'dedup_checked_at' => 'datetime',
             'is_primary_in_group' => 'boolean',
         ];
+    }
+
+    /**
+     * Get the computed pipeline status based on geocode_status, dedup_status, and group status.
+     */
+    public function getPipelineStatusAttribute(): ListingPipelineStatus
+    {
+        // Failed takes precedence
+        if ($this->dedup_status === DedupStatus::Failed) {
+            return ListingPipelineStatus::Failed;
+        }
+
+        // Completed - has property
+        if ($this->dedup_status === DedupStatus::Completed) {
+            return ListingPipelineStatus::Completed;
+        }
+
+        // Awaiting geocoding
+        if ($this->geocode_status !== 'success') {
+            return ListingPipelineStatus::AwaitingGeocoding;
+        }
+
+        // Pending dedup (geocoded but not yet processed)
+        if ($this->dedup_status === DedupStatus::Pending) {
+            return ListingPipelineStatus::AwaitingDedup;
+        }
+
+        // Processing dedup
+        if ($this->dedup_status === DedupStatus::Processing) {
+            return ListingPipelineStatus::ProcessingDedup;
+        }
+
+        // Grouped - check group status for more detail
+        if ($this->dedup_status === DedupStatus::Grouped && $this->listingGroup) {
+            return match ($this->listingGroup->status) {
+                ListingGroupStatus::PendingReview => ListingPipelineStatus::NeedsReview,
+                ListingGroupStatus::PendingAi => ListingPipelineStatus::QueuedForAi,
+                ListingGroupStatus::ProcessingAi => ListingPipelineStatus::ProcessingAi,
+                default => ListingPipelineStatus::Completed,
+            };
+        }
+
+        return ListingPipelineStatus::AwaitingDedup;
     }
 
     /**

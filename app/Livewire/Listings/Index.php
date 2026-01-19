@@ -4,6 +4,7 @@ namespace App\Livewire\Listings;
 
 use App\Enums\DedupStatus;
 use App\Enums\ListingGroupStatus;
+use App\Enums\ListingPipelineStatus;
 use App\Jobs\DeduplicateListingJob;
 use App\Models\Listing;
 use App\Models\ListingGroup;
@@ -33,6 +34,9 @@ class Index extends Component
     #[Url]
     public string $dedupStatus = '';
 
+    #[Url]
+    public string $pipelineStatus = '';
+
     /** @var array<int> */
     public array $selected = [];
 
@@ -49,6 +53,11 @@ class Index extends Component
     }
 
     public function updatedDedupStatus(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedPipelineStatus(): void
     {
         $this->resetPage();
     }
@@ -232,6 +241,51 @@ class Index extends Component
         ];
     }
 
+    /**
+     * Get pipeline status counts for the stats dashboard.
+     *
+     * @return array<string, int>
+     */
+    #[Computed]
+    public function pipelineStats(): array
+    {
+        $baseQuery = fn () => Listing::query()
+            ->when($this->platform, fn ($q) => $q->where('platform_id', $this->platform));
+
+        return [
+            'awaiting_geocoding' => $baseQuery()
+                ->where(fn ($q) => $q->whereNull('geocode_status')->orWhere('geocode_status', '!=', 'success'))
+                ->where('dedup_status', '!=', DedupStatus::Failed)
+                ->where('dedup_status', '!=', DedupStatus::Completed)
+                ->count(),
+            'awaiting_dedup' => $baseQuery()
+                ->where('geocode_status', 'success')
+                ->where('dedup_status', DedupStatus::Pending)
+                ->count(),
+            'processing_dedup' => $baseQuery()
+                ->where('dedup_status', DedupStatus::Processing)
+                ->count(),
+            'needs_review' => $baseQuery()
+                ->where('dedup_status', DedupStatus::Grouped)
+                ->whereHas('listingGroup', fn ($q) => $q->where('status', ListingGroupStatus::PendingReview))
+                ->count(),
+            'queued_for_ai' => $baseQuery()
+                ->where('dedup_status', DedupStatus::Grouped)
+                ->whereHas('listingGroup', fn ($q) => $q->where('status', ListingGroupStatus::PendingAi))
+                ->count(),
+            'processing_ai' => $baseQuery()
+                ->where('dedup_status', DedupStatus::Grouped)
+                ->whereHas('listingGroup', fn ($q) => $q->where('status', ListingGroupStatus::ProcessingAi))
+                ->count(),
+            'completed' => $baseQuery()
+                ->where('dedup_status', DedupStatus::Completed)
+                ->count(),
+            'failed' => $baseQuery()
+                ->where('dedup_status', DedupStatus::Failed)
+                ->count(),
+        ];
+    }
+
     #[Computed]
     public function isProcessing(): bool
     {
@@ -291,7 +345,7 @@ class Index extends Component
     protected function buildQuery()
     {
         return Listing::query()
-            ->with(['platform', 'discoveredListing'])
+            ->with(['platform', 'discoveredListing', 'listingGroup'])
             ->when($this->search, function ($query) {
                 $query->where(function ($q) {
                     $q->where('original_url', 'like', "%{$this->search}%")
@@ -305,7 +359,44 @@ class Index extends Component
             ->when($this->dedupStatus, function ($query) {
                 $query->where('dedup_status', $this->dedupStatus);
             })
+            ->when($this->pipelineStatus, function ($query) {
+                $this->applyPipelineStatusFilter($query, $this->pipelineStatus);
+            })
             ->latest('scraped_at');
+    }
+
+    /**
+     * Apply pipeline status filter to query.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<Listing>  $query
+     */
+    protected function applyPipelineStatusFilter($query, string $status): void
+    {
+        match ($status) {
+            'awaiting_geocoding' => $query
+                ->where(fn ($q) => $q->whereNull('geocode_status')->orWhere('geocode_status', '!=', 'success'))
+                ->where('dedup_status', '!=', DedupStatus::Failed)
+                ->where('dedup_status', '!=', DedupStatus::Completed),
+            'awaiting_dedup' => $query
+                ->where('geocode_status', 'success')
+                ->where('dedup_status', DedupStatus::Pending),
+            'processing_dedup' => $query
+                ->where('dedup_status', DedupStatus::Processing),
+            'needs_review' => $query
+                ->where('dedup_status', DedupStatus::Grouped)
+                ->whereHas('listingGroup', fn ($q) => $q->where('status', ListingGroupStatus::PendingReview)),
+            'queued_for_ai' => $query
+                ->where('dedup_status', DedupStatus::Grouped)
+                ->whereHas('listingGroup', fn ($q) => $q->where('status', ListingGroupStatus::PendingAi)),
+            'processing_ai' => $query
+                ->where('dedup_status', DedupStatus::Grouped)
+                ->whereHas('listingGroup', fn ($q) => $q->where('status', ListingGroupStatus::ProcessingAi)),
+            'completed' => $query
+                ->where('dedup_status', DedupStatus::Completed),
+            'failed' => $query
+                ->where('dedup_status', DedupStatus::Failed),
+            default => null,
+        };
     }
 
     public function render(): View
@@ -316,6 +407,7 @@ class Index extends Component
             'listings' => $listings,
             'platforms' => Platform::orderBy('name')->get(),
             'dedupStatuses' => DedupStatus::cases(),
+            'pipelineStatuses' => ListingPipelineStatus::cases(),
         ]);
     }
 }
