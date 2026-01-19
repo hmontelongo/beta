@@ -63,13 +63,17 @@ class ScrapeOrchestrator
 
     public function markCompleted(ScrapeRun $run): void
     {
+        // Compute final stats from actual records before marking complete
+        $finalStats = $run->computeStats();
+
         $run->update([
             'status' => ScrapeRunStatus::Completed,
             'completed_at' => now(),
+            'stats' => $finalStats,
         ]);
 
         ScrapeRunProgress::dispatch($run, 'completed', [
-            'stats' => $run->stats,
+            'stats' => $finalStats,
         ]);
     }
 
