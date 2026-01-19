@@ -13,36 +13,6 @@
             <flux:subheading>{{ __('Browse all scraped property listings from all platforms.') }}</flux:subheading>
         </div>
         <div class="flex gap-2">
-            {{-- Enrich Button: Normal or Cancel state --}}
-            @if ($this->isEnrichmentProcessing)
-                <flux:button
-                    wire:click="cancelEnrichment"
-                    wire:loading.attr="disabled"
-                    variant="danger"
-                    size="sm"
-                    icon="x-mark"
-                >
-                    <span wire:loading.remove wire:target="cancelEnrichment">
-                        {{ __('Cancel Enrich') }} ({{ $this->stats['ai_queued'] + $this->stats['ai_processing'] }})
-                    </span>
-                    <span wire:loading wire:target="cancelEnrichment">{{ __('Cancelling...') }}</span>
-                </flux:button>
-            @else
-                <flux:button
-                    wire:click="runBatchEnrichment"
-                    wire:loading.attr="disabled"
-                    :disabled="$this->isDeduplicationProcessing || $this->stats['ai_pending'] === 0"
-                    variant="primary"
-                    size="sm"
-                    icon="sparkles"
-                >
-                    <span wire:loading.remove wire:target="runBatchEnrichment">
-                        {{ __('Enrich Batch') }} ({{ $this->stats['ai_pending'] }})
-                    </span>
-                    <span wire:loading wire:target="runBatchEnrichment">{{ __('Processing...') }}</span>
-                </flux:button>
-            @endif
-
             {{-- Dedup Button: Normal or Cancel state --}}
             @if ($this->isDeduplicationProcessing)
                 <flux:button
@@ -61,7 +31,7 @@
                 <flux:button
                     wire:click="runBatchDeduplication"
                     wire:loading.attr="disabled"
-                    :disabled="$this->isEnrichmentProcessing || $this->stats['dedup_pending'] === 0"
+                    :disabled="$this->stats['dedup_pending'] === 0"
                     variant="primary"
                     size="sm"
                     icon="document-duplicate"
@@ -73,8 +43,24 @@
                 </flux:button>
             @endif
 
-            {{-- Review Matches link --}}
-            @if ($this->stats['candidates_pending_review'] > 0)
+            {{-- Property Creation: Cancel state --}}
+            @if ($this->isPropertyCreationProcessing)
+                <flux:button
+                    wire:click="cancelPropertyCreation"
+                    wire:loading.attr="disabled"
+                    variant="danger"
+                    size="sm"
+                    icon="x-mark"
+                >
+                    <span wire:loading.remove wire:target="cancelPropertyCreation">
+                        {{ __('Cancel AI') }} ({{ $this->stats['property_creation_queued'] + $this->stats['groups_processing_ai'] }})
+                    </span>
+                    <span wire:loading wire:target="cancelPropertyCreation">{{ __('Cancelling...') }}</span>
+                </flux:button>
+            @endif
+
+            {{-- Review Groups link --}}
+            @if ($this->stats['groups_pending_review'] > 0)
                 <flux:button
                     :href="route('dedup.review')"
                     wire:navigate
@@ -82,24 +68,7 @@
                     size="sm"
                     icon="eye"
                 >
-                    {{ __('Review Matches') }} ({{ $this->stats['candidates_pending_review'] }})
-                </flux:button>
-            @endif
-
-            {{-- Retry Failed Enrichment --}}
-            @if ($this->stats['ai_failed'] > 0)
-                <flux:button
-                    wire:click="retryFailedEnrichment"
-                    wire:loading.attr="disabled"
-                    :disabled="$this->isProcessing"
-                    variant="filled"
-                    size="sm"
-                    icon="arrow-path"
-                >
-                    <span wire:loading.remove wire:target="retryFailedEnrichment">
-                        {{ __('Retry Enrich') }} ({{ $this->stats['ai_failed'] }})
-                    </span>
-                    <span wire:loading wire:target="retryFailedEnrichment">{{ __('Queueing...') }}</span>
+                    {{ __('Review Groups') }} ({{ $this->stats['groups_pending_review'] }})
                 </flux:button>
             @endif
 
@@ -114,7 +83,7 @@
                     icon="arrow-path"
                 >
                     <span wire:loading.remove wire:target="retryFailedDedup">
-                        {{ __('Retry Dedup') }} ({{ $this->stats['dedup_failed'] }})
+                        {{ __('Retry Failed') }} ({{ $this->stats['dedup_failed'] }})
                     </span>
                     <span wire:loading wire:target="retryFailedDedup">{{ __('Queueing...') }}</span>
                 </flux:button>
@@ -138,36 +107,36 @@
             <flux:text size="sm" class="text-zinc-500">{{ __('Total') }}</flux:text>
             <flux:heading size="lg">{{ $listings->total() }}</flux:heading>
         </flux:card>
-        <flux:card class="p-4 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50" wire:click="$set('aiStatus', 'pending')">
-            <flux:text size="sm" class="text-zinc-500">{{ __('AI Pending') }}</flux:text>
-            <flux:heading size="lg" class="text-zinc-600">{{ $this->stats['ai_pending'] }}</flux:heading>
+        <flux:card class="p-4 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50" wire:click="$set('dedupStatus', 'pending')">
+            <flux:text size="sm" class="text-zinc-500">{{ __('Pending') }}</flux:text>
+            <flux:heading size="lg" class="text-zinc-600">{{ $this->stats['dedup_pending'] }}</flux:heading>
         </flux:card>
         @if ($this->isProcessing)
             <flux:card class="p-4 bg-blue-50 dark:bg-blue-900/20">
                 <flux:text size="sm" class="text-blue-600 dark:text-blue-400">{{ __('Queue / Active') }}</flux:text>
                 <flux:heading size="lg" class="text-blue-600">
-                    {{ $this->stats['ai_queued'] + $this->stats['dedup_queued'] }} / {{ $this->stats['ai_processing'] + $this->stats['dedup_processing'] }}
+                    {{ $this->stats['dedup_queued'] + $this->stats['property_creation_queued'] }} / {{ $this->stats['dedup_processing'] + $this->stats['groups_processing_ai'] }}
                 </flux:heading>
             </flux:card>
         @endif
-        <flux:card class="p-4 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50" wire:click="$set('aiStatus', 'completed')">
-            <flux:text size="sm" class="text-zinc-500">{{ __('AI Done') }}</flux:text>
-            <flux:heading size="lg" class="text-green-600">{{ $this->stats['ai_completed'] }}</flux:heading>
+        <flux:card class="p-4 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50" wire:click="$set('dedupStatus', 'grouped')">
+            <flux:text size="sm" class="text-zinc-500">{{ __('Grouped') }}</flux:text>
+            <flux:heading size="lg" class="text-purple-600">{{ $this->stats['dedup_grouped'] }}</flux:heading>
         </flux:card>
-        <flux:card class="p-4 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50" wire:click="$set('dedupStatus', 'matched')">
-            <flux:text size="sm" class="text-zinc-500">{{ __('Matched') }}</flux:text>
-            <flux:heading size="lg" class="text-purple-600">{{ $this->stats['dedup_matched'] }}</flux:heading>
+        <flux:card class="p-4 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50" wire:click="$set('dedupStatus', 'completed')">
+            <flux:text size="sm" class="text-zinc-500">{{ __('Completed') }}</flux:text>
+            <flux:heading size="lg" class="text-green-600">{{ $this->stats['dedup_completed'] }}</flux:heading>
         </flux:card>
-        <flux:card class="p-4 cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800/50" wire:click="$set('dedupStatus', 'needs_review')">
-            <flux:text size="sm" class="text-zinc-500">{{ __('Needs Review') }}</flux:text>
-            <flux:heading size="lg" class="text-amber-600">{{ $this->stats['dedup_needs_review'] }}</flux:heading>
-        </flux:card>
-        @if ($this->stats['ai_failed'] > 0 || $this->stats['dedup_failed'] > 0)
-            <flux:card class="p-4 bg-red-50 dark:bg-red-900/20 cursor-pointer hover:bg-red-100 dark:hover:bg-red-900/30" wire:click="$set('aiStatus', 'failed')">
+        @if ($this->stats['groups_pending_review'] > 0)
+            <flux:card class="p-4 bg-amber-50 dark:bg-amber-900/20 cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-900/30">
+                <flux:text size="sm" class="text-amber-600 dark:text-amber-400">{{ __('Review') }}</flux:text>
+                <flux:heading size="lg" class="text-amber-600">{{ $this->stats['groups_pending_review'] }}</flux:heading>
+            </flux:card>
+        @endif
+        @if ($this->stats['dedup_failed'] > 0)
+            <flux:card class="p-4 bg-red-50 dark:bg-red-900/20 cursor-pointer hover:bg-red-100 dark:hover:bg-red-900/30" wire:click="$set('dedupStatus', 'failed')">
                 <flux:text size="sm" class="text-red-600 dark:text-red-400">{{ __('Failed') }}</flux:text>
-                <flux:heading size="lg" class="text-red-600">
-                    {{ $this->stats['ai_failed'] + $this->stats['dedup_failed'] }}
-                </flux:heading>
+                <flux:heading size="lg" class="text-red-600">{{ $this->stats['dedup_failed'] }}</flux:heading>
             </flux:card>
         @endif
     </div>
@@ -189,14 +158,8 @@
                     <flux:select.option value="{{ $p->id }}">{{ $p->name }}</flux:select.option>
                 @endforeach
             </flux:select>
-            <flux:select wire:model.live="aiStatus" class="w-36">
-                <flux:select.option value="">{{ __('All AI Status') }}</flux:select.option>
-                @foreach ($aiStatuses as $status)
-                    <flux:select.option value="{{ $status->value }}">{{ ucfirst($status->value) }}</flux:select.option>
-                @endforeach
-            </flux:select>
             <flux:select wire:model.live="dedupStatus" class="w-40">
-                <flux:select.option value="">{{ __('All Dedup') }}</flux:select.option>
+                <flux:select.option value="">{{ __('All Status') }}</flux:select.option>
                 @foreach ($dedupStatuses as $status)
                     <flux:select.option value="{{ $status->value }}">{{ ucfirst(str_replace('_', ' ', $status->value)) }}</flux:select.option>
                 @endforeach
@@ -211,16 +174,6 @@
                 <strong>{{ count($selected) }}</strong> {{ __('listings selected') }}
             </flux:text>
             <div class="flex gap-2">
-                <flux:button
-                    wire:click="runBulkEnrichment"
-                    wire:loading.attr="disabled"
-                    :disabled="$this->isProcessing"
-                    size="sm"
-                    icon="sparkles"
-                >
-                    <span wire:loading.remove wire:target="runBulkEnrichment">{{ __('Enrich Selected') }}</span>
-                    <span wire:loading wire:target="runBulkEnrichment">{{ __('Processing...') }}</span>
-                </flux:button>
                 <flux:button
                     wire:click="runBulkDeduplication"
                     wire:loading.attr="disabled"
@@ -247,7 +200,7 @@
         <flux:callout icon="document-text">
             <flux:callout.heading>{{ __('No listings found') }}</flux:callout.heading>
             <flux:callout.text>
-                @if ($search || $platform || $aiStatus || $dedupStatus)
+                @if ($search || $platform || $dedupStatus)
                     {{ __('Try adjusting your search filters.') }}
                 @else
                     {{ __('Start a scrape from a platform to collect listings.') }}
@@ -307,14 +260,9 @@
                             @endif
                         </flux:table.cell>
                         <flux:table.cell>
-                            <div class="flex flex-col gap-1">
-                                <flux:badge size="sm" :color="$listing->ai_status->color()" :icon="$listing->ai_status->icon()">
-                                    {{ ucfirst($listing->ai_status->value) }}
-                                </flux:badge>
-                                <flux:badge size="sm" :color="$listing->dedup_status->color()" :icon="$listing->dedup_status->icon()">
-                                    {{ ucfirst(str_replace('_', ' ', $listing->dedup_status->value)) }}
-                                </flux:badge>
-                            </div>
+                            <flux:badge size="sm" :color="$listing->dedup_status->color()" :icon="$listing->dedup_status->icon()">
+                                {{ ucfirst(str_replace('_', ' ', $listing->dedup_status->value)) }}
+                            </flux:badge>
                         </flux:table.cell>
                         <flux:table.cell>
                             <flux:text size="sm">{{ $listing->scraped_at?->diffForHumans() }}</flux:text>

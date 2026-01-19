@@ -114,7 +114,9 @@ class DiscoverPageJob implements ShouldQueue
         foreach ($listings as $listing) {
             $preview = $listing['preview'] ?? [];
 
-            DiscoveredListing::firstOrCreate(
+            // Use updateOrCreate to associate existing listings with the new run
+            // This ensures re-runs properly scrape previously discovered listings
+            DiscoveredListing::updateOrCreate(
                 [
                     'platform_id' => $platformId,
                     'url' => $listing['url'],

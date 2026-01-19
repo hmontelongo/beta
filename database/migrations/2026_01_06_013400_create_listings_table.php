@@ -15,6 +15,7 @@ return new class extends Migration
         Schema::create('listings', function (Blueprint $table) {
             $table->id();
             $table->foreignId('property_id')->nullable()->constrained()->nullOnDelete();
+            $table->foreignId('listing_group_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('platform_id')->constrained()->cascadeOnDelete();
             $table->foreignId('discovered_listing_id')->nullable()->constrained()->nullOnDelete();
             $table->foreignId('agent_id')->nullable()->constrained()->nullOnDelete();
@@ -26,16 +27,21 @@ return new class extends Migration
             $table->json('external_codes')->nullable();
             $table->json('raw_data');
             $table->json('data_quality')->nullable();
-            $table->string('ai_status')->default('pending');
+            $table->decimal('latitude', 10, 8)->nullable();
+            $table->decimal('longitude', 11, 8)->nullable();
+            $table->string('geocode_status')->nullable();
+            $table->timestamp('geocoded_at')->nullable();
             $table->string('dedup_status')->default('pending');
-            $table->timestamp('ai_processed_at')->nullable();
             $table->timestamp('dedup_checked_at')->nullable();
+            $table->boolean('is_primary_in_group')->default(false);
             $table->timestamp('scraped_at');
             $table->timestamps();
 
             $table->unique(['platform_id', 'external_id']);
-            $table->index(['ai_status', 'created_at']);
             $table->index(['dedup_status', 'created_at']);
+            $table->index(['geocode_status', 'created_at']);
+            $table->index(['latitude', 'longitude']);
+            $table->index('listing_group_id');
         });
     }
 

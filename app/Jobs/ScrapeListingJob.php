@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Enums\DedupStatus;
 use App\Enums\DiscoveredListingStatus;
 use App\Enums\ScrapeJobStatus;
 use App\Enums\ScrapeJobType;
@@ -65,6 +66,13 @@ class ScrapeListingJob implements ShouldQueue
         try {
             $data = $scraperService->scrapeListing($discoveredListing->url);
 
+            // Check if listing already exists
+            $existingListing = Listing::where('platform_id', $discoveredListing->platform_id)
+                ->where('external_id', $data['external_id'] ?? $discoveredListing->external_id)
+                ->first();
+
+            $isRescrape = $existingListing !== null;
+
             $listing = Listing::updateOrCreate(
                 [
                     'platform_id' => $discoveredListing->platform_id,
@@ -78,8 +86,22 @@ class ScrapeListingJob implements ShouldQueue
                     'raw_data' => $data,
                     'data_quality' => $data['data_quality'] ?? null,
                     'scraped_at' => now(),
+                    // Set dedup_status for new listings
+                    'dedup_status' => $isRescrape
+                        ? $existingListing->dedup_status
+                        : DedupStatus::Pending,
                 ]
             );
+
+            // For re-scrapes: mark property for re-analysis if data may have changed
+            if ($isRescrape && $listing->property_id) {
+                $listing->property->markForReanalysis();
+
+                Log::info('Re-scraped listing, marked property for re-analysis', [
+                    'listing_id' => $listing->id,
+                    'property_id' => $listing->property_id,
+                ]);
+            }
 
             $discoveredListing->increment('attempts', 1, [
                 'status' => DiscoveredListingStatus::Scraped,

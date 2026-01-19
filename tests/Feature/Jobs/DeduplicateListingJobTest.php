@@ -1,6 +1,5 @@
 <?php
 
-use App\Enums\AiEnrichmentStatus;
 use App\Enums\DedupStatus;
 use App\Jobs\DeduplicateListingJob;
 use App\Models\Listing;
@@ -11,7 +10,6 @@ it('sets status to processing before calling service', function () {
     $platform = Platform::factory()->create();
     $listing = Listing::factory()->create([
         'platform_id' => $platform->id,
-        'ai_status' => AiEnrichmentStatus::Completed,
         'dedup_status' => DedupStatus::Pending,
         'raw_data' => ['title' => 'Test listing', 'description' => 'Test description'],
     ]);

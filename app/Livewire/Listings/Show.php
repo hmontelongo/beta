@@ -2,11 +2,9 @@
 
 namespace App\Livewire\Listings;
 
-use App\Enums\AiEnrichmentStatus;
 use App\Enums\DedupCandidateStatus;
 use App\Enums\DedupStatus;
 use App\Jobs\DeduplicateListingJob;
-use App\Jobs\EnrichListingJob;
 use App\Jobs\RescrapeListingJob;
 use App\Models\DedupCandidate;
 use App\Models\Listing;
@@ -26,7 +24,7 @@ class Show extends Component
 
     public function mount(Listing $listing): void
     {
-        $this->listing = $listing->load(['platform', 'discoveredListing', 'aiEnrichment', 'property']);
+        $this->listing = $listing->load(['platform', 'discoveredListing', 'property', 'listingGroup']);
     }
 
     public function rescrape(): void
@@ -42,29 +40,10 @@ class Show extends Component
         );
     }
 
-    public function runEnrichment(): void
-    {
-        $this->listing->update(['ai_status' => AiEnrichmentStatus::Processing]);
-
-        EnrichListingJob::dispatch($this->listing->id);
-
-        Flux::toast(
-            heading: 'Enrichment Queued',
-            text: 'Processing in background...',
-            variant: 'info',
-        );
-    }
-
     public function runDeduplication(): void
     {
         if ($this->listing->property_id) {
             Flux::toast(heading: 'Already Processed', text: 'This listing is already linked to a property.', variant: 'warning');
-
-            return;
-        }
-
-        if ($this->listing->ai_status !== AiEnrichmentStatus::Completed) {
-            Flux::toast(heading: 'Enrichment Required', text: 'Run AI enrichment first before deduplication.', variant: 'warning');
 
             return;
         }
@@ -80,17 +59,9 @@ class Show extends Component
     }
 
     #[Computed]
-    public function canEnrich(): bool
-    {
-        return $this->listing->raw_data !== null
-            && ! $this->listing->ai_status->isActive();
-    }
-
-    #[Computed]
     public function canDedup(): bool
     {
         return $this->listing->raw_data !== null
-            && $this->listing->ai_status === AiEnrichmentStatus::Completed
             && ! $this->listing->dedup_status->isActive()
             && ! $this->listing->property_id;
     }
@@ -98,8 +69,7 @@ class Show extends Component
     #[Computed]
     public function isProcessing(): bool
     {
-        return $this->listing->ai_status->isActive()
-            || $this->listing->dedup_status->isActive();
+        return $this->listing->dedup_status->isActive();
     }
 
     /**
@@ -152,7 +122,7 @@ class Show extends Component
     {
         // Refresh listing data to pick up job completion
         $this->listing->refresh();
-        $this->listing->load(['aiEnrichment', 'property']);
+        $this->listing->load(['property', 'listingGroup']);
 
         return view('livewire.listings.show');
     }

@@ -32,6 +32,11 @@ return new class extends Migration
             $table->decimal('built_size_m2', 10, 2)->nullable();
             $table->unsignedInteger('age_years')->nullable();
             $table->json('amenities')->nullable();
+            $table->text('description')->nullable();
+            $table->json('ai_unification')->nullable();
+            $table->timestamp('ai_unified_at')->nullable();
+            $table->boolean('needs_reanalysis')->default(false);
+            $table->json('discrepancies')->nullable();
             $table->string('status')->default(PropertyStatus::Unverified->value);
             $table->unsignedTinyInteger('confidence_score')->nullable();
             $table->unsignedInteger('listings_count')->default(0);

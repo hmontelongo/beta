@@ -2,14 +2,13 @@
 
 namespace App\Models;
 
-use App\Enums\AiEnrichmentStatus;
 use App\Enums\DedupStatus;
 use App\Enums\ListingStatus;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Listing extends Model
 {
@@ -25,15 +24,17 @@ class Listing extends Model
     {
         return [
             'status' => ListingStatus::class,
-            'ai_status' => AiEnrichmentStatus::class,
             'dedup_status' => DedupStatus::class,
             'operations' => 'array',
             'external_codes' => 'array',
             'raw_data' => 'array',
             'data_quality' => 'array',
+            'latitude' => 'decimal:8',
+            'longitude' => 'decimal:8',
+            'geocoded_at' => 'datetime',
             'scraped_at' => 'datetime',
-            'ai_processed_at' => 'datetime',
             'dedup_checked_at' => 'datetime',
+            'is_primary_in_group' => 'boolean',
         ];
     }
 
@@ -94,11 +95,11 @@ class Listing extends Model
     }
 
     /**
-     * @return HasOne<AiEnrichment, $this>
+     * @return BelongsTo<ListingGroup, $this>
      */
-    public function aiEnrichment(): HasOne
+    public function listingGroup(): BelongsTo
     {
-        return $this->hasOne(AiEnrichment::class);
+        return $this->belongsTo(ListingGroup::class);
     }
 
     /**
@@ -122,25 +123,57 @@ class Listing extends Model
     }
 
     /**
-     * Scope for listings pending AI enrichment.
+     * Scope for listings pending deduplication.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder<Listing>  $query
-     * @return \Illuminate\Database\Eloquent\Builder<Listing>
+     * @param  Builder<Listing>  $query
+     * @return Builder<Listing>
      */
-    public function scopePendingAiEnrichment($query)
+    public function scopePendingDedup(Builder $query): Builder
     {
-        return $query->where('ai_status', AiEnrichmentStatus::Pending);
+        return $query->where('dedup_status', DedupStatus::Pending);
     }
 
     /**
-     * Scope for listings pending deduplication.
+     * Scope for listings that have been grouped and are awaiting property creation.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder<Listing>  $query
-     * @return \Illuminate\Database\Eloquent\Builder<Listing>
+     * @param  Builder<Listing>  $query
+     * @return Builder<Listing>
      */
-    public function scopePendingDedup($query)
+    public function scopeGrouped(Builder $query): Builder
     {
-        return $query->where('dedup_status', DedupStatus::Pending)
-            ->where('ai_status', AiEnrichmentStatus::Completed);
+        return $query->where('dedup_status', DedupStatus::Grouped);
+    }
+
+    /**
+     * Scope for listings with completed property assignment.
+     *
+     * @param  Builder<Listing>  $query
+     * @return Builder<Listing>
+     */
+    public function scopeCompleted(Builder $query): Builder
+    {
+        return $query->where('dedup_status', DedupStatus::Completed);
+    }
+
+    /**
+     * Scope for listings that have been successfully geocoded.
+     *
+     * @param  Builder<Listing>  $query
+     * @return Builder<Listing>
+     */
+    public function scopeGeocoded(Builder $query): Builder
+    {
+        return $query->where('geocode_status', 'success');
+    }
+
+    /**
+     * Scope for listings pending geocoding.
+     *
+     * @param  Builder<Listing>  $query
+     * @return Builder<Listing>
+     */
+    public function scopePendingGeocoding(Builder $query): Builder
+    {
+        return $query->whereNull('geocode_status');
     }
 }

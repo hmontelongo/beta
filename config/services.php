@@ -71,4 +71,14 @@ return [
         'geocoding_enabled' => env('GOOGLE_GEOCODING_ENABLED', true),
     ],
 
+    'geocoding' => [
+        'enabled' => env('GEOCODING_ENABLED', true),
+        'batch_size' => env('GEOCODING_BATCH_SIZE', 50),
+    ],
+
+    'property_creation' => [
+        'enabled' => env('PROPERTY_CREATION_ENABLED', true),
+        'batch_size' => env('PROPERTY_CREATION_BATCH_SIZE', 10),
+    ],
+
 ];

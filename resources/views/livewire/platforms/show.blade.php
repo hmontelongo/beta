@@ -67,33 +67,19 @@
                                     <div class="flex items-center gap-2">
                                         <flux:heading size="sm">{{ $query->name }}</flux:heading>
                                         @if ($query->auto_enabled)
-                                            <flux:badge size="sm" color="blue">{{ $query->run_frequency->label() }}</flux:badge>
+                                            <flux:badge size="sm" color="blue">{{ $query->getScheduleDescription() }}</flux:badge>
                                         @endif
                                     </div>
                                     <flux:subheading class="truncate">{{ $query->search_url }}</flux:subheading>
                                 </div>
                                 <div class="flex items-center gap-1">
-                                    {{-- Schedule Dropdown --}}
-                                    <flux:dropdown>
-                                        <flux:button size="sm" variant="ghost" icon="calendar" />
-                                        <flux:menu>
-                                            <flux:menu.heading>{{ __('Schedule') }}</flux:menu.heading>
-                                            @foreach ($frequencies as $freq)
-                                                <flux:menu.item
-                                                    wire:click="updateScheduling({{ $query->id }}, '{{ $freq->value }}', {{ $freq->value !== 'none' ? 'true' : 'false' }})"
-                                                    :icon="$query->run_frequency === $freq && $query->auto_enabled ? 'check' : null"
-                                                >
-                                                    {{ $freq->label() }}
-                                                </flux:menu.item>
-                                            @endforeach
-                                            @if ($query->auto_enabled)
-                                                <flux:menu.separator />
-                                                <flux:menu.item wire:click="updateScheduling({{ $query->id }}, '{{ $query->run_frequency->value }}', false)" icon="x-mark">
-                                                    {{ __('Disable') }}
-                                                </flux:menu.item>
-                                            @endif
-                                        </flux:menu>
-                                    </flux:dropdown>
+                                    {{-- Schedule Button --}}
+                                    <flux:button
+                                        size="sm"
+                                        variant="ghost"
+                                        icon="calendar"
+                                        wire:click="openScheduleModal({{ $query->id }})"
+                                    />
                                     <flux:button size="sm" variant="ghost" icon="trash" wire:click="deleteSearchQuery({{ $query->id }})" wire:confirm="{{ __('Are you sure?') }}" />
                                 </div>
                             </div>
@@ -189,5 +175,85 @@
                 <flux:button type="submit" variant="primary">{{ __('Add Query') }}</flux:button>
             </div>
         </form>
+    </flux:modal>
+
+    {{-- Schedule Modal --}}
+    <flux:modal wire:model="showScheduleModal" class="md:w-96">
+        <flux:heading size="lg">{{ __('Schedule') }}</flux:heading>
+        <flux:subheading class="mb-6">{{ $this->scheduleQuery?->name }}</flux:subheading>
+
+        <div class="space-y-4">
+            {{-- Schedule Type --}}
+            <flux:select wire:model.live="scheduleType" label="{{ __('Frequency') }}">
+                <option value="none">{{ __('Manual Only') }}</option>
+                <option value="interval">{{ __('Run every...') }}</option>
+                <option value="daily">{{ __('Daily at specific time') }}</option>
+                <option value="weekly">{{ __('Weekly') }}</option>
+            </flux:select>
+
+            {{-- Interval Options --}}
+            @if ($scheduleType === 'interval')
+                <div class="flex gap-2">
+                    <flux:input
+                        type="number"
+                        wire:model.live="intervalValue"
+                        min="1"
+                        step="1"
+                        pattern="[0-9]*"
+                        inputmode="numeric"
+                        class="w-24"
+                    />
+                    <flux:select wire:model.live="intervalUnit" class="flex-1">
+                        <option value="minutes">{{ __('Minutes') }}</option>
+                        <option value="hours">{{ __('Hours') }}</option>
+                        <option value="days">{{ __('Days') }}</option>
+                    </flux:select>
+                </div>
+            @endif
+
+            {{-- Daily Options --}}
+            @if ($scheduleType === 'daily')
+                <flux:input
+                    type="time"
+                    wire:model.live="scheduledTime"
+                    label="{{ __('Run at') }}"
+                />
+            @endif
+
+            {{-- Weekly Options --}}
+            @if ($scheduleType === 'weekly')
+                <flux:select wire:model.live="scheduledDay" label="{{ __('Day') }}">
+                    <option value="0">{{ __('Sunday') }}</option>
+                    <option value="1">{{ __('Monday') }}</option>
+                    <option value="2">{{ __('Tuesday') }}</option>
+                    <option value="3">{{ __('Wednesday') }}</option>
+                    <option value="4">{{ __('Thursday') }}</option>
+                    <option value="5">{{ __('Friday') }}</option>
+                    <option value="6">{{ __('Saturday') }}</option>
+                </flux:select>
+                <flux:input
+                    type="time"
+                    wire:model.live="scheduledTime"
+                    label="{{ __('At') }}"
+                />
+            @endif
+
+            {{-- Next Run Preview --}}
+            @if ($scheduleType !== 'none' && $this->nextRunPreview)
+                <div class="rounded-lg bg-zinc-50 dark:bg-zinc-800 p-3">
+                    <flux:text size="sm" class="text-zinc-500">{{ __('Next run') }}</flux:text>
+                    <flux:text class="font-medium">{{ $this->nextRunPreview }}</flux:text>
+                </div>
+            @endif
+        </div>
+
+        <div class="flex justify-end gap-3 pt-6">
+            <flux:button variant="ghost" wire:click="$set('showScheduleModal', false)">
+                {{ __('Cancel') }}
+            </flux:button>
+            <flux:button variant="primary" wire:click="saveSchedule">
+                {{ __('Save') }}
+            </flux:button>
+        </div>
     </flux:modal>
 </div>

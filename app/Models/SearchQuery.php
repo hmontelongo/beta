@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\RunFrequency;
 use App\Enums\ScrapeRunStatus;
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -29,6 +30,8 @@ class SearchQuery extends Model
             'run_frequency' => RunFrequency::class,
             'next_run_at' => 'datetime',
             'auto_enabled' => 'boolean',
+            'interval_value' => 'integer',
+            'scheduled_day' => 'integer',
         ];
     }
 
@@ -81,7 +84,6 @@ class SearchQuery extends Model
         return $query
             ->where('is_active', true)
             ->where('auto_enabled', true)
-            ->where('run_frequency', '!=', RunFrequency::None)
             ->where(function ($q) {
                 $q->whereNull('next_run_at')
                     ->orWhere('next_run_at', '<=', now());
@@ -94,10 +96,6 @@ class SearchQuery extends Model
     public function isDueForRun(): bool
     {
         if (! $this->is_active || ! $this->auto_enabled) {
-            return false;
-        }
-
-        if ($this->run_frequency === RunFrequency::None) {
             return false;
         }
 
@@ -117,26 +115,99 @@ class SearchQuery extends Model
     }
 
     /**
-     * Update the next_run_at timestamp based on the frequency.
+     * Calculate the next run timestamp based on schedule configuration.
+     */
+    public function calculateNextRunAt(): ?Carbon
+    {
+        return match ($this->schedule_type) {
+            'interval' => $this->calculateIntervalNext(),
+            'daily' => $this->calculateDailyNext(),
+            'weekly' => $this->calculateWeeklyNext(),
+            default => null,
+        };
+    }
+
+    protected function calculateIntervalNext(): Carbon
+    {
+        $minutes = match ($this->interval_unit) {
+            'minutes' => $this->interval_value,
+            'hours' => $this->interval_value * 60,
+            'days' => $this->interval_value * 60 * 24,
+            default => 60,
+        };
+
+        return now()->addMinutes($minutes);
+    }
+
+    protected function calculateDailyNext(): Carbon
+    {
+        $time = $this->scheduled_time ?? '03:00:00';
+        $next = now()->setTimeFromTimeString($time);
+
+        if ($next->isPast()) {
+            $next->addDay();
+        }
+
+        return $next;
+    }
+
+    protected function calculateWeeklyNext(): Carbon
+    {
+        $time = $this->scheduled_time ?? '06:00:00';
+        $dayOfWeek = $this->scheduled_day ?? Carbon::MONDAY;
+
+        // Calculate this week's scheduled time
+        $thisWeek = now()
+            ->startOfWeek(Carbon::SUNDAY)
+            ->addDays($dayOfWeek)
+            ->setTimeFromTimeString($time);
+
+        // If it's still in the future, use it
+        if ($thisWeek->isFuture()) {
+            return $thisWeek;
+        }
+
+        // Otherwise, use next week
+        return $thisWeek->addWeek();
+    }
+
+    /**
+     * Update the next_run_at timestamp based on the schedule configuration.
      */
     public function scheduleNextRun(): void
     {
         $this->update([
-            'next_run_at' => $this->run_frequency->nextRunAt(),
+            'next_run_at' => $this->calculateNextRunAt(),
             'last_run_at' => now(),
         ]);
     }
 
     /**
-     * Enable automatic scheduling with the given frequency.
+     * Enable automatic scheduling with the given frequency (legacy method for backwards compatibility).
      */
     public function enableScheduling(RunFrequency $frequency): void
     {
+        // Map old frequency to new schedule fields
+        $mapping = match ($frequency) {
+            RunFrequency::None => ['schedule_type' => 'interval', 'interval_value' => 1, 'interval_unit' => 'hours'],
+            RunFrequency::Hourly => ['schedule_type' => 'interval', 'interval_value' => 1, 'interval_unit' => 'hours'],
+            RunFrequency::Daily => ['schedule_type' => 'daily', 'interval_value' => 1, 'interval_unit' => 'days'],
+            RunFrequency::Weekly => ['schedule_type' => 'weekly', 'interval_value' => 1, 'interval_unit' => 'days'],
+            RunFrequency::Monthly => ['schedule_type' => 'interval', 'interval_value' => 30, 'interval_unit' => 'days'],
+        };
+
         $this->update([
             'run_frequency' => $frequency,
+            'schedule_type' => $mapping['schedule_type'],
+            'interval_value' => $mapping['interval_value'],
+            'interval_unit' => $mapping['interval_unit'],
             'auto_enabled' => true,
-            'next_run_at' => $frequency->nextRunAt(),
+            'next_run_at' => $this->calculateNextRunAt(),
         ]);
+
+        // Refresh to get updated values for calculateNextRunAt
+        $this->refresh();
+        $this->update(['next_run_at' => $this->calculateNextRunAt()]);
     }
 
     /**
@@ -148,5 +219,48 @@ class SearchQuery extends Model
             'auto_enabled' => false,
             'next_run_at' => null,
         ]);
+    }
+
+    /**
+     * Get a human-readable description of the schedule.
+     */
+    public function getScheduleDescription(): string
+    {
+        if (! $this->auto_enabled) {
+            return 'Manual only';
+        }
+
+        return match ($this->schedule_type) {
+            'interval' => $this->getIntervalDescription(),
+            'daily' => 'Daily at '.($this->scheduled_time ?? '03:00'),
+            'weekly' => $this->getWeeklyDescription(),
+            default => 'Unknown',
+        };
+    }
+
+    protected function getIntervalDescription(): string
+    {
+        $value = $this->interval_value ?? 1;
+        $unit = $this->interval_unit ?? 'hours';
+
+        if ($value === 1) {
+            return match ($unit) {
+                'minutes' => 'Every minute',
+                'hours' => 'Every hour',
+                'days' => 'Every day',
+                default => "Every {$value} {$unit}",
+            };
+        }
+
+        return "Every {$value} {$unit}";
+    }
+
+    protected function getWeeklyDescription(): string
+    {
+        $days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        $day = $days[$this->scheduled_day ?? 1] ?? 'Monday';
+        $time = $this->scheduled_time ?? '06:00';
+
+        return "Weekly on {$day} at {$time}";
     }
 }

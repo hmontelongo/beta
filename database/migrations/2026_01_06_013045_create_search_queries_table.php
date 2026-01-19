@@ -18,6 +18,11 @@ return new class extends Migration
             $table->string('search_url');
             $table->boolean('is_active')->default(true);
             $table->string('run_frequency')->default('none');
+            $table->string('schedule_type')->default('interval');
+            $table->unsignedSmallInteger('interval_value')->default(1);
+            $table->string('interval_unit')->default('hours');
+            $table->time('scheduled_time')->nullable();
+            $table->unsignedTinyInteger('scheduled_day')->nullable();
             $table->timestamp('next_run_at')->nullable();
             $table->boolean('auto_enabled')->default(false);
             $table->timestamp('last_run_at')->nullable();

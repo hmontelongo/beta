@@ -2,13 +2,11 @@
 
 namespace App\Livewire\Listings;
 
-use App\Enums\AiEnrichmentStatus;
-use App\Enums\DedupCandidateStatus;
 use App\Enums\DedupStatus;
+use App\Enums\ListingGroupStatus;
 use App\Jobs\DeduplicateListingJob;
-use App\Jobs\EnrichListingJob;
-use App\Models\DedupCandidate;
 use App\Models\Listing;
+use App\Models\ListingGroup;
 use App\Models\Platform;
 use App\Services\JobCancellationService;
 use Flux\Flux;
@@ -33,9 +31,6 @@ class Index extends Component
     public string $platform = '';
 
     #[Url]
-    public string $aiStatus = '';
-
-    #[Url]
     public string $dedupStatus = '';
 
     /** @var array<int> */
@@ -49,11 +44,6 @@ class Index extends Component
     }
 
     public function updatedPlatform(): void
-    {
-        $this->resetPage();
-    }
-
-    public function updatedAiStatus(): void
     {
         $this->resetPage();
     }
@@ -80,28 +70,6 @@ class Index extends Component
         return $this->buildQuery()->pluck('id')->toArray();
     }
 
-    public function runBulkEnrichment(): void
-    {
-        if (empty($this->selected)) {
-            Flux::toast(text: 'No listings selected', variant: 'warning');
-
-            return;
-        }
-
-        $listings = Listing::whereIn('id', $this->selected)
-            ->whereNotNull('raw_data')
-            ->where('ai_status', '!=', AiEnrichmentStatus::Processing)
-            ->get();
-
-        $count = $this->dispatchEnrichmentJobs($listings, 'No eligible listings in selection');
-
-        if ($count > 0) {
-            $this->selected = [];
-            $this->selectAll = false;
-            Flux::toast(heading: 'Enrichment Queued', text: "{$count} listings queued for processing", variant: 'info');
-        }
-    }
-
     public function runBulkDeduplication(): void
     {
         if (empty($this->selected)) {
@@ -112,26 +80,16 @@ class Index extends Component
 
         $listings = Listing::whereIn('id', $this->selected)
             ->whereNotNull('raw_data')
-            ->where('ai_status', AiEnrichmentStatus::Completed)
             ->where('dedup_status', '!=', DedupStatus::Processing)
+            ->whereNull('property_id')
             ->get();
 
-        $count = $this->dispatchDeduplicationJobs($listings, 'No enriched listings eligible for dedup');
+        $count = $this->dispatchDeduplicationJobs($listings, 'No eligible listings in selection');
 
         if ($count > 0) {
             $this->selected = [];
             $this->selectAll = false;
             Flux::toast(heading: 'Deduplication Queued', text: "{$count} listings queued for processing", variant: 'info');
-        }
-    }
-
-    public function runBatchEnrichment(): void
-    {
-        $listings = Listing::pendingAiEnrichment()->whereNotNull('raw_data')->get();
-        $count = $this->dispatchEnrichmentJobs($listings, 'No listings pending enrichment');
-
-        if ($count > 0) {
-            Flux::toast(heading: 'Batch Enrichment Queued', text: "{$count} listings queued for processing", variant: 'info');
         }
     }
 
@@ -143,27 +101,6 @@ class Index extends Component
         if ($count > 0) {
             Flux::toast(heading: 'Batch Deduplication Queued', text: "{$count} listings queued for processing", variant: 'info');
         }
-    }
-
-    /**
-     * Dispatch enrichment jobs for the given listings.
-     *
-     * @param  \Illuminate\Database\Eloquent\Collection<int, Listing>  $listings
-     */
-    protected function dispatchEnrichmentJobs($listings, string $emptyMessage): int
-    {
-        if ($listings->isEmpty()) {
-            Flux::toast(text: $emptyMessage, variant: 'warning');
-
-            return 0;
-        }
-
-        foreach ($listings as $listing) {
-            // Job owns state transition - dispatches with Pending status
-            EnrichListingJob::dispatch($listing->id);
-        }
-
-        return $listings->count();
     }
 
     /**
@@ -187,17 +124,6 @@ class Index extends Component
         return $listings->count();
     }
 
-    public function cancelEnrichment(): void
-    {
-        $result = app(JobCancellationService::class)->cancelEnrichmentJobs();
-
-        Flux::toast(
-            heading: 'Enrichment Cancelled',
-            text: "{$result['reset']} listings reset to pending, queue cleared",
-            variant: 'warning',
-        );
-    }
-
     public function cancelDeduplication(): void
     {
         $result = app(JobCancellationService::class)->cancelDeduplicationJobs();
@@ -209,33 +135,14 @@ class Index extends Component
         );
     }
 
-    /**
-     * Retry all failed enrichment jobs.
-     */
-    public function retryFailedEnrichment(): void
+    public function cancelPropertyCreation(): void
     {
-        $listings = Listing::where('ai_status', AiEnrichmentStatus::Failed)
-            ->whereNotNull('raw_data')
-            ->get();
-
-        if ($listings->isEmpty()) {
-            Flux::toast(text: 'No failed enrichment jobs to retry', variant: 'warning');
-
-            return;
-        }
-
-        // Reset to pending and dispatch
-        Listing::whereIn('id', $listings->pluck('id'))
-            ->update(['ai_status' => AiEnrichmentStatus::Pending]);
-
-        foreach ($listings as $listing) {
-            EnrichListingJob::dispatch($listing->id);
-        }
+        $result = app(JobCancellationService::class)->cancelPropertyCreationJobs();
 
         Flux::toast(
-            heading: 'Retry Queued',
-            text: "{$listings->count()} failed listings queued for retry",
-            variant: 'info',
+            heading: 'Property Creation Cancelled',
+            text: "{$result['reset']} groups reset to pending, queue cleared",
+            variant: 'warning',
         );
     }
 
@@ -246,7 +153,6 @@ class Index extends Component
     {
         $listings = Listing::where('dedup_status', DedupStatus::Failed)
             ->whereNotNull('raw_data')
-            ->where('ai_status', AiEnrichmentStatus::Completed)
             ->get();
 
         if ($listings->isEmpty()) {
@@ -277,13 +183,13 @@ class Index extends Component
     {
         $staleThreshold = now()->subMinutes(5);
 
-        $aiCount = Listing::where('ai_status', AiEnrichmentStatus::Processing)
-            ->where('updated_at', '<', $staleThreshold)
-            ->update(['ai_status' => AiEnrichmentStatus::Pending]);
-
         $dedupCount = Listing::where('dedup_status', DedupStatus::Processing)
             ->where('updated_at', '<', $staleThreshold)
             ->update(['dedup_status' => DedupStatus::Pending]);
+
+        $aiCount = ListingGroup::where('status', ListingGroupStatus::ProcessingAi)
+            ->where('updated_at', '<', $staleThreshold)
+            ->update(['status' => ListingGroupStatus::PendingAi]);
 
         if ($aiCount === 0 && $dedupCount === 0) {
             Flux::toast(text: 'No stuck jobs to reset', variant: 'info');
@@ -293,13 +199,13 @@ class Index extends Component
 
         Flux::toast(
             heading: 'Stuck Jobs Reset',
-            text: "{$aiCount} enrichment, {$dedupCount} dedup jobs reset to pending",
+            text: "{$dedupCount} dedup, {$aiCount} property creation jobs reset to pending",
             variant: 'info',
         );
     }
 
     /**
-     * @return array{ai_pending: int, ai_processing: int, ai_completed: int, ai_failed: int, dedup_pending: int, dedup_processing: int, dedup_matched: int, dedup_needs_review: int, dedup_failed: int, candidates_pending_review: int, ai_queued: int, dedup_queued: int}
+     * @return array{dedup_pending: int, dedup_processing: int, dedup_grouped: int, dedup_completed: int, dedup_failed: int, groups_pending_review: int, groups_pending_ai: int, groups_processing_ai: int, dedup_queued: int, property_creation_queued: int}
      */
     #[Computed]
     public function stats(): array
@@ -308,23 +214,21 @@ class Index extends Component
         $queueStats = app(JobCancellationService::class)->getQueueStats();
 
         return [
-            'ai_pending' => Listing::where('ai_status', AiEnrichmentStatus::Pending)->count(),
-            'ai_processing' => Listing::where('ai_status', AiEnrichmentStatus::Processing)->count(),
-            'ai_completed' => Listing::where('ai_status', AiEnrichmentStatus::Completed)->count(),
-            'ai_failed' => Listing::where('ai_status', AiEnrichmentStatus::Failed)->count(),
             'dedup_pending' => Listing::pendingDedup()->count(),
             'dedup_processing' => Listing::where('dedup_status', DedupStatus::Processing)->count(),
-            'dedup_matched' => Listing::where('dedup_status', DedupStatus::Matched)->count(),
-            'dedup_needs_review' => Listing::where('dedup_status', DedupStatus::NeedsReview)->count(),
+            'dedup_grouped' => Listing::where('dedup_status', DedupStatus::Grouped)->count(),
+            'dedup_completed' => Listing::where('dedup_status', DedupStatus::Completed)->count(),
             'dedup_failed' => Listing::where('dedup_status', DedupStatus::Failed)->count(),
-            'candidates_pending_review' => DedupCandidate::where('status', DedupCandidateStatus::NeedsReview)->count(),
+            'groups_pending_review' => ListingGroup::where('status', ListingGroupStatus::PendingReview)->count(),
+            'groups_pending_ai' => ListingGroup::where('status', ListingGroupStatus::PendingAi)->count(),
+            'groups_processing_ai' => ListingGroup::where('status', ListingGroupStatus::ProcessingAi)->count(),
             // Queue depth: pending + reserved (currently executing) + delayed
-            'ai_queued' => ($queueStats['ai-enrichment']['pending'] ?? 0)
-                + ($queueStats['ai-enrichment']['reserved'] ?? 0)
-                + ($queueStats['ai-enrichment']['delayed'] ?? 0),
             'dedup_queued' => ($queueStats['dedup']['pending'] ?? 0)
                 + ($queueStats['dedup']['reserved'] ?? 0)
                 + ($queueStats['dedup']['delayed'] ?? 0),
+            'property_creation_queued' => ($queueStats['property-creation']['pending'] ?? 0)
+                + ($queueStats['property-creation']['reserved'] ?? 0)
+                + ($queueStats['property-creation']['delayed'] ?? 0),
         ];
     }
 
@@ -332,10 +236,10 @@ class Index extends Component
     public function isProcessing(): bool
     {
         // Check both database state AND queue depth for accurate processing detection
-        return $this->stats['ai_processing'] > 0
-            || $this->stats['dedup_processing'] > 0
-            || $this->stats['ai_queued'] > 0
-            || $this->stats['dedup_queued'] > 0;
+        return $this->stats['dedup_processing'] > 0
+            || $this->stats['groups_processing_ai'] > 0
+            || $this->stats['dedup_queued'] > 0
+            || $this->stats['property_creation_queued'] > 0;
     }
 
     /**
@@ -352,17 +256,17 @@ class Index extends Component
     }
 
     #[Computed]
-    public function isEnrichmentProcessing(): bool
-    {
-        // Check both database state AND queue depth
-        return $this->stats['ai_processing'] > 0 || $this->stats['ai_queued'] > 0;
-    }
-
-    #[Computed]
     public function isDeduplicationProcessing(): bool
     {
         // Check both database state AND queue depth
         return $this->stats['dedup_processing'] > 0 || $this->stats['dedup_queued'] > 0;
+    }
+
+    #[Computed]
+    public function isPropertyCreationProcessing(): bool
+    {
+        // Check both database state AND queue depth
+        return $this->stats['groups_processing_ai'] > 0 || $this->stats['property_creation_queued'] > 0;
     }
 
     /**
@@ -372,13 +276,13 @@ class Index extends Component
     {
         $staleThreshold = now()->subMinutes(5);
 
-        Listing::where('ai_status', AiEnrichmentStatus::Processing)
-            ->where('updated_at', '<', $staleThreshold)
-            ->update(['ai_status' => AiEnrichmentStatus::Pending]);
-
         Listing::where('dedup_status', DedupStatus::Processing)
             ->where('updated_at', '<', $staleThreshold)
             ->update(['dedup_status' => DedupStatus::Pending]);
+
+        ListingGroup::where('status', ListingGroupStatus::ProcessingAi)
+            ->where('updated_at', '<', $staleThreshold)
+            ->update(['status' => ListingGroupStatus::PendingAi]);
     }
 
     /**
@@ -398,9 +302,6 @@ class Index extends Component
             ->when($this->platform, function ($query) {
                 $query->where('platform_id', $this->platform);
             })
-            ->when($this->aiStatus, function ($query) {
-                $query->where('ai_status', $this->aiStatus);
-            })
             ->when($this->dedupStatus, function ($query) {
                 $query->where('dedup_status', $this->dedupStatus);
             })
@@ -414,7 +315,6 @@ class Index extends Component
         return view('livewire.listings.index', [
             'listings' => $listings,
             'platforms' => Platform::orderBy('name')->get(),
-            'aiStatuses' => AiEnrichmentStatus::cases(),
             'dedupStatuses' => DedupStatus::cases(),
         ]);
     }

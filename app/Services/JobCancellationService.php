@@ -2,13 +2,14 @@
 
 namespace App\Services;
 
-use App\Enums\AiEnrichmentStatus;
 use App\Enums\DedupStatus;
 use App\Enums\DiscoveredListingStatus;
+use App\Enums\ListingGroupStatus;
 use App\Enums\ScrapeJobStatus;
 use App\Enums\ScrapeRunStatus;
 use App\Models\DiscoveredListing;
 use App\Models\Listing;
+use App\Models\ListingGroup;
 use App\Models\ScrapeJob;
 use App\Models\ScrapeRun;
 use Illuminate\Support\Facades\Log;
@@ -17,24 +18,24 @@ use Illuminate\Support\Facades\Redis;
 class JobCancellationService
 {
     /**
-     * Cancel enrichment jobs and reset listings to pending.
+     * Cancel property creation jobs and reset listing groups to pending.
      *
      * @return array{cancelled: int, reset: int}
      */
-    public function cancelEnrichmentJobs(): array
+    public function cancelPropertyCreationJobs(): array
     {
-        $processingCount = Listing::where('ai_status', AiEnrichmentStatus::Processing)->count();
+        $processingCount = ListingGroup::where('status', ListingGroupStatus::ProcessingAi)->count();
 
-        // Clear the enrichment queue
-        $this->clearQueue('ai-enrichment');
+        // Clear the property creation queue
+        $this->clearQueue('property-creation');
 
-        // Reset all processing listings to pending
-        $resetCount = Listing::where('ai_status', AiEnrichmentStatus::Processing)
-            ->update(['ai_status' => AiEnrichmentStatus::Pending]);
+        // Reset all processing groups to pending AI
+        $resetCount = ListingGroup::where('status', ListingGroupStatus::ProcessingAi)
+            ->update(['status' => ListingGroupStatus::PendingAi]);
 
-        Log::info('Enrichment jobs cancelled', [
-            'queue_cleared' => 'ai-enrichment',
-            'listings_reset' => $resetCount,
+        Log::info('Property creation jobs cancelled', [
+            'queue_cleared' => 'property-creation',
+            'groups_reset' => $resetCount,
         ]);
 
         return [
@@ -208,7 +209,7 @@ class JobCancellationService
      */
     public function getQueueStats(): array
     {
-        $queues = ['ai-enrichment', 'dedup', 'scraping', 'discovery'];
+        $queues = ['property-creation', 'dedup', 'scraping', 'discovery'];
         $stats = [];
 
         $connection = config('queue.default');

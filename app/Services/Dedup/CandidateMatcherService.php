@@ -33,15 +33,14 @@ class CandidateMatcherService
     {
         $candidates = collect();
 
-        // Get raw data for coordinates
-        $rawData = $listing->raw_data ?? [];
-        $latitude = $rawData['latitude'] ?? null;
-        $longitude = $rawData['longitude'] ?? null;
+        // Use direct columns for coordinates (populated by geocoding job)
+        $latitude = $listing->latitude;
+        $longitude = $listing->longitude;
 
         // Only match by coordinates - address-only matching creates too many false positives
         // (same colonia doesn't mean same property)
         if ($latitude && $longitude) {
-            $nearbyListings = $this->findByCoordinates($listing, $latitude, $longitude);
+            $nearbyListings = $this->findByCoordinates($listing, (float) $latitude, (float) $longitude);
 
             foreach ($nearbyListings as $candidate) {
                 $dedupCandidate = $this->createCandidate($listing, $candidate);
@@ -66,13 +65,13 @@ class CandidateMatcherService
 
         return Listing::query()
             ->where('id', '!=', $listing->id)
-            ->whereRaw("JSON_EXTRACT(raw_data, '$.latitude') IS NOT NULL")
-            ->whereRaw("JSON_EXTRACT(raw_data, '$.longitude') IS NOT NULL")
+            ->whereNotNull('latitude')
+            ->whereNotNull('longitude')
             ->selectRaw("*, (
                 {$earthRadius} * acos(
-                    cos(radians(?)) * cos(radians(JSON_EXTRACT(raw_data, '$.latitude'))) *
-                    cos(radians(JSON_EXTRACT(raw_data, '$.longitude')) - radians(?)) +
-                    sin(radians(?)) * sin(radians(JSON_EXTRACT(raw_data, '$.latitude')))
+                    cos(radians(?)) * cos(radians(latitude)) *
+                    cos(radians(longitude) - radians(?)) +
+                    sin(radians(?)) * sin(radians(latitude))
                 )
             ) AS distance_meters", [$lat, $lng, $lat])
             ->having('distance_meters', '<=', $this->distanceThreshold)
@@ -108,11 +107,11 @@ class CandidateMatcherService
             return null;
         }
 
-        // Calculate scores
-        $coordinateScore = $this->calculateCoordinateScore($rawDataA, $rawDataB);
+        // Calculate scores (pass listing models for direct column access to coordinates)
+        $coordinateScore = $this->calculateCoordinateScore($rawDataA, $rawDataB, $listingA, $listingB);
         $addressScore = $this->calculateAddressScore($rawDataA, $rawDataB);
         $featuresScore = $this->calculateFeaturesScore($rawDataA, $rawDataB);
-        $distanceMeters = $this->calculateDistance($rawDataA, $rawDataB);
+        $distanceMeters = $this->calculateDistance($rawDataA, $rawDataB, $listingA, $listingB);
 
         $overallScore = $this->calculateOverallScore([
             'coordinate' => $coordinateScore,
@@ -271,10 +270,12 @@ class CandidateMatcherService
      *
      * @param  array<string, mixed>  $dataA
      * @param  array<string, mixed>  $dataB
+     * @param  Listing|null  $listingA  Optional listing model for direct column access
+     * @param  Listing|null  $listingB  Optional listing model for direct column access
      */
-    protected function calculateCoordinateScore(array $dataA, array $dataB): float
+    protected function calculateCoordinateScore(array $dataA, array $dataB, ?Listing $listingA = null, ?Listing $listingB = null): float
     {
-        $distance = $this->calculateDistance($dataA, $dataB);
+        $distance = $this->calculateDistance($dataA, $dataB, $listingA, $listingB);
 
         if ($distance === null) {
             return 0.5; // Unknown - neutral score
@@ -478,15 +479,18 @@ class CandidateMatcherService
     /**
      * Calculate distance between two listings using Haversine formula.
      *
-     * @param  array<string, mixed>  $dataA
-     * @param  array<string, mixed>  $dataB
+     * @param  array<string, mixed>  $dataA  Raw data from listing A
+     * @param  array<string, mixed>  $dataB  Raw data from listing B
+     * @param  Listing|null  $listingA  Optional listing model for direct column access
+     * @param  Listing|null  $listingB  Optional listing model for direct column access
      */
-    protected function calculateDistance(array $dataA, array $dataB): ?float
+    protected function calculateDistance(array $dataA, array $dataB, ?Listing $listingA = null, ?Listing $listingB = null): ?float
     {
-        $latA = $dataA['latitude'] ?? null;
-        $lngA = $dataA['longitude'] ?? null;
-        $latB = $dataB['latitude'] ?? null;
-        $lngB = $dataB['longitude'] ?? null;
+        // Prefer direct columns over raw_data
+        $latA = $listingA?->latitude ?? $dataA['latitude'] ?? null;
+        $lngA = $listingA?->longitude ?? $dataA['longitude'] ?? null;
+        $latB = $listingB?->latitude ?? $dataB['latitude'] ?? null;
+        $lngB = $listingB?->longitude ?? $dataB['longitude'] ?? null;
 
         if (! $latA || ! $lngA || ! $latB || ! $lngB) {
             return null;
@@ -494,11 +498,11 @@ class CandidateMatcherService
 
         $earthRadius = 6371000; // meters
 
-        $latDiff = deg2rad($latB - $latA);
-        $lngDiff = deg2rad($lngB - $lngA);
+        $latDiff = deg2rad((float) $latB - (float) $latA);
+        $lngDiff = deg2rad((float) $lngB - (float) $lngA);
 
         $a = sin($latDiff / 2) * sin($latDiff / 2) +
-             cos(deg2rad($latA)) * cos(deg2rad($latB)) *
+             cos(deg2rad((float) $latA)) * cos(deg2rad((float) $latB)) *
              sin($lngDiff / 2) * sin($lngDiff / 2);
 
         $c = 2 * atan2(sqrt($a), sqrt(1 - $a));

@@ -2,10 +2,11 @@
 
 namespace App\Livewire\Dedup;
 
-use App\Enums\DedupCandidateStatus;
-use App\Models\DedupCandidate;
+use App\Enums\ListingGroupStatus;
+use App\Models\ListingGroup;
 use App\Services\Dedup\DeduplicationService;
 use Flux\Flux;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\View\View;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
@@ -16,95 +17,147 @@ use Livewire\Component;
 #[Title('Review Duplicates')]
 class ReviewCandidates extends Component
 {
-    public ?int $currentCandidateId = null;
+    public ?int $currentGroupId = null;
+
+    public string $rejectionReason = '';
 
     public function mount(): void
     {
-        // Load first candidate if available
-        $first = DedupCandidate::where('status', DedupCandidateStatus::NeedsReview)
-            ->orderBy('overall_score', 'desc')
+        // Load first group if available
+        $first = ListingGroup::where('status', ListingGroupStatus::PendingReview)
+            ->orderByDesc('match_score')
             ->first();
 
-        $this->currentCandidateId = $first?->id;
+        $this->currentGroupId = $first?->id;
     }
 
     #[Computed]
-    public function candidate(): ?DedupCandidate
+    public function group(): ?ListingGroup
     {
-        if (! $this->currentCandidateId) {
+        if (! $this->currentGroupId) {
             return null;
         }
 
-        return DedupCandidate::with(['listingA', 'listingB'])
-            ->find($this->currentCandidateId);
+        return ListingGroup::with(['listings.platform'])
+            ->find($this->currentGroupId);
     }
 
     #[Computed]
     public function pendingCount(): int
     {
-        return DedupCandidate::where('status', DedupCandidateStatus::NeedsReview)->count();
+        return ListingGroup::where('status', ListingGroupStatus::PendingReview)->count();
     }
 
+    /**
+     * @return Collection<int, ListingGroup>
+     */
     #[Computed]
-    public function candidates(): \Illuminate\Database\Eloquent\Collection
+    public function groups(): Collection
     {
-        return DedupCandidate::where('status', DedupCandidateStatus::NeedsReview)
-            ->with(['listingA', 'listingB'])
-            ->orderBy('overall_score', 'desc')
+        return ListingGroup::where('status', ListingGroupStatus::PendingReview)
+            ->with(['listings'])
+            ->orderByDesc('match_score')
             ->get();
     }
 
-    public function selectCandidate(int $id): void
+    public function selectGroup(int $id): void
     {
-        $this->currentCandidateId = $id;
+        $this->currentGroupId = $id;
+        $this->rejectionReason = '';
+        unset($this->group);
     }
 
-    public function confirmMatch(): void
+    public function approveGroup(): void
     {
-        if (! $this->candidate) {
+        if (! $this->group) {
             return;
         }
 
         $dedupService = app(DeduplicationService::class);
-        $dedupService->resolveMatch($this->candidate->listingA, $this->candidate);
+        $dedupService->approveGroup($this->group);
 
         Flux::toast(
-            heading: 'Match Confirmed',
-            text: 'Listings have been linked to the same property.',
+            heading: 'Group Approved',
+            text: 'Listings will be processed by AI to create a property.',
             variant: 'success',
         );
 
-        $this->loadNextCandidate();
+        $this->loadNextGroup();
     }
 
-    public function rejectMatch(): void
+    public function rejectGroup(): void
     {
-        if (! $this->candidate) {
+        if (! $this->group) {
             return;
         }
 
         $dedupService = app(DeduplicationService::class);
-        $dedupService->rejectMatch($this->candidate);
+        $dedupService->rejectGroup($this->group, $this->rejectionReason ?: null);
 
         Flux::toast(
-            heading: 'Match Rejected',
-            text: 'Listings marked as different properties.',
+            heading: 'Group Rejected',
+            text: 'Listings will be re-processed as separate entities.',
             variant: 'info',
         );
 
-        $this->loadNextCandidate();
+        $this->loadNextGroup();
     }
 
-    protected function loadNextCandidate(): void
+    public function removeListingFromGroup(int $listingId): void
     {
-        // Clear computed property cache so they refresh
-        unset($this->candidate, $this->candidates, $this->pendingCount);
+        if (! $this->group) {
+            return;
+        }
 
-        $next = DedupCandidate::where('status', DedupCandidateStatus::NeedsReview)
-            ->orderBy('overall_score', 'desc')
+        $listing = $this->group->listings()->find($listingId);
+        if (! $listing) {
+            Flux::toast(
+                heading: 'Error',
+                text: 'Listing not found in this group.',
+                variant: 'danger',
+            );
+
+            return;
+        }
+
+        $dedupService = app(DeduplicationService::class);
+        $dedupService->removeListingFromGroup($this->group, $listing);
+
+        // Refresh the group data
+        unset($this->group, $this->groups, $this->pendingCount);
+
+        // Check if group still exists and has listings
+        $refreshedGroup = ListingGroup::find($this->currentGroupId);
+        if (! $refreshedGroup || $refreshedGroup->status !== ListingGroupStatus::PendingReview) {
+            Flux::toast(
+                heading: 'Listing Removed',
+                text: 'Group has been resolved. Moving to next.',
+                variant: 'success',
+            );
+            $this->loadNextGroup();
+        } else {
+            Flux::toast(
+                heading: 'Listing Removed',
+                text: 'Listing will be re-processed separately.',
+                variant: 'success',
+            );
+        }
+    }
+
+    protected function loadNextGroup(): void
+    {
+        $previousId = $this->currentGroupId;
+
+        // Clear computed property cache so they refresh
+        unset($this->group, $this->groups, $this->pendingCount);
+        $this->rejectionReason = '';
+
+        $next = ListingGroup::where('status', ListingGroupStatus::PendingReview)
+            ->when($previousId, fn ($q) => $q->where('id', '!=', $previousId))
+            ->orderByDesc('match_score')
             ->first();
 
-        $this->currentCandidateId = $next?->id;
+        $this->currentGroupId = $next?->id;
     }
 
     public function render(): View

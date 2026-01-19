@@ -256,6 +256,36 @@ return [
             'timeout' => 120,
             'nice' => 0,
         ],
+
+        // Geocoding jobs - convert addresses to coordinates
+        'geocoding-supervisor' => [
+            'connection' => 'redis',
+            'queue' => ['geocoding'],
+            'balance' => 'auto',
+            'autoScalingStrategy' => 'time',
+            'maxProcesses' => 3,
+            'maxTime' => 0,
+            'maxJobs' => 0,
+            'memory' => 128,
+            'tries' => 3,
+            'timeout' => 60,
+            'nice' => 0,
+        ],
+
+        // Property creation jobs - AI unification
+        'property-creation-supervisor' => [
+            'connection' => 'redis',
+            'queue' => ['property-creation'],
+            'balance' => 'auto',
+            'autoScalingStrategy' => 'time',
+            'maxProcesses' => 2,
+            'maxTime' => 0,
+            'maxJobs' => 0,
+            'memory' => 256,
+            'tries' => 3,
+            'timeout' => 300,
+            'nice' => 0,
+        ],
     ],
 
     'environments' => [
@@ -278,6 +308,14 @@ return [
                 'balanceMaxShift' => 1,
                 'balanceCooldown' => 3,
             ],
+            'geocoding-supervisor' => [
+                'maxProcesses' => 5,
+                'balanceMaxShift' => 1,
+                'balanceCooldown' => 3,
+            ],
+            'property-creation-supervisor' => [
+                'maxProcesses' => 3,
+            ],
         ],
 
         'local' => [
@@ -291,6 +329,12 @@ return [
                 'maxProcesses' => 5,
             ],
             'dedup-supervisor' => [
+                'maxProcesses' => 2,
+            ],
+            'geocoding-supervisor' => [
+                'maxProcesses' => 3,
+            ],
+            'property-creation-supervisor' => [
                 'maxProcesses' => 2,
             ],
         ],

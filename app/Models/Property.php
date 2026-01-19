@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\PropertyStatus;
 use App\Enums\PropertySubtype;
 use App\Enums\PropertyType;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -33,6 +34,10 @@ class Property extends Model
             'built_size_m2' => 'decimal:2',
             'amenities' => 'array',
             'status' => PropertyStatus::class,
+            'ai_unification' => 'array',
+            'ai_unified_at' => 'datetime',
+            'needs_reanalysis' => 'boolean',
+            'discrepancies' => 'array',
         ];
     }
 
@@ -45,11 +50,38 @@ class Property extends Model
     }
 
     /**
+     * @return HasMany<ListingGroup, $this>
+     */
+    public function listingGroups(): HasMany
+    {
+        return $this->hasMany(ListingGroup::class);
+    }
+
+    /**
      * @return HasMany<PropertyConflict, $this>
      */
     public function conflicts(): HasMany
     {
         return $this->hasMany(PropertyConflict::class);
+    }
+
+    /**
+     * Scope for properties that need AI re-analysis.
+     *
+     * @param  Builder<Property>  $query
+     * @return Builder<Property>
+     */
+    public function scopeNeedsReanalysis(Builder $query): Builder
+    {
+        return $query->where('needs_reanalysis', true);
+    }
+
+    /**
+     * Mark this property for re-analysis.
+     */
+    public function markForReanalysis(): void
+    {
+        $this->update(['needs_reanalysis' => true]);
     }
 
     /**

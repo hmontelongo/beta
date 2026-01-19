@@ -2,7 +2,6 @@
 
 namespace App\Jobs;
 
-use App\Enums\AiEnrichmentStatus;
 use App\Enums\DedupStatus;
 use App\Models\Listing;
 use App\Services\ScraperService;
@@ -44,18 +43,22 @@ class RescrapeListingJob implements ShouldQueue
         try {
             $data = $scraperService->scrapeListing($listing->original_url);
 
+            // Mark property for re-analysis if this listing is linked to one
+            if ($listing->property_id && $listing->property) {
+                $listing->property->markForReanalysis();
+            }
+
             $listing->update([
                 'operations' => $data['operations'] ?? [],
                 'external_codes' => $data['external_codes'] ?? null,
                 'raw_data' => $data,
                 'data_quality' => $data['data_quality'] ?? null,
                 'scraped_at' => now(),
-                // Reset processing pipeline since raw_data changed
-                'ai_status' => AiEnrichmentStatus::Pending,
-                'ai_processed_at' => null,
+                // Reset dedup status and clear group membership since raw_data changed
                 'dedup_status' => DedupStatus::Pending,
                 'dedup_checked_at' => null,
-                'property_id' => null,
+                'listing_group_id' => null,
+                'is_primary_in_group' => false,
             ]);
 
             Log::info('Re-scrape completed', [
