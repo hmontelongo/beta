@@ -4,9 +4,57 @@ namespace App\Services\Scrapers;
 
 use App\Contracts\ListingParserInterface;
 use App\Contracts\ScraperConfigInterface;
+use Illuminate\Support\Str;
 
 class Inmuebles24ListingParser implements ListingParserInterface
 {
+    /**
+     * Mexico coordinate bounds for validation.
+     */
+    protected const MEXICO_LAT_MIN = 14;
+
+    protected const MEXICO_LAT_MAX = 33;
+
+    protected const MEXICO_LNG_MIN = -118;
+
+    protected const MEXICO_LNG_MAX = -86;
+
+    /**
+     * Amenity patterns for description extraction.
+     *
+     * @var array<string, string>
+     */
+    protected const AMENITY_PATTERNS = [
+        '/ALBERCA|PISCINA/' => 'pool',
+        '/GIMNASIO|GYM\b/' => 'gym',
+        '/SEGURIDAD\s*24|VIGILANCIA\s*24/' => 'security_24h',
+        '/ELEVADOR(?:ES)?|ASCENSOR/' => 'elevator',
+        '/ROOF\s*GARDEN|ROOF\s*TOP|ROOFTOP/' => 'rooftop',
+        '/TERRAZA/' => 'terrace',
+        '/BALCON(?:ES)?/' => 'balcony',
+        '/JACUZZI|JACUZI/' => 'jacuzzi',
+        '/[ÁA]REA\s+DE\s+BBQ|ASADOR(?:ES)?|PARRILLA/' => 'bbq_area',
+        '/PET\s*FRIENDLY|ACEPTA\s+MASCOTAS/' => 'pet_friendly',
+        '/\bAMUEBLADO\b/' => 'furnished',
+        '/[ÁA]REA\s+DE\s+JUEGOS|LUDOTECA|PLAYGROUND/' => 'playground',
+        '/CUARTO\s+DE\s+SERVICIO/' => 'service_room',
+        '/BODEGA(?!\s+INDUSTRIAL)/' => 'storage',
+        '/AIRE\s+ACONDICIONADO/' => 'ac',
+        '/COCINA\s+INTEGRAL/' => 'integrated_kitchen',
+        '/CO-?WORKING|COWORKING/' => 'coworking',
+        '/\bSPA\b|VAPOR|SAUNA/' => 'spa',
+    ];
+
+    /**
+     * Mexican states for location detection.
+     *
+     * @var array<string>
+     */
+    protected const MEXICAN_STATES = [
+        'jalisco', 'nuevo león', 'cdmx', 'ciudad de méxico', 'estado de méxico',
+        'querétaro', 'puebla', 'yucatán', 'quintana roo', 'guanajuato',
+    ];
+
     public function __construct(protected ScraperConfigInterface $config) {}
 
     /**
@@ -205,7 +253,7 @@ class Inmuebles24ListingParser implements ListingParserInterface
                 $lng = (float) $matches[2];
 
                 // Validate coordinates are in Mexico range
-                if ($lat >= 14 && $lat <= 33 && $lng >= -118 && $lng <= -86) {
+                if ($this->isValidMexicoCoordinate($lat, $lng)) {
                     $coordinates['latitude'] = $lat;
                     $coordinates['longitude'] = $lng;
 
@@ -510,19 +558,14 @@ class Inmuebles24ListingParser implements ListingParserInterface
         // Try to get state/city from breadcrumbs if not found
         $breadcrumbs = $this->toArray($extracted['breadcrumbs'] ?? []);
         if (! $location['state'] && count($breadcrumbs) > 0) {
-            $mexicanStates = ['jalisco', 'nuevo león', 'cdmx', 'ciudad de méxico', 'estado de méxico',
-                'querétaro', 'puebla', 'yucatán', 'quintana roo', 'guanajuato'];
-
             foreach ($breadcrumbs as $i => $crumb) {
                 $crumbLower = mb_strtolower($crumb);
-                foreach ($mexicanStates as $state) {
-                    if (str_contains($crumbLower, $state)) {
-                        $location['state'] = $location['state'] ?? $crumb;
-                        if (isset($breadcrumbs[$i + 1])) {
-                            $location['city'] = $location['city'] ?? $breadcrumbs[$i + 1];
-                        }
-                        break 2;
+                if (Str::contains($crumbLower, self::MEXICAN_STATES)) {
+                    $location['state'] = $location['state'] ?? $crumb;
+                    if (isset($breadcrumbs[$i + 1])) {
+                        $location['city'] = $location['city'] ?? $breadcrumbs[$i + 1];
                     }
+                    break;
                 }
             }
         }
@@ -610,28 +653,7 @@ class Inmuebles24ListingParser implements ListingParserInterface
     {
         $amenities = [];
 
-        $patterns = [
-            '/ALBERCA|PISCINA/' => 'pool',
-            '/GIMNASIO|GYM\b/' => 'gym',
-            '/SEGURIDAD\s*24|VIGILANCIA\s*24/' => 'security_24h',
-            '/ELEVADOR(?:ES)?|ASCENSOR/' => 'elevator',
-            '/ROOF\s*GARDEN|ROOF\s*TOP|ROOFTOP/' => 'rooftop',
-            '/TERRAZA/' => 'terrace',
-            '/BALCON(?:ES)?/' => 'balcony',
-            '/JACUZZI|JACUZI/' => 'jacuzzi',
-            '/[ÁA]REA\s+DE\s+BBQ|ASADOR(?:ES)?|PARRILLA/' => 'bbq_area',
-            '/PET\s*FRIENDLY|ACEPTA\s+MASCOTAS/' => 'pet_friendly',
-            '/\bAMUEBLADO\b/' => 'furnished',
-            '/[ÁA]REA\s+DE\s+JUEGOS|LUDOTECA|PLAYGROUND/' => 'playground',
-            '/CUARTO\s+DE\s+SERVICIO/' => 'service_room',
-            '/BODEGA(?!\s+INDUSTRIAL)/' => 'storage',
-            '/AIRE\s+ACONDICIONADO/' => 'ac',
-            '/COCINA\s+INTEGRAL/' => 'integrated_kitchen',
-            '/CO-?WORKING|COWORKING/' => 'coworking',
-            '/\bSPA\b|VAPOR|SAUNA/' => 'spa',
-        ];
-
-        foreach ($patterns as $pattern => $name) {
+        foreach (self::AMENITY_PATTERNS as $pattern => $name) {
             if (preg_match($pattern, $textUpper)) {
                 $amenities[] = $name;
             }
@@ -1125,6 +1147,17 @@ class Inmuebles24ListingParser implements ListingParserInterface
         $url = str_replace(['360x266', '720x532'], '1200x1200', $url);
 
         return $url;
+    }
+
+    /**
+     * Validate coordinates are within Mexico bounds.
+     */
+    protected function isValidMexicoCoordinate(float $lat, float $lng): bool
+    {
+        return $lat >= self::MEXICO_LAT_MIN
+            && $lat <= self::MEXICO_LAT_MAX
+            && $lng >= self::MEXICO_LNG_MIN
+            && $lng <= self::MEXICO_LNG_MAX;
     }
 
     /**

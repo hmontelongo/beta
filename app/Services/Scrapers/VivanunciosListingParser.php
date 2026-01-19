@@ -7,6 +7,43 @@ use App\Contracts\ScraperConfigInterface;
 
 class VivanunciosListingParser implements ListingParserInterface
 {
+    /**
+     * Mexico coordinate bounds for validation.
+     */
+    protected const MEXICO_LAT_MIN = 14;
+
+    protected const MEXICO_LAT_MAX = 33;
+
+    protected const MEXICO_LNG_MIN = -118;
+
+    protected const MEXICO_LNG_MAX = -86;
+
+    /**
+     * JSON-LD property types to look for.
+     *
+     * @var array<string>
+     */
+    protected const JSON_LD_PROPERTY_TYPES = [
+        'Apartment', 'House', 'SingleFamilyResidence', 'RealEstateListing', 'Product', 'Residence',
+    ];
+
+    /**
+     * Amenity patterns for description extraction.
+     *
+     * @var array<string, string>
+     */
+    protected const AMENITY_PATTERNS = [
+        '/ALBERCA|PISCINA/' => 'pool',
+        '/GIMNASIO|GYM\b/' => 'gym',
+        '/SEGURIDAD\s*24|VIGILANCIA/' => 'security_24h',
+        '/ELEVADOR|ASCENSOR/' => 'elevator',
+        '/ROOF\s*GARDEN/' => 'rooftop',
+        '/TERRAZA/' => 'terrace',
+        '/BALCON/' => 'balcony',
+        '/PET\s*FRIENDLY|MASCOTAS/' => 'pet_friendly',
+        '/\bAMUEBLADO\b/' => 'furnished',
+    ];
+
     public function __construct(protected ScraperConfigInterface $config) {}
 
     /**
@@ -142,11 +179,8 @@ class VivanunciosListingParser implements ListingParserInterface
                 continue;
             }
 
-            // Look for property types (Apartment, House, SingleFamilyResidence, etc.)
-            $propertyTypes = ['Apartment', 'House', 'SingleFamilyResidence', 'RealEstateListing', 'Product', 'Residence'];
-
             $type = $data['@type'] ?? null;
-            if ($type && in_array($type, $propertyTypes)) {
+            if ($type && in_array($type, self::JSON_LD_PROPERTY_TYPES)) {
                 return $data;
             }
 
@@ -154,7 +188,7 @@ class VivanunciosListingParser implements ListingParserInterface
             if (isset($data['@graph'])) {
                 foreach ($data['@graph'] as $item) {
                     $type = $item['@type'] ?? null;
-                    if ($type && in_array($type, $propertyTypes)) {
+                    if ($type && in_array($type, self::JSON_LD_PROPERTY_TYPES)) {
                         return $item;
                     }
                 }
@@ -538,13 +572,24 @@ class VivanunciosListingParser implements ListingParserInterface
                 $lng = (float) $matches[2];
 
                 // Validate Mexico coordinates
-                if ($lat >= 14 && $lat <= 33 && $lng >= -118 && $lng <= -86) {
+                if ($this->isValidMexicoCoordinate($lat, $lng)) {
                     return ['latitude' => $lat, 'longitude' => $lng];
                 }
             }
         }
 
         return ['latitude' => null, 'longitude' => null];
+    }
+
+    /**
+     * Validate coordinates are within Mexico bounds.
+     */
+    protected function isValidMexicoCoordinate(float $lat, float $lng): bool
+    {
+        return $lat >= self::MEXICO_LAT_MIN
+            && $lat <= self::MEXICO_LAT_MAX
+            && $lng >= self::MEXICO_LNG_MIN
+            && $lng <= self::MEXICO_LNG_MAX;
     }
 
     /**
@@ -613,19 +658,7 @@ class VivanunciosListingParser implements ListingParserInterface
         $amenities = [];
         $textUpper = mb_strtoupper($description);
 
-        $patterns = [
-            '/ALBERCA|PISCINA/' => 'pool',
-            '/GIMNASIO|GYM\b/' => 'gym',
-            '/SEGURIDAD\s*24|VIGILANCIA/' => 'security_24h',
-            '/ELEVADOR|ASCENSOR/' => 'elevator',
-            '/ROOF\s*GARDEN/' => 'rooftop',
-            '/TERRAZA/' => 'terrace',
-            '/BALCON/' => 'balcony',
-            '/PET\s*FRIENDLY|MASCOTAS/' => 'pet_friendly',
-            '/\bAMUEBLADO\b/' => 'furnished',
-        ];
-
-        foreach ($patterns as $pattern => $name) {
+        foreach (self::AMENITY_PATTERNS as $pattern => $name) {
             if (preg_match($pattern, $textUpper)) {
                 $amenities[] = $name;
             }
