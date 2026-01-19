@@ -12,7 +12,7 @@ use App\Models\DiscoveredListing;
 use App\Models\Listing;
 use App\Models\ScrapeJob;
 use App\Models\ScrapeRun;
-use App\Services\AgentExtractionService;
+use App\Services\PublisherExtractionService;
 use App\Services\ScrapeOrchestrator;
 use App\Services\ScraperService;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -48,7 +48,7 @@ class ScrapeListingJob implements ShouldQueue
     public function handle(
         ScraperService $scraperService,
         ScrapeOrchestrator $orchestrator,
-        AgentExtractionService $agentExtractor
+        PublisherExtractionService $publisherExtractor
     ): void {
         if (! $this->isRunActive($this->scrapeRunId)) {
             return;
@@ -97,8 +97,8 @@ class ScrapeListingJob implements ShouldQueue
                 ]
             );
 
-            // Extract agent/agency from publisher data
-            $agentExtractor->extractFromListing($listing);
+            // Extract publisher from listing data
+            $publisherExtractor->extractFromListing($listing);
 
             // For re-scrapes: mark property for re-analysis if data may have changed
             if ($isRescrape && $listing->property_id) {

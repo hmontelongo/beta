@@ -514,28 +514,69 @@
 
             </flux:card>
 
-            {{-- Publisher / Contact Info --}}
-            @if (count($this->publishers) > 0)
+            {{-- Publishers / Contact Info --}}
+            @if ($this->uniquePublishers->isNotEmpty())
                 <flux:card class="p-4">
                     <flux:heading size="lg" class="mb-4">{{ __('Contact') }}</flux:heading>
 
-                    @if (count($this->publishers) > 1)
-                        <flux:tab.group>
-                            <flux:tabs variant="segmented" class="mb-4">
-                                @foreach ($this->publishers as $index => $pub)
-                                    <flux:tab name="publisher-{{ $index }}">{{ $pub['platform'] }}</flux:tab>
-                                @endforeach
-                            </flux:tabs>
+                    <div class="space-y-4">
+                        @foreach ($this->uniquePublishers as $publisher)
+                            <div class="flex items-start gap-3 {{ !$loop->last ? 'pb-4 border-b border-zinc-200 dark:border-zinc-700' : '' }}">
+                                <div class="flex-1">
+                                    <div class="flex items-center gap-2">
+                                        <flux:text class="font-medium">{{ $publisher->name }}</flux:text>
+                                        <flux:badge size="xs" :color="$publisher->type->color()">
+                                            {{ $publisher->type->label() }}
+                                        </flux:badge>
+                                    </div>
+                                    @if ($publisher->phone)
+                                        <div class="flex items-center gap-1 mt-1">
+                                            <flux:icon name="phone" class="size-3 text-zinc-400" />
+                                            <a href="tel:{{ $publisher->phone }}" class="text-sm text-zinc-600 dark:text-zinc-400 hover:text-blue-600">
+                                                {{ $publisher->phone }}
+                                            </a>
+                                        </div>
+                                    @endif
+                                    @if ($publisher->whatsapp)
+                                        <div class="flex items-center gap-1 mt-1">
+                                            <flux:icon name="chat-bubble-left" class="size-3 text-green-500" />
+                                            <a href="https://wa.me/{{ preg_replace('/[^0-9]/', '', $publisher->whatsapp) }}" target="_blank" class="text-sm text-green-600 hover:text-green-800">
+                                                {{ __('WhatsApp') }}
+                                            </a>
+                                        </div>
+                                    @endif
+                                </div>
+                                <flux:button
+                                    size="xs"
+                                    variant="ghost"
+                                    icon="eye"
+                                    :href="route('publishers.show', $publisher)"
+                                    wire:navigate
+                                />
+                            </div>
+                        @endforeach
+                    </div>
+                </flux:card>
+            @endif
 
-                            @foreach ($this->publishers as $index => $pub)
-                                <flux:tab.panel name="publisher-{{ $index }}">
-                                    @include('livewire.properties.partials.publisher-info', ['pub' => $pub])
-                                </flux:tab.panel>
-                            @endforeach
-                        </flux:tab.group>
-                    @else
-                        @include('livewire.properties.partials.publisher-info', ['pub' => $this->publishers[0]])
-                    @endif
+            {{-- Original Listings --}}
+            @if (count($this->listingLinks) > 0)
+                <flux:card class="p-4">
+                    <flux:heading size="lg" class="mb-4">{{ __('View Original Listings') }}</flux:heading>
+                    <div class="space-y-2">
+                        @foreach ($this->listingLinks as $link)
+                            <flux:button
+                                size="sm"
+                                variant="ghost"
+                                icon="arrow-top-right-on-square"
+                                :href="$link['url']"
+                                target="_blank"
+                                class="w-full justify-start"
+                            >
+                                {{ $link['platform'] }}
+                            </flux:button>
+                        @endforeach
+                    </div>
                 </flux:card>
             @endif
 

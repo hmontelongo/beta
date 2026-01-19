@@ -130,7 +130,7 @@ class Index extends Component
     {
         return Property::query()
             ->withCount('listings')
-            ->with(['listings.agent', 'listings.agency', 'listings.platform'])
+            ->with(['publishers', 'listings.platform'])
             ->when($this->search, function ($query) {
                 $query->where(function ($q) {
                     $q->where('address', 'like', "%{$this->search}%")

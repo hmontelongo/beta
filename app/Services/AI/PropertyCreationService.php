@@ -101,6 +101,17 @@ class PropertyCreationService
                     ]);
                 }
 
+                // Sync publishers from listings to property
+                $publisherIds = $listings
+                    ->pluck('publisher_id')
+                    ->filter()
+                    ->unique()
+                    ->values();
+
+                if ($publisherIds->isNotEmpty()) {
+                    $property->publishers()->syncWithoutDetaching($publisherIds);
+                }
+
                 // Update the group
                 $group->markAsCompleted($property, $toolResult);
 

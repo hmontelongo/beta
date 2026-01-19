@@ -24,8 +24,8 @@ class Show extends Component
     {
         $this->property = $property->load([
             'listings.platform',
-            'listings.agent',
-            'listings.agency',
+            'listings.publisher',
+            'publishers',
         ]);
 
         // Default to first platform for raw data viewer
@@ -200,40 +200,28 @@ class Show extends Component
     }
 
     /**
-     * Get publisher info grouped by listing.
+     * Get unique publishers for this property with their listings.
      *
-     * @return array<array{platform: string, platform_slug: string, listing_id: int, original_url: string, publisher: array, whatsapp: string|null}>
+     * @return \Illuminate\Support\Collection<int, \App\Models\Publisher>
      */
     #[Computed]
-    public function publishers(): array
+    public function uniquePublishers()
     {
-        return $this->property->listings->map(function ($listing) {
-            $rawData = $listing->raw_data ?? [];
+        return $this->property->publishers;
+    }
 
-            return [
-                'platform' => $listing->platform->name,
-                'platform_slug' => $listing->platform->slug,
-                'listing_id' => $listing->id,
-                'original_url' => $listing->original_url,
-                'publisher' => [
-                    'name' => $rawData['publisher_name'] ?? null,
-                    'logo' => $rawData['publisher_logo'] ?? null,
-                    'type' => $rawData['publisher_type'] ?? null,
-                    'url' => $rawData['publisher_url'] ?? null,
-                ],
-                'whatsapp' => $rawData['whatsapp'] ?? null,
-                'agent' => $listing->agent ? [
-                    'name' => $listing->agent->name,
-                    'phone' => $listing->agent->phone,
-                    'email' => $listing->agent->email,
-                ] : null,
-                'agency' => $listing->agency ? [
-                    'name' => $listing->agency->name,
-                    'phone' => $listing->agency->phone,
-                    'email' => $listing->agency->email,
-                ] : null,
-            ];
-        })->toArray();
+    /**
+     * Get all listing URLs grouped for display.
+     *
+     * @return array<array{platform: string, url: string}>
+     */
+    #[Computed]
+    public function listingLinks(): array
+    {
+        return $this->property->listings->map(fn ($listing) => [
+            'platform' => $listing->platform->name,
+            'url' => $listing->original_url,
+        ])->toArray();
     }
 
     /**

@@ -17,16 +17,13 @@ class ProcessPropertyCreationBatchJob implements ShouldQueue
 
     public int $tries = 1;
 
-    public function __construct(
-        public ?int $batchSize = null,
-    ) {
+    public function __construct()
+    {
         $this->onQueue('property-creation');
     }
 
     public function handle(): void
     {
-        $batchSize = $this->batchSize ?? config('services.property_creation.batch_size', 10);
-
         if (! config('services.property_creation.enabled', true)) {
             Log::info('Property creation is disabled, skipping batch job');
 
@@ -35,10 +32,9 @@ class ProcessPropertyCreationBatchJob implements ShouldQueue
 
         $dispatched = 0;
 
-        // 1. Dispatch jobs for listing groups pending AI processing
+        // 1. Dispatch jobs for listing groups pending AI processing (no limit)
         $groups = ListingGroup::where('status', ListingGroupStatus::PendingAi)
             ->orderBy('created_at')
-            ->limit($batchSize)
             ->get();
 
         foreach ($groups as $group) {
@@ -46,10 +42,9 @@ class ProcessPropertyCreationBatchJob implements ShouldQueue
             $dispatched++;
         }
 
-        // 2. Handle properties that need re-analysis
+        // 2. Handle properties that need re-analysis (no limit)
         $propertiesToReanalyze = Property::needsReanalysis()
             ->whereHas('listings')
-            ->limit($batchSize - $dispatched)
             ->get();
 
         foreach ($propertiesToReanalyze as $property) {

@@ -7,6 +7,8 @@ use App\Livewire\Platforms\Index as PlatformsIndex;
 use App\Livewire\Platforms\Show as PlatformsShow;
 use App\Livewire\Properties\Index as PropertiesIndex;
 use App\Livewire\Properties\Show as PropertiesShow;
+use App\Livewire\Publishers\Index as PublishersIndex;
+use App\Livewire\Publishers\Show as PublishersShow;
 use App\Livewire\ScrapeRuns\Show as ScrapeRunsShow;
 use App\Livewire\Settings\Appearance;
 use App\Livewire\Settings\Password;
@@ -49,6 +51,9 @@ Route::middleware(['auth'])->group(function () {
 
     Route::livewire('properties', PropertiesIndex::class)->name('properties.index');
     Route::livewire('properties/{property}', PropertiesShow::class)->name('properties.show');
+
+    Route::livewire('publishers', PublishersIndex::class)->name('publishers.index');
+    Route::livewire('publishers/{publisher}', PublishersShow::class)->name('publishers.show');
 
     Route::livewire('dedup/review', ReviewCandidates::class)->name('dedup.review');
 

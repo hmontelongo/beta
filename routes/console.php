@@ -17,11 +17,14 @@ Schedule::command('listings:reset-stale')->everyFiveMinutes();
 // Scheduled Scraping: Check and run due scrapes every 5 minutes
 Schedule::command('scrape:run-scheduled')->everyFiveMinutes();
 
-// Geocoding: Convert addresses to coordinates every 5 minutes (before dedup)
-Schedule::job(new ProcessGeocodingBatchJob)->everyFiveMinutes()->withoutOverlapping();
+// Pipeline jobs run every minute, offset from each other in sequence order
+// withoutOverlapping prevents pile-up, jobs exit quickly if nothing to do
 
-// Deduplication: Process geocoded listings and create groups every 10 minutes
-Schedule::job(new ProcessDeduplicationBatchJob)->everyTenMinutes()->withoutOverlapping();
+// Step 1: Geocoding - runs at :00, :01, :02... (every minute)
+Schedule::job(new ProcessGeocodingBatchJob)->everyMinute()->withoutOverlapping();
 
-// Property Creation: Process approved listing groups with AI every 10 minutes
-Schedule::job(new ProcessPropertyCreationBatchJob)->everyTenMinutes()->withoutOverlapping();
+// Step 2: Deduplication - runs at :00, :01, :02... (every minute, after geocoding via queue priority)
+Schedule::job(new ProcessDeduplicationBatchJob)->everyMinute()->withoutOverlapping();
+
+// Step 3: Property Creation - runs at :00, :01, :02... (every minute, after dedup via queue priority)
+Schedule::job(new ProcessPropertyCreationBatchJob)->everyMinute()->withoutOverlapping();

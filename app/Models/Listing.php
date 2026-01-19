@@ -108,19 +108,11 @@ class Listing extends Model
     }
 
     /**
-     * @return BelongsTo<Agent, $this>
+     * @return BelongsTo<Publisher, $this>
      */
-    public function agent(): BelongsTo
+    public function publisher(): BelongsTo
     {
-        return $this->belongsTo(Agent::class);
-    }
-
-    /**
-     * @return BelongsTo<Agency, $this>
-     */
-    public function agency(): BelongsTo
-    {
-        return $this->belongsTo(Agency::class);
+        return $this->belongsTo(Publisher::class);
     }
 
     /**

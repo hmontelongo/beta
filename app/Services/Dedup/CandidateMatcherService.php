@@ -519,11 +519,39 @@ class CandidateMatcherService
         $value = mb_strtolower($value);
         $value = $this->removeAccents($value);
 
-        // Remove common prefixes/suffixes
+        // Expand common Spanish address abbreviations to full form
+        $expansions = [
+            'calz.' => 'calzada',
+            'calz ' => 'calzada ',
+            'av.' => 'avenida',
+            'ave.' => 'avenida',
+            'ave ' => 'avenida ',
+            'av ' => 'avenida ',
+            'blvd.' => 'boulevard',
+            'blvd ' => 'boulevard ',
+            'no.' => '',
+            'num.' => '',
+            'no ' => ' ',
+            'pte.' => 'poniente',
+            'pte ' => 'poniente ',
+            'ote.' => 'oriente',
+            'ote ' => 'oriente ',
+            'nte.' => 'norte',
+            'nte ' => 'norte ',
+            'sur.' => 'sur',
+            'int.' => '',
+            'ext.' => '',
+            'depto.' => '',
+            'dept.' => '',
+            'edif.' => '',
+        ];
+        $value = str_ireplace(array_keys($expansions), array_values($expansions), $value);
+
+        // Remove common prefixes/suffixes entirely
         $remove = ['col.', 'col ', 'colonia ', 'fracc.', 'fracc ', 'fraccionamiento '];
         $value = str_ireplace($remove, '', $value);
 
-        // Remove extra whitespace
+        // Remove extra whitespace and trim
         return trim(preg_replace('/\s+/', ' ', $value));
     }
 

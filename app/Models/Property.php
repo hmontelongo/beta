@@ -8,6 +8,7 @@ use App\Enums\PropertyType;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Collection;
 
@@ -18,7 +19,7 @@ class Property extends Model
 
     protected $guarded = [];
 
-    protected $appends = ['agents', 'agencies', 'platforms', 'price_range'];
+    protected $appends = ['platforms', 'price_range'];
 
     /**
      * @return array<string, string>
@@ -93,31 +94,11 @@ class Property extends Model
     }
 
     /**
-     * Get unique agents from all listings for this property.
-     *
-     * @return Collection<int, Agent>
+     * @return BelongsToMany<Publisher, $this>
      */
-    public function getAgentsAttribute(): Collection
+    public function publishers(): BelongsToMany
     {
-        return $this->listings
-            ->pluck('agent')
-            ->filter()
-            ->unique('id')
-            ->values();
-    }
-
-    /**
-     * Get unique agencies from all listings for this property.
-     *
-     * @return Collection<int, Agency>
-     */
-    public function getAgenciesAttribute(): Collection
-    {
-        return $this->listings
-            ->pluck('agency')
-            ->filter()
-            ->unique('id')
-            ->values();
+        return $this->belongsToMany(Publisher::class)->withTimestamps();
     }
 
     /**

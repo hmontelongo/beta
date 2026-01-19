@@ -4,11 +4,10 @@ namespace Database\Factories;
 
 use App\Enums\ListingStatus;
 use App\Enums\OperationType;
-use App\Models\Agency;
-use App\Models\Agent;
 use App\Models\DiscoveredListing;
 use App\Models\Platform;
 use App\Models\Property;
+use App\Models\Publisher;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -52,8 +51,7 @@ class ListingFactory extends Factory
             'property_id' => Property::factory(),
             'platform_id' => Platform::factory(),
             'discovered_listing_id' => null,
-            'agent_id' => null,
-            'agency_id' => null,
+            'publisher_id' => null,
             'external_id' => fake()->unique()->uuid(),
             'original_url' => fake()->url(),
             'status' => ListingStatus::Active,
@@ -95,17 +93,10 @@ class ListingFactory extends Factory
         ]);
     }
 
-    public function withAgent(?Agent $agent = null): static
+    public function withPublisher(?Publisher $publisher = null): static
     {
         return $this->state(fn (array $attributes) => [
-            'agent_id' => $agent?->id ?? Agent::factory(),
-        ]);
-    }
-
-    public function withAgency(?Agency $agency = null): static
-    {
-        return $this->state(fn (array $attributes) => [
-            'agency_id' => $agency?->id ?? Agency::factory(),
+            'publisher_id' => $publisher?->id ?? Publisher::factory(),
         ]);
     }
 

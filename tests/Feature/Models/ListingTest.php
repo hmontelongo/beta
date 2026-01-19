@@ -1,12 +1,11 @@
 <?php
 
-use App\Models\Agency;
-use App\Models\Agent;
 use App\Models\Listing;
 use App\Models\ListingImage;
 use App\Models\ListingPhone;
 use App\Models\Platform;
 use App\Models\Property;
+use App\Models\Publisher;
 use Illuminate\Database\Eloquent\Collection;
 
 it('can create a listing', function () {
@@ -34,20 +33,12 @@ it('belongs to a platform', function () {
         ->and($listing->platform->id)->toBe($platform->id);
 });
 
-it('belongs to an agent (nullable)', function () {
-    $agent = Agent::factory()->create();
-    $listing = Listing::factory()->create(['agent_id' => $agent->id]);
+it('belongs to a publisher (nullable)', function () {
+    $publisher = Publisher::factory()->create();
+    $listing = Listing::factory()->create(['publisher_id' => $publisher->id]);
 
-    expect($listing->agent)->toBeInstanceOf(Agent::class)
-        ->and($listing->agent->id)->toBe($agent->id);
-});
-
-it('belongs to an agency (nullable)', function () {
-    $agency = Agency::factory()->create();
-    $listing = Listing::factory()->create(['agency_id' => $agency->id]);
-
-    expect($listing->agency)->toBeInstanceOf(Agency::class)
-        ->and($listing->agency->id)->toBe($agency->id);
+    expect($listing->publisher)->toBeInstanceOf(Publisher::class)
+        ->and($listing->publisher->id)->toBe($publisher->id);
 });
 
 it('has many phones', function () {
@@ -162,18 +153,11 @@ it('can be created for rent', function () {
         ->and($listing->operations[0]['type'])->toBe('rent');
 });
 
-it('can be created with agent using state', function () {
-    $listing = Listing::factory()->withAgent()->create();
+it('can be created with publisher using state', function () {
+    $listing = Listing::factory()->withPublisher()->create();
 
-    expect($listing->agent_id)->not->toBeNull()
-        ->and($listing->agent)->toBeInstanceOf(Agent::class);
-});
-
-it('can be created with agency using state', function () {
-    $listing = Listing::factory()->withAgency()->create();
-
-    expect($listing->agency_id)->not->toBeNull()
-        ->and($listing->agency)->toBeInstanceOf(Agency::class);
+    expect($listing->publisher_id)->not->toBeNull()
+        ->and($listing->publisher)->toBeInstanceOf(Publisher::class);
 });
 
 it('can be created with quality issues', function () {

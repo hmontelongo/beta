@@ -112,7 +112,7 @@
                 <flux:table.column>{{ __('Type') }}</flux:table.column>
                 <flux:table.column>{{ __('Features') }}</flux:table.column>
                 <flux:table.column>{{ __('Listings') }}</flux:table.column>
-                <flux:table.column>{{ __('Agents') }}</flux:table.column>
+                <flux:table.column>{{ __('Publishers') }}</flux:table.column>
                 <flux:table.column>{{ __('Confidence') }}</flux:table.column>
                 <flux:table.column></flux:table.column>
             </flux:table.columns>
@@ -168,39 +168,23 @@
                         </flux:table.cell>
                         <flux:table.cell class="max-w-[12rem]">
                             @php
-                                $agents = $property->agents;
-                                $agencies = $property->agencies;
-                                $firstAgent = $agents->first();
-                                $firstAgency = $agencies->first();
+                                $publishers = $property->publishers;
+                                $firstPublisher = $publishers->first();
                             @endphp
                             <div class="flex flex-col gap-1">
-                                @if ($firstAgent)
-                                    <flux:tooltip content="{{ $agents->pluck('name')->join(', ') }}">
+                                @if ($firstPublisher)
+                                    <flux:tooltip content="{{ $publishers->pluck('name')->join(', ') }}">
                                         <div class="flex items-center gap-1">
-                                            <flux:icon name="user" variant="micro" class="text-zinc-400 shrink-0" />
+                                            <flux:icon :name="$firstPublisher->type->icon()" variant="micro" class="text-zinc-400 shrink-0" />
                                             <flux:text size="sm" class="truncate">
-                                                {{ Str::limit($firstAgent->name, 18) }}
+                                                {{ Str::limit($firstPublisher->name, 18) }}
                                             </flux:text>
-                                            @if ($agents->count() > 1)
-                                                <flux:badge size="sm" color="zinc">+{{ $agents->count() - 1 }}</flux:badge>
+                                            @if ($publishers->count() > 1)
+                                                <flux:badge size="sm" color="zinc">+{{ $publishers->count() - 1 }}</flux:badge>
                                             @endif
                                         </div>
                                     </flux:tooltip>
-                                @endif
-                                @if ($firstAgency)
-                                    <flux:tooltip content="{{ $agencies->pluck('name')->join(', ') }}">
-                                        <div class="flex items-center gap-1">
-                                            <flux:icon name="building-office" variant="micro" class="text-zinc-400 shrink-0" />
-                                            <flux:text size="sm" class="truncate text-zinc-500">
-                                                {{ Str::limit($firstAgency->name, 18) }}
-                                            </flux:text>
-                                            @if ($agencies->count() > 1)
-                                                <flux:badge size="sm" color="zinc">+{{ $agencies->count() - 1 }}</flux:badge>
-                                            @endif
-                                        </div>
-                                    </flux:tooltip>
-                                @endif
-                                @if (!$firstAgent && !$firstAgency)
+                                @else
                                     <flux:text class="text-zinc-400">-</flux:text>
                                 @endif
                             </div>
