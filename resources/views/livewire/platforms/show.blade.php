@@ -14,13 +14,14 @@
             </div>
         </div>
         <div class="flex gap-2">
-            <flux:button variant="ghost" icon="clock" wire:click="runScheduledNow" wire:confirm="{{ __('Run all enabled scheduled scrapes now?') }}">
-                {{ __('Run Scheduled') }}
+            <flux:button variant="ghost" icon="clock" wire:click="runScheduledNow" wire:confirm="{{ __('Run all enabled scheduled scrapes now?') }}" wire:loading.attr="disabled" wire:target="runScheduledNow">
+                <span wire:loading.remove wire:target="runScheduledNow">{{ __('Run Scheduled') }}</span>
+                <span wire:loading wire:target="runScheduledNow">{{ __('Running...') }}</span>
             </flux:button>
             <flux:button variant="ghost" icon="document-text" :href="route('listings.index', ['platform' => $platform->id])" wire:navigate>
                 {{ __('View Listings') }}
             </flux:button>
-            <flux:button icon="plus" wire:click="$set('showAddQueryModal', true)">
+            <flux:button icon="plus" wire:click="$set('showAddQueryModal', true)" wire:loading.attr="disabled">
                 {{ __('Add Query') }}
             </flux:button>
         </div>
@@ -124,8 +125,9 @@
                                     @else
                                         <flux:subheading>{{ __('Never run') }}</flux:subheading>
                                     @endif
-                                    <flux:button size="sm" variant="primary" icon="play" wire:click="startScrape({{ $query->id }})">
-                                        {{ __('Start') }}
+                                    <flux:button size="sm" variant="primary" icon="play" wire:click="startScrape({{ $query->id }})" wire:loading.attr="disabled" wire:target="startScrape({{ $query->id }})">
+                                        <span wire:loading.remove wire:target="startScrape({{ $query->id }})">{{ __('Start') }}</span>
+                                        <span wire:loading wire:target="startScrape({{ $query->id }})">{{ __('Starting...') }}</span>
                                     </flux:button>
                                 </div>
                             @endif
@@ -172,7 +174,10 @@
 
             <div class="flex justify-end gap-3 pt-4">
                 <flux:button variant="ghost" wire:click="$set('showAddQueryModal', false)">{{ __('Cancel') }}</flux:button>
-                <flux:button type="submit" variant="primary">{{ __('Add Query') }}</flux:button>
+                <flux:button type="submit" variant="primary" wire:loading.attr="disabled" wire:target="addSearchQuery">
+                    <span wire:loading.remove wire:target="addSearchQuery">{{ __('Add Query') }}</span>
+                    <span wire:loading wire:target="addSearchQuery">{{ __('Adding...') }}</span>
+                </flux:button>
             </div>
         </form>
     </flux:modal>
@@ -251,8 +256,9 @@
             <flux:button variant="ghost" wire:click="$set('showScheduleModal', false)">
                 {{ __('Cancel') }}
             </flux:button>
-            <flux:button variant="primary" wire:click="saveSchedule">
-                {{ __('Save') }}
+            <flux:button variant="primary" wire:click="saveSchedule" wire:loading.attr="disabled" wire:target="saveSchedule">
+                <span wire:loading.remove wire:target="saveSchedule">{{ __('Save') }}</span>
+                <span wire:loading wire:target="saveSchedule">{{ __('Saving...') }}</span>
             </flux:button>
         </div>
     </flux:modal>

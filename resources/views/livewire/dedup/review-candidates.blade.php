@@ -39,18 +39,22 @@
                     <flux:button
                         wire:click="rejectGroup"
                         wire:loading.attr="disabled"
+                        wire:target="rejectGroup"
                         variant="danger"
                         icon="x-mark"
                     >
-                        {{ __('Reject') }}
+                        <span wire:loading.remove wire:target="rejectGroup">{{ __('Reject') }}</span>
+                        <span wire:loading wire:target="rejectGroup">{{ __('Rejecting...') }}</span>
                     </flux:button>
                     <flux:button
                         wire:click="approveGroup"
                         wire:loading.attr="disabled"
+                        wire:target="approveGroup"
                         variant="primary"
                         icon="check"
                     >
-                        {{ __('Approve') }}
+                        <span wire:loading.remove wire:target="approveGroup">{{ __('Approve') }}</span>
+                        <span wire:loading wire:target="approveGroup">{{ __('Approving...') }}</span>
                     </flux:button>
                 </div>
             </div>
