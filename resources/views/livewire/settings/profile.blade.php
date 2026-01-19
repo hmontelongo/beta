@@ -35,6 +35,10 @@
                 <x-action-message class="me-3" on="profile-updated">
                     {{ __('Saved.') }}
                 </x-action-message>
+
+                <flux:text wire:dirty class="text-sm text-amber-600 dark:text-amber-400">
+                    {{ __('Unsaved changes') }}
+                </flux:text>
             </div>
         </form>
 

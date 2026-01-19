@@ -20,12 +20,24 @@
         </div>
         <div class="flex gap-2">
             @if ($this->isActive)
-                <flux:button variant="danger" icon="stop" wire:click="stopRun" wire:confirm="{{ __('Stop this run?') }}">{{ __('Stop') }}</flux:button>
+                <flux:button variant="danger" icon="stop" wire:click="stopRun" wire:confirm="{{ __('Stop this run?') }}" wire:loading.attr="disabled" wire:target="stopRun">
+                    <span wire:loading.remove wire:target="stopRun">{{ __('Stop') }}</span>
+                    <span wire:loading wire:target="stopRun">{{ __('Stopping...') }}</span>
+                </flux:button>
             @elseif ($this->canResume)
-                <flux:button variant="primary" icon="play" wire:click="resumeRun">{{ __('Resume') }}</flux:button>
-                <flux:button variant="ghost" icon="arrow-path" wire:click="restartRun">{{ __('Restart') }}</flux:button>
+                <flux:button variant="primary" icon="play" wire:click="resumeRun" wire:loading.attr="disabled" wire:target="resumeRun">
+                    <span wire:loading.remove wire:target="resumeRun">{{ __('Resume') }}</span>
+                    <span wire:loading wire:target="resumeRun">{{ __('Resuming...') }}</span>
+                </flux:button>
+                <flux:button variant="ghost" icon="arrow-path" wire:click="restartRun" wire:loading.attr="disabled" wire:target="restartRun">
+                    <span wire:loading.remove wire:target="restartRun">{{ __('Restart') }}</span>
+                    <span wire:loading wire:target="restartRun">{{ __('Restarting...') }}</span>
+                </flux:button>
             @elseif ($run->status->value === 'completed')
-                <flux:button variant="ghost" icon="arrow-path" wire:click="restartRun">{{ __('Restart') }}</flux:button>
+                <flux:button variant="ghost" icon="arrow-path" wire:click="restartRun" wire:loading.attr="disabled" wire:target="restartRun">
+                    <span wire:loading.remove wire:target="restartRun">{{ __('Restart') }}</span>
+                    <span wire:loading wire:target="restartRun">{{ __('Restarting...') }}</span>
+                </flux:button>
             @endif
             @if ($run->status->value === 'completed')
                 <flux:button variant="primary" icon="document-text" :href="route('listings.index', ['platform' => $run->platform_id])" wire:navigate>{{ __('View Listings') }}</flux:button>
@@ -184,7 +196,10 @@
             <div class="flex justify-between items-center mb-4">
                 <flux:heading size="lg">{{ __('Failed Jobs') }}</flux:heading>
                 @if ($this->failedJobsCount > 0)
-                    <flux:button size="sm" variant="ghost" wire:click="retryAllFailed">{{ __('Retry All') }}</flux:button>
+                    <flux:button size="sm" variant="ghost" wire:click="retryAllFailed" wire:loading.attr="disabled" wire:target="retryAllFailed">
+                        <span wire:loading.remove wire:target="retryAllFailed">{{ __('Retry All') }}</span>
+                        <span wire:loading wire:target="retryAllFailed">{{ __('Retrying...') }}</span>
+                    </flux:button>
                 @endif
             </div>
 
@@ -203,7 +218,7 @@
                                 </flux:heading>
                                 <flux:subheading class="truncate text-red-600 dark:text-red-500">{{ Str::limit($job->error_message, 40) }}</flux:subheading>
                             </div>
-                            <flux:button size="sm" variant="ghost" icon="arrow-path" wire:click="retryJob({{ $job->id }})" />
+                            <flux:button size="sm" variant="ghost" icon="arrow-path" wire:click="retryJob({{ $job->id }})" wire:loading.attr="disabled" wire:target="retryJob({{ $job->id }})" />
                         </div>
                     @endforeach
                 </div>

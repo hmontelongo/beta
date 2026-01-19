@@ -172,7 +172,7 @@
             <flux:input wire:model="queryName" label="{{ __('Name') }}" placeholder="Rentals in Jalisco" required />
             <flux:input wire:model="queryUrl" label="{{ __('Search URL') }}" type="url" placeholder="https://www.inmuebles24.com/..." required />
 
-            <div class="flex justify-end gap-3 pt-4">
+            <div class="flex items-center justify-end gap-3 pt-4">
                 <flux:button variant="ghost" wire:click="$set('showAddQueryModal', false)">{{ __('Cancel') }}</flux:button>
                 <flux:button type="submit" variant="primary" wire:loading.attr="disabled" wire:target="addSearchQuery">
                     <span wire:loading.remove wire:target="addSearchQuery">{{ __('Add Query') }}</span>
