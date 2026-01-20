@@ -2,7 +2,7 @@
     {{-- Page Header --}}
     <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div class="flex items-start gap-4">
-            <flux:button variant="ghost" icon="arrow-left" :href="route('publishers.index')" wire:navigate />
+            <flux:button variant="ghost" icon="arrow-left" :href="route('publishers.index')" wire:navigate aria-label="{{ __('Back to publishers') }}" />
             <div>
                 <div class="flex items-center gap-3">
                     <flux:heading size="xl" level="1">{{ $publisher->name }}</flux:heading>

@@ -2,7 +2,7 @@
     {{-- Header --}}
     <div class="flex justify-between items-start">
         <div class="flex items-center gap-4">
-            <flux:button variant="ghost" icon="arrow-left" :href="route('platforms.index')" wire:navigate />
+            <flux:button variant="ghost" icon="arrow-left" :href="route('platforms.index')" wire:navigate aria-label="{{ __('Back to platforms') }}" />
             <div>
                 <div class="flex items-center gap-2">
                     <flux:heading size="xl">{{ $platform->name }}</flux:heading>
@@ -80,8 +80,9 @@
                                         variant="ghost"
                                         icon="calendar"
                                         wire:click="openScheduleModal({{ $query->id }})"
+                                        aria-label="{{ __('Edit schedule') }}"
                                     />
-                                    <flux:button size="sm" variant="ghost" icon="trash" wire:click="deleteSearchQuery({{ $query->id }})" wire:confirm="{{ __('Are you sure?') }}" />
+                                    <flux:button size="sm" variant="ghost" icon="trash" wire:click="deleteSearchQuery({{ $query->id }})" wire:confirm="{{ __('Are you sure?') }}" aria-label="{{ __('Delete search query') }}" />
                                 </div>
                             </div>
 

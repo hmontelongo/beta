@@ -91,7 +91,7 @@
 
             {{-- Reset Stuck Jobs --}}
             <flux:dropdown>
-                <flux:button size="sm" variant="ghost" icon="ellipsis-vertical" />
+                <flux:button size="sm" variant="ghost" icon="ellipsis-vertical" aria-label="{{ __('More actions') }}" />
                 <flux:menu>
                     <flux:menu.item wire:click="resetStuckJobs" icon="arrow-path">
                         {{ __('Reset Stuck Jobs') }}

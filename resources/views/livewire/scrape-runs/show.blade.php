@@ -218,7 +218,7 @@
                                 </flux:heading>
                                 <flux:subheading class="truncate text-red-600 dark:text-red-500">{{ Str::limit($job->error_message, 40) }}</flux:subheading>
                             </div>
-                            <flux:button size="sm" variant="ghost" icon="arrow-path" wire:click="retryJob({{ $job->id }})" wire:loading.attr="disabled" wire:target="retryJob({{ $job->id }})" />
+                            <flux:button size="sm" variant="ghost" icon="arrow-path" wire:click="retryJob({{ $job->id }})" wire:loading.attr="disabled" wire:target="retryJob({{ $job->id }})" aria-label="{{ __('Retry job') }}" />
                         </div>
                     @endforeach
                 </div>

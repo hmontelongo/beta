@@ -485,8 +485,95 @@ Always look up documentation through context-7 MCP before implementing anything.
 ### Core Concepts
 - **Property**: Canonical/unified record representing a real physical property
 - **Listing**: A single scraped entry from a platform (many listings can point to one property)
-- **Agency**: Real estate company
-- **Agent**: Individual person (may be independent or belong to an agency)
+- **ListingGroup**: Deduplication grouping that links related listings before property creation
+- **Publisher**: Agent or agency that posted the listing
+- **Platform**: Source website (Inmuebles24, Vivanuncios, etc.)
+
+### Data Pipeline Flow
+
+```
+Scrape Request (via UI or scheduled)
+    ↓
+ScrapeOrchestrator → dispatches ScrapeJob per platform
+    ↓
+ScraperService → calls Node/Playwright service via HTTP
+    ↓
+ProcessScrapedListingsJob → processes raw listing data
+    ↓
+┌─────────────────────────────────────┐
+│         Parallel Processing          │
+├─────────────────────────────────────┤
+│ GeocodeListingJob (Google Maps API)  │
+│ EnrichListingJob (AI enhancement)    │
+│ PublisherExtractionService           │
+└─────────────────────────────────────┘
+    ↓
+DeduplicationJob
+    ↓
+DeduplicationService → CandidateMatcherService
+    ↓
+┌─────────────────────────────────────┐
+│        Dedup Outcomes                │
+├─────────────────────────────────────┤
+│ No matches → Single-listing group    │
+│ High confidence → Auto-grouped       │
+│ Uncertain → PendingReview group      │
+└─────────────────────────────────────┘
+    ↓
+Human Review (if PendingReview)
+    ↓
+CreatePropertyFromListingsJob
+    ↓
+PropertyCreationService → Claude AI analysis
+    ↓
+Property created with unified/canonical data
+```
+
+### Key Models & Relationships
+
+```
+Platform (inmuebles24, vivanuncios, etc.)
+    ↓ has many
+Listing (raw scraped data, geocoded, enriched)
+    ↓ belongs to
+ListingGroup (deduplication grouping)
+    ↓ belongs to
+Property (canonical record with unified data)
+    ↓ has many
+Listing (circular back-reference)
+
+Publisher (agent/agency)
+    ↓ has many
+Listing
+```
+
+### Status Enums
+
+**ListingGroupStatus:**
+- `PendingAi` - Ready for AI property creation
+- `PendingReview` - Uncertain match, needs human review
+- `ProcessingAi` - AI is currently processing
+- `Completed` - Property created successfully
+- `Rejected` - Group rejected during review
+
+**DedupStatus (on Listing):**
+- `Pending` - Awaiting deduplication
+- `Processing` - Currently being deduplicated
+- `Grouped` - Assigned to a ListingGroup
+- `Completed` - Property linked
+
+**DedupCandidateStatus:**
+- `ConfirmedMatch` - Auto or human confirmed same property
+- `NeedsReview` - Uncertain, requires human decision
+- `ConfirmedDifferent` - Confirmed different properties
+
+### Queue Structure (Laravel Horizon)
+- `default` - General tasks
+- `scraping` - Scrape jobs (rate-limited)
+- `geocoding` - Geocoding jobs (API rate-limited)
+- `enrichment` - AI enrichment jobs
+- `deduplication` - Dedup processing
+- `property-creation` - AI property creation (throttled for Claude API)
 
 ### Code Validation Requirements (CRITICAL)
 Before writing any code that uses enums, classes, methods, or properties:

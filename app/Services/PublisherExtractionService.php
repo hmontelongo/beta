@@ -83,6 +83,7 @@ class PublisherExtractionService
 
         // Find listings with any publisher identifier (name, platform ID, or phone)
         $listings = Listing::query()
+            ->with('platform')
             ->whereNull('publisher_id')
             ->whereNotNull('raw_data')
             ->where(function ($query) {
