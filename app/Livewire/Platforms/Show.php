@@ -55,8 +55,46 @@ class Show extends Component
         return $this->platform->searchQueries()
             ->with(['activeRun', 'latestRun'])
             ->withCount('scrapeRuns')
+            ->withSum('scrapeRuns as total_listings_scraped', 'stats->listings_scraped')
             ->orderBy('name')
             ->get();
+    }
+
+    /**
+     * Common time options for scheduling.
+     *
+     * @return array<string, string>
+     */
+    public function getTimeOptions(): array
+    {
+        $options = [];
+        for ($hour = 0; $hour < 24; $hour++) {
+            foreach (['00', '30'] as $minute) {
+                $time = sprintf('%02d:%s', $hour, $minute);
+                $label = date('g:i A', strtotime($time));
+                $options[$time] = $label;
+            }
+        }
+
+        return $options;
+    }
+
+    /**
+     * Days of the week for scheduling.
+     *
+     * @return array<int, string>
+     */
+    public function getDayOptions(): array
+    {
+        return [
+            0 => __('Sun'),
+            1 => __('Mon'),
+            2 => __('Tue'),
+            3 => __('Wed'),
+            4 => __('Thu'),
+            5 => __('Fri'),
+            6 => __('Sat'),
+        ];
     }
 
     #[Computed]
