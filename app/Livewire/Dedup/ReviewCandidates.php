@@ -38,7 +38,7 @@ class ReviewCandidates extends Component
             return null;
         }
 
-        return ListingGroup::with(['listings.platform'])
+        return ListingGroup::with(['listings.platform', 'matchedProperty.listings.platform'])
             ->find($this->currentGroupId);
     }
 

@@ -166,13 +166,14 @@ class DeduplicationService
                 : $candidate->listingA;
 
             // If matched listing already has a completed group (property exists), don't disturb it
-            // Just create a standalone group for the new listing - UI will show the potential match
+            // Create a standalone group for the new listing with reference to the matched property
             if ($matchedListing->listing_group_id) {
                 $existingGroup = ListingGroup::find($matchedListing->listing_group_id);
                 if ($existingGroup && $existingGroup->status === ListingGroupStatus::Completed) {
                     $group = ListingGroup::create([
                         'status' => ListingGroupStatus::PendingReview,
                         'match_score' => $candidate->overall_score,
+                        'matched_property_id' => $existingGroup->property_id,
                     ]);
                     $this->markListingAsGrouped($listing, $group->id, isPrimary: true);
 
@@ -180,7 +181,7 @@ class DeduplicationService
                         'listing_id' => $listing->id,
                         'listing_group_id' => $group->id,
                         'matched_listing_id' => $matchedListing->id,
-                        'matched_group_id' => $existingGroup->id,
+                        'matched_property_id' => $existingGroup->property_id,
                         'match_score' => $candidate->overall_score,
                     ]);
 

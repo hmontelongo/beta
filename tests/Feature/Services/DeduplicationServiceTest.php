@@ -377,6 +377,71 @@ it('does not approve a group not in pending review status', function () {
     expect($group->status)->toBe(ListingGroupStatus::PendingAi);
 });
 
+it('creates review group with matched_property_id when matching completed group', function () {
+    // Create a completed group with a property
+    $property = Property::factory()->create();
+    $completedGroup = ListingGroup::factory()->completed()->create([
+        'property_id' => $property->id,
+    ]);
+
+    $existingListing = Listing::factory()->create([
+        'platform_id' => $this->platform->id,
+        'property_id' => $property->id,
+        'dedup_status' => DedupStatus::Completed,
+        'listing_group_id' => $completedGroup->id,
+        'is_primary_in_group' => true,
+        'geocode_status' => 'success',
+        'latitude' => 20.65,
+        'longitude' => -103.35,
+    ]);
+
+    // Create a new listing that might match the existing one
+    $newListing = Listing::factory()->unmatched()->create([
+        'platform_id' => $this->platform->id,
+        'dedup_status' => DedupStatus::Processing,
+        'geocode_status' => 'success',
+        'latitude' => 20.65,
+        'longitude' => -103.35,
+    ]);
+
+    // Create an uncertain match candidate (needs review)
+    $candidate = DedupCandidate::create([
+        'listing_a_id' => $existingListing->id,
+        'listing_b_id' => $newListing->id,
+        'status' => DedupCandidateStatus::NeedsReview,
+        'overall_score' => 0.75,
+        'coordinate_score' => 0.8,
+        'address_score' => 0.7,
+        'features_score' => 0.75,
+    ]);
+
+    $mockMatcher = Mockery::mock(CandidateMatcherService::class);
+    $mockMatcher->shouldReceive('findCandidates')
+        ->once()
+        ->andReturn(collect([$candidate]));
+
+    $service = new DeduplicationService($mockMatcher);
+    $service->processListing($newListing);
+
+    $newListing->refresh();
+
+    // New listing should be in a NEW group (not the completed one)
+    expect($newListing->listing_group_id)->not->toBe($completedGroup->id)
+        ->and($newListing->dedup_status)->toBe(DedupStatus::Grouped);
+
+    // The new group should reference the matched property
+    $newGroup = ListingGroup::find($newListing->listing_group_id);
+    expect($newGroup->status)->toBe(ListingGroupStatus::PendingReview)
+        ->and($newGroup->matched_property_id)->toBe($property->id)
+        ->and($newGroup->match_score)->toBe('0.75')
+        ->and($newGroup->listings()->count())->toBe(1);
+
+    // The completed group should remain untouched
+    $completedGroup->refresh();
+    expect($completedGroup->status)->toBe(ListingGroupStatus::Completed)
+        ->and($completedGroup->property_id)->toBe($property->id);
+});
+
 it('returns correct stats', function () {
     // Create listings in various states
     Listing::factory()->unmatched()->count(3)->create([

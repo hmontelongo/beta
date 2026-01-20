@@ -115,4 +115,15 @@ class ListingGroupFactory extends Factory
             'match_score' => fake()->randomFloat(2, 0.5, 0.84),
         ]);
     }
+
+    /**
+     * Indicate a group that matches an existing property (for review).
+     */
+    public function matchingExistingProperty(?Property $property = null): static
+    {
+        return $this->state(fn () => [
+            'status' => ListingGroupStatus::PendingReview,
+            'matched_property_id' => $property ?? Property::factory(),
+        ]);
+    }
 }

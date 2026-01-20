@@ -102,7 +102,7 @@ class ZenRowsClient
 
             $response->throw();
 
-            $cost = (int) ($response->header('X-Request-Cost') ?? 1);
+            $cost = (int) ($response->header('X-Request-Cost') ?: 1);
 
             Log::debug('ZenRows response', [
                 'url' => $url,

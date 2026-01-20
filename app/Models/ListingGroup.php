@@ -38,6 +38,17 @@ class ListingGroup extends Model
     }
 
     /**
+     * The existing property this group potentially matches against.
+     * Used when a new listing matches a listing that's already in a completed group.
+     *
+     * @return BelongsTo<Property, $this>
+     */
+    public function matchedProperty(): BelongsTo
+    {
+        return $this->belongsTo(Property::class, 'matched_property_id');
+    }
+
+    /**
      * @return HasMany<Listing, $this>
      */
     public function listings(): HasMany
