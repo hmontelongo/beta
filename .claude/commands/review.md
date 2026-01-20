@@ -1,16 +1,20 @@
-Perform a two-step code review on files changed since last commit:
+---
+description: Run two-step PropData code review
+---
+
+Review recent code changes in two steps:
 
 ## Step 1: PropData Review
-Use the propdata-reviewer agent to check:
+Use the propdata-reviewer agent to analyze files changed since last commit. Focus on:
 - Unnecessary complexity
+- Laravel convention violations
 - Files that shouldn't exist
 - PropData-specific patterns
-- Laravel convention violations
 
-## Step 2: Laravel Simplifier
-After step 1, use the laravel-simplifier agent to:
-- Apply PSR-12 standards
-- Simplify verbose code
-- Add missing return types
+## Step 2: Laravel Pint
+After the propdata-reviewer finishes, run:
+```bash
+vendor/bin/pint --dirty
+```
 
-Show results of both steps.
+Show results from both steps.
