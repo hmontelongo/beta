@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\ApiOperation;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Facades\Http;
@@ -15,7 +16,7 @@ class ZenRowsClient
 
     protected int $timeout;
 
-    public function __construct()
+    public function __construct(protected ApiUsageTracker $usageTracker)
     {
         $this->apiKey = config('services.zenrows.api_key') ?? '';
         $this->timeout = config('services.zenrows.timeout', 90);
@@ -40,7 +41,7 @@ class ZenRowsClient
             'js_instructions' => json_encode([['wait_event' => 'networkidle']]),
             'block_resources' => 'image,font,media',
             'css_extractor' => json_encode($cssExtractor),
-        ], 'json');
+        ], 'json', ApiOperation::SearchScrape);
     }
 
     /**
@@ -58,7 +59,7 @@ class ZenRowsClient
             'js_instructions' => json_encode([['wait_event' => 'networkidle']]),
             'block_resources' => 'image,font,media',
             'css_extractor' => json_encode($cssExtractor),
-        ], 'json');
+        ], 'json', ApiOperation::ListingScrape);
     }
 
     /**
@@ -72,7 +73,7 @@ class ZenRowsClient
         return $this->fetch($url, [
             'js_instructions' => json_encode([['wait_event' => 'networkidle']]),
             'block_resources' => 'image,font,media',
-        ], 'body');
+        ], 'body', ApiOperation::RawHtmlFetch);
     }
 
     /**
@@ -83,7 +84,7 @@ class ZenRowsClient
      *
      * @throws \RuntimeException
      */
-    protected function fetch(string $url, array $options, string $responseType): array|string
+    protected function fetch(string $url, array $options, string $responseType, ApiOperation $operation): array|string
     {
         $params = array_merge([
             'apikey' => $this->apiKey,
@@ -101,11 +102,16 @@ class ZenRowsClient
 
             $response->throw();
 
+            $cost = (int) ($response->header('X-Request-Cost') ?? 1);
+
             Log::debug('ZenRows response', [
                 'url' => $url,
                 'status' => $response->status(),
-                'cost' => $response->header('X-Request-Cost'),
+                'cost' => $cost,
             ]);
+
+            // Track usage
+            $this->usageTracker->logZenRowsUsage($operation, $cost, $url);
 
             return $responseType === 'json' ? $response->json() : $response->body();
         } catch (ConnectionException $e) {

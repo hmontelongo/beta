@@ -2,6 +2,7 @@
 
 namespace App\Services\AI;
 
+use App\Enums\ApiOperation;
 use App\Enums\DedupStatus;
 use App\Enums\ListingGroupStatus;
 use App\Enums\PropertyStatus;
@@ -10,6 +11,7 @@ use App\Enums\PropertyType;
 use App\Models\Listing;
 use App\Models\ListingGroup;
 use App\Models\Property;
+use App\Services\ApiUsageTracker;
 use App\Services\Google\GeocodingService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -20,6 +22,7 @@ class PropertyCreationService
     public function __construct(
         protected ClaudeClient $claude,
         protected GeocodingService $geocoding,
+        protected ApiUsageTracker $usageTracker,
     ) {}
 
     /**
@@ -61,6 +64,8 @@ class PropertyCreationService
 
             $toolResult = $this->claude->extractToolUse($response, 'create_property');
             $usage = $this->claude->getUsage($response);
+
+            $this->usageTracker->logClaudeUsage(ApiOperation::PropertyCreation, $usage);
 
             if (! $toolResult) {
                 throw new \RuntimeException('AI did not return structured property data');

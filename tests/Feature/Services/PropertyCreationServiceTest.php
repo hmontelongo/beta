@@ -10,11 +10,23 @@ use App\Models\Property;
 use App\Models\Publisher;
 use App\Services\AI\ClaudeClient;
 use App\Services\AI\PropertyCreationService;
+use App\Services\ApiUsageTracker;
 use App\Services\Google\GeocodingService;
 
 beforeEach(function () {
     $this->platform = Platform::factory()->create(['name' => 'Inmuebles24']);
 });
+
+/**
+ * Helper to create a mock ApiUsageTracker.
+ */
+function createMockUsageTracker(): ApiUsageTracker
+{
+    $mock = Mockery::mock(ApiUsageTracker::class);
+    $mock->shouldReceive('logClaudeUsage')->andReturnUsing(fn () => new \App\Models\ApiUsageLog);
+
+    return $mock;
+}
 
 /**
  * Helper to create a mock AI response.
@@ -99,7 +111,7 @@ describe('createPropertyFromGroup', function () {
         $mockGeocoding = Mockery::mock(GeocodingService::class);
         $mockGeocoding->shouldReceive('geocode')->andReturn(null);
 
-        $service = new PropertyCreationService($mockClaude, $mockGeocoding);
+        $service = new PropertyCreationService($mockClaude, $mockGeocoding, createMockUsageTracker());
         $property = $service->createPropertyFromGroup($group);
 
         expect($property)->toBeInstanceOf(Property::class)
@@ -140,7 +152,7 @@ describe('createPropertyFromGroup', function () {
         $mockGeocoding = Mockery::mock(GeocodingService::class);
         $mockGeocoding->shouldReceive('geocode')->andReturn(null);
 
-        $service = new PropertyCreationService($mockClaude, $mockGeocoding);
+        $service = new PropertyCreationService($mockClaude, $mockGeocoding, createMockUsageTracker());
         $property = $service->createPropertyFromGroup($group);
 
         expect($property->publishers)->toHaveCount(1)
@@ -153,7 +165,7 @@ describe('createPropertyFromGroup', function () {
         $mockClaude = Mockery::mock(ClaudeClient::class);
         $mockGeocoding = Mockery::mock(GeocodingService::class);
 
-        $service = new PropertyCreationService($mockClaude, $mockGeocoding);
+        $service = new PropertyCreationService($mockClaude, $mockGeocoding, createMockUsageTracker());
 
         expect(fn () => $service->createPropertyFromGroup($group))
             ->toThrow(InvalidArgumentException::class, 'ListingGroup has no listings');
@@ -170,7 +182,7 @@ describe('createPropertyFromGroup', function () {
         $mockClaude = Mockery::mock(ClaudeClient::class);
         $mockGeocoding = Mockery::mock(GeocodingService::class);
 
-        $service = new PropertyCreationService($mockClaude, $mockGeocoding);
+        $service = new PropertyCreationService($mockClaude, $mockGeocoding, createMockUsageTracker());
 
         expect(fn () => $service->createPropertyFromGroup($group))
             ->toThrow(RuntimeException::class, 'Group is not available for processing');
@@ -190,7 +202,7 @@ describe('createPropertyFromGroup', function () {
         $mockClaude = Mockery::mock(ClaudeClient::class);
         $mockGeocoding = Mockery::mock(GeocodingService::class);
 
-        $service = new PropertyCreationService($mockClaude, $mockGeocoding);
+        $service = new PropertyCreationService($mockClaude, $mockGeocoding, createMockUsageTracker());
 
         expect(fn () => $service->createPropertyFromGroup($group))
             ->toThrow(RuntimeException::class, 'Group is not available for processing');
@@ -216,7 +228,7 @@ describe('AI response validation', function () {
 
         $mockGeocoding = Mockery::mock(GeocodingService::class);
 
-        $service = new PropertyCreationService($mockClaude, $mockGeocoding);
+        $service = new PropertyCreationService($mockClaude, $mockGeocoding, createMockUsageTracker());
 
         expect(fn () => $service->createPropertyFromGroup($group))
             ->toThrow(RuntimeException::class, 'AI did not return structured property data');
@@ -243,7 +255,7 @@ describe('AI response validation', function () {
 
         $mockGeocoding = Mockery::mock(GeocodingService::class);
 
-        $service = new PropertyCreationService($mockClaude, $mockGeocoding);
+        $service = new PropertyCreationService($mockClaude, $mockGeocoding, createMockUsageTracker());
 
         expect(fn () => $service->createPropertyFromGroup($group))
             ->toThrow(RuntimeException::class, 'AI response missing or invalid unified_fields');
@@ -270,7 +282,7 @@ describe('AI response validation', function () {
 
         $mockGeocoding = Mockery::mock(GeocodingService::class);
 
-        $service = new PropertyCreationService($mockClaude, $mockGeocoding);
+        $service = new PropertyCreationService($mockClaude, $mockGeocoding, createMockUsageTracker());
 
         expect(fn () => $service->createPropertyFromGroup($group))
             ->toThrow(RuntimeException::class, 'AI response missing or invalid quality_score');
@@ -297,7 +309,7 @@ describe('AI response validation', function () {
 
         $mockGeocoding = Mockery::mock(GeocodingService::class);
 
-        $service = new PropertyCreationService($mockClaude, $mockGeocoding);
+        $service = new PropertyCreationService($mockClaude, $mockGeocoding, createMockUsageTracker());
 
         expect(fn () => $service->createPropertyFromGroup($group))
             ->toThrow(RuntimeException::class, 'AI response missing or invalid description');
@@ -319,7 +331,7 @@ describe('error handling', function () {
 
         $mockGeocoding = Mockery::mock(GeocodingService::class);
 
-        $service = new PropertyCreationService($mockClaude, $mockGeocoding);
+        $service = new PropertyCreationService($mockClaude, $mockGeocoding, createMockUsageTracker());
 
         expect(fn () => $service->createPropertyFromGroup($group))
             ->toThrow(RuntimeException::class, '429');
@@ -342,7 +354,7 @@ describe('error handling', function () {
 
         $mockGeocoding = Mockery::mock(GeocodingService::class);
 
-        $service = new PropertyCreationService($mockClaude, $mockGeocoding);
+        $service = new PropertyCreationService($mockClaude, $mockGeocoding, createMockUsageTracker());
 
         expect(fn () => $service->createPropertyFromGroup($group))
             ->toThrow(RuntimeException::class);
@@ -382,7 +394,7 @@ describe('enum sanitization', function () {
         $mockGeocoding = Mockery::mock(GeocodingService::class);
         $mockGeocoding->shouldReceive('geocode')->andReturn(null);
 
-        $service = new PropertyCreationService($mockClaude, $mockGeocoding);
+        $service = new PropertyCreationService($mockClaude, $mockGeocoding, createMockUsageTracker());
         $property = $service->createPropertyFromGroup($group);
 
         // Property subtype should be null since invalid value was removed
@@ -416,7 +428,7 @@ describe('enum sanitization', function () {
         $mockGeocoding = Mockery::mock(GeocodingService::class);
         $mockGeocoding->shouldReceive('geocode')->andReturn(null);
 
-        $service = new PropertyCreationService($mockClaude, $mockGeocoding);
+        $service = new PropertyCreationService($mockClaude, $mockGeocoding, createMockUsageTracker());
         $property = $service->createPropertyFromGroup($group);
 
         expect($property->property_type->value)->toBe('house');
@@ -447,7 +459,7 @@ describe('geocoding', function () {
             ->with('Calle Insurgentes Sur 123, Del Valle, CDMX', 'Ciudad de México', 'CDMX')
             ->andReturn(['lat' => 19.3875, 'lng' => -99.1769]);
 
-        $service = new PropertyCreationService($mockClaude, $mockGeocoding);
+        $service = new PropertyCreationService($mockClaude, $mockGeocoding, createMockUsageTracker());
         $property = $service->createPropertyFromGroup($group);
 
         expect((float) $property->latitude)->toBe(19.3875)
@@ -487,7 +499,7 @@ describe('geocoding', function () {
         $mockGeocoding = Mockery::mock(GeocodingService::class);
         $mockGeocoding->shouldReceive('geocode')->andReturn(null);
 
-        $service = new PropertyCreationService($mockClaude, $mockGeocoding);
+        $service = new PropertyCreationService($mockClaude, $mockGeocoding, createMockUsageTracker());
         $property = $service->createPropertyFromGroup($group);
 
         expect((float) $property->latitude)->toBe(19.4)
@@ -530,7 +542,7 @@ describe('AI metadata', function () {
         $mockGeocoding = Mockery::mock(GeocodingService::class);
         $mockGeocoding->shouldReceive('geocode')->andReturn(null);
 
-        $service = new PropertyCreationService($mockClaude, $mockGeocoding);
+        $service = new PropertyCreationService($mockClaude, $mockGeocoding, createMockUsageTracker());
         $property = $service->createPropertyFromGroup($group);
 
         expect($property->ai_unification)->toBeArray()
@@ -582,7 +594,7 @@ describe('multiple listings unification', function () {
         $mockGeocoding = Mockery::mock(GeocodingService::class);
         $mockGeocoding->shouldReceive('geocode')->andReturn(null);
 
-        $service = new PropertyCreationService($mockClaude, $mockGeocoding);
+        $service = new PropertyCreationService($mockClaude, $mockGeocoding, createMockUsageTracker());
         $property = $service->createPropertyFromGroup($group);
 
         // Both listings should be linked to the property

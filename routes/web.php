@@ -1,5 +1,6 @@
 <?php
 
+use App\Livewire\Dashboard;
 use App\Livewire\Dedup\ReviewCandidates;
 use App\Livewire\Listings\Index as ListingsIndex;
 use App\Livewire\Listings\Show as ListingsShow;
@@ -21,7 +22,7 @@ Route::get('/', function () {
     return view('welcome');
 })->name('home');
 
-Route::view('dashboard', 'dashboard')
+Route::livewire('dashboard', Dashboard::class)
     ->middleware(['auth', 'verified'])
     ->name('dashboard');
 
