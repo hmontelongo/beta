@@ -585,5 +585,12 @@ Before writing any code that uses enums, classes, methods, or properties:
 
 This prevents errors like referencing `ScrapeJobStatus::Cancelled` when only `Pending`, `Running`, `Completed`, `Failed` exist.
 
+### Code Review
 
+After completing features, use the propdata-code-reviewer agent to check for:
+- Unnecessary abstractions
+- Laravel convention violations
+- Files that shouldn't exist
+
+Then run `vendor/bin/pint --dirty` for formatting.
 
