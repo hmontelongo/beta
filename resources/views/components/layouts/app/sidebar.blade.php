@@ -17,6 +17,7 @@
                     <flux:navlist.item icon="globe-alt" :href="route('platforms.index')" :current="request()->routeIs('platforms.*')" wire:navigate>{{ __('Platforms') }}</flux:navlist.item>
                     <flux:navlist.item icon="document-text" :href="route('listings.index')" :current="request()->routeIs('listings.*')" wire:navigate>{{ __('Listings') }}</flux:navlist.item>
                     <flux:navlist.item icon="building-office" :href="route('properties.index')" :current="request()->routeIs('properties.*')" wire:navigate>{{ __('Properties') }}</flux:navlist.item>
+                    <flux:navlist.item icon="user-group" :href="route('publishers.index')" :current="request()->routeIs('publishers.*')" wire:navigate>{{ __('Publishers') }}</flux:navlist.item>
                 </flux:navlist.group>
             </flux:navlist>
 

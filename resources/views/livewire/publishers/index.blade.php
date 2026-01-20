@@ -7,29 +7,70 @@
         </div>
     </div>
 
-    {{-- Stats Bar --}}
-    <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <flux:card class="p-4">
-            <flux:text size="sm" class="text-zinc-500">{{ __('Total') }}</flux:text>
-            <flux:heading size="lg">{{ $this->stats['total'] }}</flux:heading>
+    {{-- Filter Cards --}}
+    <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <flux:card class="p-3">
+            <div class="flex items-center gap-2">
+                <flux:icon name="users" class="size-4 text-zinc-400" />
+                <flux:text size="sm" class="text-zinc-500">{{ __('Total') }}</flux:text>
+            </div>
+            <flux:heading size="lg">{{ $this->filterStats['total'] }}</flux:heading>
         </flux:card>
-        <flux:card class="p-4">
-            <flux:text size="sm" class="text-zinc-500">{{ __('Individuals') }}</flux:text>
-            <flux:heading size="lg" class="text-blue-600">{{ $this->stats['individual'] }}</flux:heading>
+        <flux:card
+            class="p-3 cursor-pointer transition-colors {{ $quickFilter === 'individual' ? 'ring-2 ring-blue-400 bg-blue-50 dark:bg-blue-900/20' : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/50' }}"
+            wire:click="$set('quickFilter', '{{ $quickFilter === 'individual' ? '' : 'individual' }}')"
+        >
+            <div class="flex items-center gap-2">
+                <flux:icon name="user" class="size-4 {{ $quickFilter === 'individual' ? 'text-blue-500' : 'text-zinc-400' }}" />
+                <flux:text size="sm" class="{{ $quickFilter === 'individual' ? 'text-blue-600 dark:text-blue-400' : 'text-zinc-500' }}">{{ __('Individuals') }}</flux:text>
+            </div>
+            <flux:heading size="lg" class="text-blue-600">{{ $this->filterStats['individual'] }}</flux:heading>
         </flux:card>
-        <flux:card class="p-4">
-            <flux:text size="sm" class="text-zinc-500">{{ __('Agencies') }}</flux:text>
-            <flux:heading size="lg" class="text-purple-600">{{ $this->stats['agency'] }}</flux:heading>
+        <flux:card
+            class="p-3 cursor-pointer transition-colors {{ $quickFilter === 'agency' ? 'ring-2 ring-purple-400 bg-purple-50 dark:bg-purple-900/20' : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/50' }}"
+            wire:click="$set('quickFilter', '{{ $quickFilter === 'agency' ? '' : 'agency' }}')"
+        >
+            <div class="flex items-center gap-2">
+                <flux:icon name="building-office-2" class="size-4 {{ $quickFilter === 'agency' ? 'text-purple-500' : 'text-zinc-400' }}" />
+                <flux:text size="sm" class="{{ $quickFilter === 'agency' ? 'text-purple-600 dark:text-purple-400' : 'text-zinc-500' }}">{{ __('Agencies') }}</flux:text>
+            </div>
+            <flux:heading size="lg" class="text-purple-600">{{ $this->filterStats['agency'] }}</flux:heading>
         </flux:card>
-        <flux:card class="p-4">
-            <flux:text size="sm" class="text-zinc-500">{{ __('Developers') }}</flux:text>
-            <flux:heading size="lg" class="text-green-600">{{ $this->stats['developer'] }}</flux:heading>
+        <flux:card
+            class="p-3 cursor-pointer transition-colors {{ $quickFilter === 'developer' ? 'ring-2 ring-green-400 bg-green-50 dark:bg-green-900/20' : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/50' }}"
+            wire:click="$set('quickFilter', '{{ $quickFilter === 'developer' ? '' : 'developer' }}')"
+        >
+            <div class="flex items-center gap-2">
+                <flux:icon name="building-library" class="size-4 {{ $quickFilter === 'developer' ? 'text-green-500' : 'text-zinc-400' }}" />
+                <flux:text size="sm" class="{{ $quickFilter === 'developer' ? 'text-green-600 dark:text-green-400' : 'text-zinc-500' }}">{{ __('Developers') }}</flux:text>
+            </div>
+            <flux:heading size="lg" class="text-green-600">{{ $this->filterStats['developer'] }}</flux:heading>
+        </flux:card>
+        <flux:card
+            class="p-3 cursor-pointer transition-colors {{ $quickFilter === 'high_volume' ? 'ring-2 ring-amber-400 bg-amber-50 dark:bg-amber-900/20' : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/50' }}"
+            wire:click="$set('quickFilter', '{{ $quickFilter === 'high_volume' ? '' : 'high_volume' }}')"
+        >
+            <div class="flex items-center gap-2">
+                <flux:icon name="chart-bar" class="size-4 {{ $quickFilter === 'high_volume' ? 'text-amber-500' : 'text-zinc-400' }}" />
+                <flux:text size="sm" class="{{ $quickFilter === 'high_volume' ? 'text-amber-600 dark:text-amber-400' : 'text-zinc-500' }}">{{ __('High Volume') }}</flux:text>
+            </div>
+            <flux:heading size="lg" class="{{ $this->filterStats['high_volume'] > 0 ? 'text-amber-600' : '' }}">{{ $this->filterStats['high_volume'] }}</flux:heading>
+        </flux:card>
+        <flux:card
+            class="p-3 cursor-pointer transition-colors {{ $quickFilter === 'with_contact' ? 'ring-2 ring-cyan-400 bg-cyan-50 dark:bg-cyan-900/20' : 'hover:bg-zinc-50 dark:hover:bg-zinc-800/50' }}"
+            wire:click="$set('quickFilter', '{{ $quickFilter === 'with_contact' ? '' : 'with_contact' }}')"
+        >
+            <div class="flex items-center gap-2">
+                <flux:icon name="phone" class="size-4 {{ $quickFilter === 'with_contact' ? 'text-cyan-500' : 'text-zinc-400' }}" />
+                <flux:text size="sm" class="{{ $quickFilter === 'with_contact' ? 'text-cyan-600 dark:text-cyan-400' : 'text-zinc-500' }}">{{ __('With Contact') }}</flux:text>
+            </div>
+            <flux:heading size="lg" class="{{ $quickFilter === 'with_contact' ? 'text-cyan-600' : '' }}">{{ $this->filterStats['with_contact'] }}</flux:heading>
         </flux:card>
     </div>
 
     {{-- Filters --}}
-    <div class="flex flex-col gap-4 sm:flex-row sm:items-center">
-        <div class="flex-1">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:flex-wrap">
+        <div class="flex-1 min-w-[200px]">
             <flux:input
                 wire:model.live.debounce.300ms="search"
                 icon="magnifying-glass"
@@ -43,14 +84,24 @@
                 <flux:select.option value="{{ $publisherType->value }}">{{ $publisherType->label() }}</flux:select.option>
             @endforeach
         </flux:select>
+        <div class="flex items-center gap-1">
+            <flux:text size="sm" class="text-zinc-500 whitespace-nowrap">{{ __('Min Listings:') }}</flux:text>
+            <flux:input
+                wire:model.live.debounce.500ms="listingsMin"
+                type="number"
+                min="0"
+                placeholder="{{ __('Any') }}"
+                class="w-20"
+            />
+        </div>
         <flux:select wire:model.live="sortBy" class="w-44">
             <flux:select.option value="name">{{ __('Name A-Z') }}</flux:select.option>
             <flux:select.option value="newest">{{ __('Newest First') }}</flux:select.option>
             <flux:select.option value="most_properties">{{ __('Most Properties') }}</flux:select.option>
             <flux:select.option value="most_listings">{{ __('Most Listings') }}</flux:select.option>
         </flux:select>
-        @if ($search || $type)
-            <flux:button wire:click="clearFilters" size="sm" variant="ghost" icon="x-mark">
+        @if ($search || $type || $quickFilter || $listingsMin)
+            <flux:button wire:click="clearFilters" size="sm" variant="ghost" icon="x-mark" aria-label="{{ __('Clear all filters') }}">
                 {{ __('Clear') }}
             </flux:button>
         @endif

@@ -27,6 +27,12 @@ class Index extends Component
     #[Url]
     public string $sortBy = 'name';
 
+    #[Url]
+    public string $quickFilter = '';
+
+    #[Url]
+    public ?int $listingsMin = null;
+
     public function updatedSearch(): void
     {
         $this->resetPage();
@@ -42,23 +48,37 @@ class Index extends Component
         $this->resetPage();
     }
 
+    public function updatedQuickFilter(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedListingsMin(): void
+    {
+        $this->resetPage();
+    }
+
     public function clearFilters(): void
     {
-        $this->reset(['search', 'type']);
+        $this->reset(['search', 'type', 'quickFilter', 'listingsMin']);
         $this->resetPage();
     }
 
     /**
-     * @return array{total: int, individual: int, agency: int, developer: int}
+     * Get filter stats for clickable filter cards.
+     *
+     * @return array{total: int, individual: int, agency: int, developer: int, high_volume: int, with_contact: int}
      */
     #[Computed]
-    public function stats(): array
+    public function filterStats(): array
     {
         return [
             'total' => Publisher::count(),
             'individual' => Publisher::where('type', PublisherType::Individual)->count(),
             'agency' => Publisher::where('type', PublisherType::Agency)->count(),
             'developer' => Publisher::where('type', PublisherType::Developer)->count(),
+            'high_volume' => Publisher::withCount('listings')->having('listings_count', '>=', 10)->count(),
+            'with_contact' => Publisher::where(fn ($q) => $q->whereNotNull('phone')->orWhereNotNull('email'))->count(),
         ];
     }
 
@@ -77,10 +97,30 @@ class Index extends Component
                 });
             })
             ->when($this->type, fn ($query) => $query->where('type', $this->type))
+            ->when($this->listingsMin !== null, fn ($query) => $query->having('listings_count', '>=', $this->listingsMin))
+            ->when($this->quickFilter, fn ($query) => $this->applyQuickFilter($query, $this->quickFilter))
             ->when($this->sortBy === 'name', fn ($query) => $query->orderBy('name'))
             ->when($this->sortBy === 'newest', fn ($query) => $query->latest())
             ->when($this->sortBy === 'most_properties', fn ($query) => $query->orderByDesc('properties_count'))
             ->when($this->sortBy === 'most_listings', fn ($query) => $query->orderByDesc('listings_count'));
+    }
+
+    /**
+     * Apply quick filter to query.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<Publisher>  $query
+     * @return \Illuminate\Database\Eloquent\Builder<Publisher>
+     */
+    protected function applyQuickFilter($query, string $filter)
+    {
+        return match ($filter) {
+            'individual' => $query->where('type', PublisherType::Individual),
+            'agency' => $query->where('type', PublisherType::Agency),
+            'developer' => $query->where('type', PublisherType::Developer),
+            'high_volume' => $query->having('listings_count', '>=', 10),
+            'with_contact' => $query->where(fn ($q) => $q->whereNotNull('phone')->orWhereNotNull('email')),
+            default => $query,
+        };
     }
 
     public function render(): View
