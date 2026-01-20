@@ -78,6 +78,13 @@ class Inmuebles24ListingParser implements ListingParserInterface
 
         // Parse description for additional data (do this early so we can use it for operations)
         $description = $this->cleanDescription($extracted['description'] ?? '');
+
+        // Fallback: extract from raw HTML if CSS extraction returned empty
+        // (ZenRows CSS extractor has content length limits)
+        if (empty($description)) {
+            $description = $this->extractDescriptionFromHtml($rawHtml);
+        }
+
         $descriptionData = $this->parseDescription($description, $extracted['title'] ?? '');
 
         // Build operations array (price/rent info) - pass description to check for maintenance included
@@ -1098,6 +1105,51 @@ class Inmuebles24ListingParser implements ListingParserInterface
         $description = preg_replace('/Leer descripci[óo]n completa/i', '', $description);
 
         return trim($description) ?: null;
+    }
+
+    /**
+     * Extract description from raw HTML when CSS extraction fails.
+     * This handles cases where ZenRows CSS extractor hits content length limits.
+     */
+    protected function extractDescriptionFromHtml(string $html): ?string
+    {
+        // Try section-description class (ZenRows often returns this instead of longDescription)
+        if (preg_match('/<div[^>]*class="section-description"[^>]*>(.*?)<\/div>/si', $html, $matches)) {
+            $content = strip_tags($matches[1]);
+            $cleaned = $this->cleanDescription($content);
+            if ($cleaned) {
+                return $cleaned;
+            }
+        }
+
+        // Try #reactDescription container with nested section-description
+        if (preg_match('/<div[^>]*id="reactDescription"[^>]*>.*?<div[^>]*class="section-description"[^>]*>(.*?)<\/div>/si', $html, $matches)) {
+            $content = strip_tags($matches[1]);
+            $cleaned = $this->cleanDescription($content);
+            if ($cleaned) {
+                return $cleaned;
+            }
+        }
+
+        // Try description-module wrapper class (inner content div)
+        if (preg_match('/<div[^>]*class="[^"]*description-module__wrapper-description[^"]*"[^>]*>(.*?)<\/div>/si', $html, $matches)) {
+            $content = strip_tags($matches[1]);
+            $cleaned = $this->cleanDescription($content);
+            if ($cleaned) {
+                return $cleaned;
+            }
+        }
+
+        // Try #longDescription container - need to extract the nested content
+        if (preg_match('/<div[^>]*id="longDescription"[^>]*>.*?<div[^>]*>(.*?)<\/div>/si', $html, $matches)) {
+            $content = strip_tags($matches[1]);
+            $cleaned = $this->cleanDescription($content);
+            if ($cleaned) {
+                return $cleaned;
+            }
+        }
+
+        return null;
     }
 
     /**

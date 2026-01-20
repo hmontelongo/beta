@@ -8,6 +8,7 @@ use App\Services\ScraperService;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
 use Illuminate\Support\Facades\Log;
+use Throwable;
 
 class RescrapeListingJob implements ShouldQueue
 {
@@ -48,22 +49,29 @@ class RescrapeListingJob implements ShouldQueue
                 $listing->property->markForReanalysis();
             }
 
-            $listing->update([
+            $updateData = [
                 'operations' => $data['operations'] ?? [],
                 'external_codes' => $data['external_codes'] ?? null,
                 'raw_data' => $data,
                 'data_quality' => $data['data_quality'] ?? null,
                 'scraped_at' => now(),
-                // Reset dedup status and clear group membership since raw_data changed
-                'dedup_status' => DedupStatus::Pending,
-                'dedup_checked_at' => null,
-                'listing_group_id' => null,
-                'is_primary_in_group' => false,
-            ]);
+            ];
+
+            // Only reset dedup if listing doesn't have a property
+            // (listings with properties stay completed - property will be re-analyzed instead)
+            if (! $listing->property_id) {
+                $updateData['dedup_status'] = DedupStatus::Pending;
+                $updateData['dedup_checked_at'] = null;
+                $updateData['listing_group_id'] = null;
+                $updateData['is_primary_in_group'] = false;
+            }
+
+            $listing->update($updateData);
 
             Log::info('Re-scrape completed', [
                 'listing_id' => $listing->id,
                 'images_count' => count($data['images'] ?? []),
+                'has_property' => (bool) $listing->property_id,
             ]);
         } catch (\Throwable $e) {
             Log::error('Re-scrape failed', [
@@ -74,5 +82,13 @@ class RescrapeListingJob implements ShouldQueue
 
             throw $e;
         }
+    }
+
+    public function failed(?Throwable $exception): void
+    {
+        Log::error('RescrapeListingJob failed permanently', [
+            'listing_id' => $this->listingId,
+            'error' => $exception?->getMessage(),
+        ]);
     }
 }

@@ -144,3 +144,21 @@ it('has timeout and retry configuration', function () {
         ->and($job->maxExceptions)->toBe(5)
         ->and($job->retryUntil())->toBeInstanceOf(\DateTime::class);
 });
+
+it('deletes orphaned groups with no listings', function () {
+    // Create a group with no listings (orphaned state from re-scraping)
+    $group = ListingGroup::factory()->pendingAi()->create();
+    $groupId = $group->id;
+
+    // Ensure no listings are attached
+    expect($group->listings()->count())->toBe(0);
+
+    $mockService = Mockery::mock(PropertyCreationService::class);
+    $mockService->shouldNotReceive('createPropertyFromGroup');
+
+    $job = new CreatePropertyFromListingsJob($groupId);
+    $job->handle($mockService);
+
+    // Group should be deleted
+    expect(ListingGroup::find($groupId))->toBeNull();
+});

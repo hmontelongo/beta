@@ -339,7 +339,19 @@ class DeduplicationService
         DB::transaction(function () use ($group, $reason) {
             $listingIds = $group->listings()->pluck('id')->toArray();
 
+            // Mark candidates between group listings as confirmed different
             $this->markCandidatesAsConfirmedDifferent($listingIds, $listingIds);
+
+            // If this group was matching against an existing property,
+            // mark candidates against ALL that property's listings as confirmed different
+            // (prevents the same listing from matching a different listing of the same property)
+            if ($group->matched_property_id) {
+                $propertyListingIds = Listing::where('property_id', $group->matched_property_id)
+                    ->pluck('id')
+                    ->toArray();
+                $this->markCandidatesAsConfirmedDifferent($listingIds, $propertyListingIds);
+            }
+
             $this->resetListingsToPending($listingIds);
 
             $group->reject($reason);
@@ -348,6 +360,7 @@ class DeduplicationService
         Log::info('Listing group rejected', [
             'listing_group_id' => $group->id,
             'reason' => $reason,
+            'matched_property_id' => $group->matched_property_id,
         ]);
     }
 

@@ -442,6 +442,76 @@ it('creates review group with matched_property_id when matching completed group'
         ->and($completedGroup->property_id)->toBe($property->id);
 });
 
+it('rejects group with matched_property_id and marks all property listings as different', function () {
+    // Create a property with multiple listings
+    $property = Property::factory()->create();
+    $completedGroup = ListingGroup::factory()->completed()->create([
+        'property_id' => $property->id,
+    ]);
+
+    $propertyListing1 = Listing::factory()->create([
+        'platform_id' => $this->platform->id,
+        'property_id' => $property->id,
+        'dedup_status' => DedupStatus::Completed,
+        'listing_group_id' => $completedGroup->id,
+        'is_primary_in_group' => true,
+    ]);
+    $propertyListing2 = Listing::factory()->create([
+        'platform_id' => $this->platform->id,
+        'property_id' => $property->id,
+        'dedup_status' => DedupStatus::Completed,
+        'listing_group_id' => $completedGroup->id,
+        'is_primary_in_group' => false,
+    ]);
+
+    // Create a review group with a listing that's being matched against the property
+    $reviewGroup = ListingGroup::factory()->pendingReview()->create([
+        'match_score' => 0.75,
+        'matched_property_id' => $property->id,
+    ]);
+
+    $newListing = Listing::factory()->unmatched()->create([
+        'platform_id' => $this->platform->id,
+        'dedup_status' => DedupStatus::Grouped,
+        'listing_group_id' => $reviewGroup->id,
+        'is_primary_in_group' => true,
+    ]);
+
+    // Create candidates between the new listing and both property listings
+    DedupCandidate::create([
+        'listing_a_id' => $propertyListing1->id,
+        'listing_b_id' => $newListing->id,
+        'status' => DedupCandidateStatus::NeedsReview,
+        'overall_score' => 0.75,
+    ]);
+    DedupCandidate::create([
+        'listing_a_id' => $propertyListing2->id,
+        'listing_b_id' => $newListing->id,
+        'status' => DedupCandidateStatus::NeedsReview,
+        'overall_score' => 0.73,
+    ]);
+
+    $mockMatcher = Mockery::mock(CandidateMatcherService::class);
+    $service = new DeduplicationService($mockMatcher);
+    $service->rejectGroup($reviewGroup, 'Not the same property');
+
+    // Both candidates should be marked as confirmed different
+    $candidate1 = DedupCandidate::where('listing_a_id', $propertyListing1->id)
+        ->where('listing_b_id', $newListing->id)
+        ->first();
+    $candidate2 = DedupCandidate::where('listing_a_id', $propertyListing2->id)
+        ->where('listing_b_id', $newListing->id)
+        ->first();
+
+    expect($candidate1->status)->toBe(DedupCandidateStatus::ConfirmedDifferent)
+        ->and($candidate2->status)->toBe(DedupCandidateStatus::ConfirmedDifferent);
+
+    // The new listing should be reset to pending
+    $newListing->refresh();
+    expect($newListing->dedup_status)->toBe(DedupStatus::Pending)
+        ->and($newListing->listing_group_id)->toBeNull();
+});
+
 it('returns correct stats', function () {
     // Create listings in various states
     Listing::factory()->unmatched()->count(3)->create([

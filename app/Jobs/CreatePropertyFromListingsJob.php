@@ -105,6 +105,16 @@ class CreatePropertyFromListingsJob implements ShouldBeUnique, ShouldQueue
             return;
         }
 
+        // Delete orphaned groups (no listings attached - can happen after re-scraping)
+        if ($group->listings()->count() === 0) {
+            Log::warning('CreatePropertyFromListingsJob: Deleting orphaned group with no listings', [
+                'listing_group_id' => $this->listingGroupId,
+            ]);
+            $group->delete();
+
+            return;
+        }
+
         $propertyCreationService->createPropertyFromGroup($group);
     }
 

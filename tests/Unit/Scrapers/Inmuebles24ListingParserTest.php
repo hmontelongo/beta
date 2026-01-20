@@ -357,3 +357,67 @@ it('extracts explicit maintenance fee', function () {
 
     expect($result['operations'][0]['maintenance_fee'])->toBe(2500);
 });
+
+it('extracts description from raw HTML when CSS extraction returns empty', function () {
+    // Simulates ZenRows CSS extractor returning empty for long descriptions
+    $extracted = [
+        'title' => 'Loft Amueblado',
+        'description' => '', // Empty - CSS extraction failed due to content length limit
+    ];
+
+    $longDescription = '¿Y si tu privacidad fuera tu nuevo roomie? Loft amueblado Frente a la UP en Ciudad Granja. Ciudad 901 es un proyecto de comunidad disruptiva.';
+
+    $rawHtml = '
+        <script>
+        window.dataLayer = [{"price": "12000", "operationTypeId": "2"}];
+        </script>
+        <div id="longDescription">
+            <div class="description-module__wrapper-description___2rEoY">'.$longDescription.'</div>
+        </div>
+    ';
+
+    $result = $this->parser->parse($extracted, $rawHtml, 'https://www.inmuebles24.com/propiedades/loft-123456.html');
+
+    expect($result['description'])->toBe($longDescription);
+});
+
+it('uses CSS extracted description when available over raw HTML', function () {
+    $extracted = [
+        'title' => 'Test Departamento',
+        'description' => 'CSS extracted description.',
+    ];
+
+    $rawHtml = '
+        <div id="longDescription">
+            <div class="description-module__wrapper-description___2rEoY">Different description from HTML.</div>
+        </div>
+    ';
+
+    $result = $this->parser->parse($extracted, $rawHtml, 'https://www.inmuebles24.com/propiedades/test-123456.html');
+
+    // Should use the CSS extracted description, not fallback to raw HTML
+    expect($result['description'])->toBe('CSS extracted description.');
+});
+
+it('extracts description from section-description class in raw HTML', function () {
+    // This is the actual structure ZenRows returns for long descriptions
+    $extracted = [
+        'title' => 'Loft Amueblado',
+        'description' => '', // Empty - CSS extraction failed
+    ];
+
+    $longDescription = '¿Y si tu privacidad fuera tu nuevo roomie? Loft amueblado. Ciudad 901 es un proyecto de comunidad co-living.';
+
+    $rawHtml = '
+        <script>
+        window.dataLayer = [{"price": "12000", "operationTypeId": "2"}];
+        </script>
+        <div id="reactDescription">
+            <div class="section-description">'.$longDescription.'</div>
+        </div>
+    ';
+
+    $result = $this->parser->parse($extracted, $rawHtml, 'https://www.inmuebles24.com/propiedades/loft-123456.html');
+
+    expect($result['description'])->toBe($longDescription);
+});
