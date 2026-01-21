@@ -43,6 +43,16 @@ class DeduplicationService
             return;
         }
 
+        // Skip if already in a group (awaiting human review or AI processing)
+        if ($listing->listing_group_id) {
+            Log::debug('Listing already in a group', [
+                'listing_id' => $listing->id,
+                'listing_group_id' => $listing->listing_group_id,
+            ]);
+
+            return;
+        }
+
         // If listing already has a property and that property needs reanalysis,
         // it will be handled by ProcessPropertyCreationBatchJob
         if ($listing->property_id) {
@@ -147,14 +157,26 @@ class DeduplicationService
                 : $candidate->listing_a_id;
 
             // Lock both listings in consistent order (lower ID first) to prevent deadlocks
+            // Use the locked rows directly to ensure we have the latest state
             $lockIds = [$listing->id, $matchedListingId];
             sort($lockIds);
-            Listing::whereIn('id', $lockIds)->lockForUpdate()->get();
+            $lockedListings = Listing::whereIn('id', $lockIds)->lockForUpdate()->get()->keyBy('id');
 
-            $matchedListing = Listing::find($matchedListingId);
+            $matchedListing = $lockedListings->get($matchedListingId);
+            $currentListing = $lockedListings->get($listing->id);
 
             if (! $matchedListing) {
                 Log::warning('Matched listing not found', ['listing_id' => $matchedListingId]);
+
+                return;
+            }
+
+            // Re-check if current listing was already grouped by another worker
+            if ($currentListing->listing_group_id) {
+                Log::debug('Listing already grouped by another worker', [
+                    'listing_id' => $listing->id,
+                    'listing_group_id' => $currentListing->listing_group_id,
+                ]);
 
                 return;
             }
@@ -260,11 +282,23 @@ class DeduplicationService
                 : $candidate->listing_a_id;
 
             // Lock both listings in consistent order (lower ID first) to prevent deadlocks
+            // Use the locked rows directly to ensure we have the latest state
             $lockIds = [$listing->id, $matchedListingId];
             sort($lockIds);
-            Listing::whereIn('id', $lockIds)->lockForUpdate()->get();
+            $lockedListings = Listing::whereIn('id', $lockIds)->lockForUpdate()->get()->keyBy('id');
 
-            $matchedListing = Listing::find($matchedListingId);
+            $matchedListing = $lockedListings->get($matchedListingId);
+            $currentListing = $lockedListings->get($listing->id);
+
+            // Re-check if current listing was already grouped by another worker
+            if ($currentListing->listing_group_id) {
+                Log::debug('Listing already grouped by another worker', [
+                    'listing_id' => $listing->id,
+                    'listing_group_id' => $currentListing->listing_group_id,
+                ]);
+
+                return;
+            }
 
             $existingGroup = $matchedListing->listing_group_id
                 ? ListingGroup::lockForUpdate()->find($matchedListing->listing_group_id)
