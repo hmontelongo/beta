@@ -72,6 +72,9 @@ class VivanunciosConfig implements ScraperConfigInterface
 
             // Price containers
             'price_containers' => '[class*="price"]',
+
+            // Script extraction for single-request optimization (replaces second raw HTML fetch)
+            'all_scripts' => 'script',
         ];
     }
 

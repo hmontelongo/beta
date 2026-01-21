@@ -55,28 +55,20 @@ it('can discover listings from a search page', function () {
 });
 
 it('can scrape a single listing', function () {
+    // Single request with CSS extraction + all_scripts for JS variables
     Http::fake([
-        'api.zenrows.com/*' => Http::sequence()
-            // First request: CSS extraction
-            ->push([
-                'title' => 'Hermoso Departamento',
-                'description' => 'Amplio departamento con vista.',
-                'bedrooms_text' => '3 recámaras',
-                'bathrooms_text' => '2 baños',
-                'location_header' => 'Providencia, Guadalajara, Jalisco',
-                'gallery_images' => ['https://cdn.inmuebles24.com/img/360x266/photo.jpg'],
-            ], 200)
-            // Second request: Raw HTML for JS variables
-            ->push("
-                <script>
-                window.dataLayer = [{
-                    'price': '1500000',
-                    'currencyId': '10',
-                    'operationTypeId': '1',
-                    'propertyTypeId': '2'
-                }];
-                </script>
-            ", 200),
+        'api.zenrows.com/*' => Http::response([
+            'title' => 'Hermoso Departamento',
+            'description' => 'Amplio departamento con vista.',
+            'bedrooms_text' => '3 recámaras',
+            'bathrooms_text' => '2 baños',
+            'location_header' => 'Providencia, Guadalajara, Jalisco',
+            'gallery_images' => ['https://cdn.inmuebles24.com/img/360x266/photo.jpg'],
+            // all_scripts contains the dataLayer script for JS variable extraction
+            'all_scripts' => [
+                "window.dataLayer = [{'price': '1500000', 'currencyId': '10', 'operationTypeId': '1', 'propertyTypeId': '2'}];",
+            ],
+        ], 200),
     ]);
 
     $service = app(ScraperService::class);

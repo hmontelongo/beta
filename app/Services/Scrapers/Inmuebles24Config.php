@@ -79,6 +79,9 @@ class Inmuebles24Config implements ScraperConfigInterface
             // Price containers for dual operations
             'price_containers' => '[data-qa="POSTING_CARD_PRICE"], [class*="price-value"]',
             'operation_tags' => '[data-qa="POSTING_CARD_FEATURES"] span, [class*="operation-type"]',
+
+            // Script extraction for single-request optimization (replaces second raw HTML fetch)
+            'all_scripts' => 'script',
         ];
     }
 

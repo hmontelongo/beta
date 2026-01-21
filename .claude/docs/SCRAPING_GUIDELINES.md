@@ -736,3 +736,151 @@ Often hidden in nested structures:
 2. Meta tags (`ICBM`, `geo.position`)
 3. Regex patterns in HTML
 4. Always validate bounds (Mexico: 14-33°N, -118 to -86°W)
+
+---
+
+## Single-Request Optimization
+
+### Overview
+
+Previously, scraping a listing required **two ZenRows API calls**:
+1. CSS extraction for structured HTML data
+2. Raw HTML fetch for JavaScript variable extraction (dataLayer, `__NEXT_DATA__`, etc.)
+
+The single-request optimization reduces this to **one request**, cutting ZenRows costs by 50%.
+
+### How It Works
+
+1. **CSS extraction includes `all_scripts` selector** - Extracts text content of all `<script>` tags
+2. **ScraperService builds synthetic HTML** - Reconstructs minimal HTML from extracted scripts
+3. **Parsers work unchanged** - They receive the synthetic HTML and extract JS variables via regex as before
+
+### Implementation Details
+
+**Config Changes (each platform's `listingExtractor()`):**
+```php
+public function listingExtractor(): array
+{
+    return [
+        // ... existing selectors ...
+
+        // Script extraction for single-request optimization
+        'all_scripts' => 'script',
+
+        // For Next.js sites only (propiedades.com):
+        'next_data' => 'script#__NEXT_DATA__',
+    ];
+}
+```
+
+**ScraperService Changes:**
+```php
+public function scrapeListing(string $url): array
+{
+    // Single request with CSS extraction (includes all_scripts)
+    $extracted = $this->zenRows->fetchListingPage($url, $config->listingExtractor(), ...);
+
+    // Build synthetic HTML from extracted scripts
+    $syntheticHtml = $this->buildSyntheticHtml($extracted);
+
+    return $listingParser->parse($extracted, $syntheticHtml, $url);
+}
+
+protected function buildSyntheticHtml(array $extracted): string
+{
+    $html = '';
+
+    // Add __NEXT_DATA__ if present (Next.js sites)
+    if (!empty($extracted['next_data'])) {
+        $html .= '<script id="__NEXT_DATA__">' . $extracted['next_data'] . '</script>';
+    }
+
+    // Add all scripts (for dataLayer, JSON-LD, JS variables)
+    foreach ($extracted['all_scripts'] ?? [] as $script) {
+        // Detect and tag JSON-LD scripts
+        if (str_starts_with(trim($script), '{') && str_contains($script, '@type')) {
+            $html .= '<script type="application/ld+json">' . $script . '</script>';
+        } else {
+            $html .= '<script>' . $script . '</script>';
+        }
+    }
+
+    // Add meta tags for coordinates
+    if (!empty($extracted['meta_icbm'])) {
+        $html .= '<meta name="ICBM" content="' . $extracted['meta_icbm'] . '">';
+    }
+
+    return $html;
+}
+```
+
+### Key Findings During Implementation
+
+1. **`script#__NEXT_DATA__` selector works** - Returns the full JSON content (Next.js sites)
+2. **`script[type="application/ld+json"]` does NOT work reliably** - ZenRows returns empty
+3. **`script` (all scripts) works** - Returns array of all script contents
+4. **JSON-LD must be filtered client-side** - Check for `{` start and `@type` content
+
+### Reverting to Two-Request Approach
+
+If needed, to revert to the original two-request approach:
+
+1. **Remove from configs:** Delete `all_scripts` and `next_data` from `listingExtractor()`
+
+2. **Restore ScraperService:**
+```php
+public function scrapeListing(string $url): array
+{
+    $extracted = $this->zenRows->fetchListingPage($url, ...);
+
+    // Second request for raw HTML
+    $rawHtml = $this->zenRows->fetchRawHtml($url, $config->zenrowsOptions());
+
+    return $listingParser->parse($extracted, $rawHtml, $url);
+}
+```
+
+3. **Remove `buildSyntheticHtml()` method**
+
+---
+
+## Platform Seeder Requirement
+
+When adding a new scraper, you MUST add the platform to the seeder.
+
+**Location:** `database/seeders/PlatformSeeder.php`
+
+```php
+$platforms = [
+    // ... existing platforms ...
+    [
+        'name' => 'newplatform',
+        'slug' => 'newplatform',
+        'base_url' => 'https://www.newplatform.com',
+    ],
+];
+```
+
+**Run the seeder:**
+```bash
+php artisan db:seed --class=PlatformSeeder
+```
+
+Without this, `ScraperFactory::detectPlatformFromUrl()` will throw "Platform not found" errors.
+
+---
+
+## New Scraper Checklist
+
+When implementing a new scraper:
+
+- [ ] Create `{Platform}Config.php` with all required methods
+- [ ] Create `{Platform}SearchParser.php`
+- [ ] Create `{Platform}ListingParser.php`
+- [ ] Register in `ScraperFactory.php` (4 methods: createConfig, createSearchParser, createListingParser, detectPlatformFromUrl)
+- [ ] Add platform to `PlatformSeeder.php`
+- [ ] Run `php artisan db:seed --class=PlatformSeeder`
+- [ ] Add unit tests for search and listing parsers
+- [ ] Test with real ZenRows requests (not just mocked data)
+- [ ] Document any platform-specific quirks in this file
+- [ ] Verify `zenrowsOptions()` includes necessary parameters (e.g., `proxy_country` for geo-restricted sites)

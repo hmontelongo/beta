@@ -71,6 +71,12 @@ class PropiedadesConfig implements ScraperConfigInterface
             'meta_icbm' => 'meta[name="ICBM"] @content',
             'meta_geo_position' => 'meta[name="geo.position"] @content',
             'meta_geo_region' => 'meta[name="geo.region"] @content',
+
+            // Script extraction for single-request optimization (replaces second raw HTML fetch)
+            // next_data: specific selector for Next.js __NEXT_DATA__ (works reliably)
+            // all_scripts: fallback for JSON-LD (script[type=...] selector unreliable in ZenRows)
+            'next_data' => 'script#__NEXT_DATA__',
+            'all_scripts' => 'script',
         ];
     }
 

@@ -33,6 +33,11 @@ class PlatformSeeder extends Seeder
                 'slug' => 'easybroker',
                 'base_url' => 'https://www.easybroker.com',
             ],
+            [
+                'name' => 'propiedades',
+                'slug' => 'propiedades',
+                'base_url' => 'https://propiedades.com',
+            ],
         ];
 
         foreach ($platforms as $platform) {
