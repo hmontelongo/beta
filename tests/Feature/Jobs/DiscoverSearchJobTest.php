@@ -25,7 +25,7 @@ it('creates a scrape job when dispatched', function () {
         ->once()
         ->andReturn([
             'total_results' => 20,
-            'total_pages' => 1,
+            'visible_pages' => [], // No additional visible pages
             'listings' => [
                 ['url' => 'https://example.com/listing/1', 'external_id' => 'abc123'],
             ],
@@ -43,8 +43,7 @@ it('creates a scrape job when dispatched', function () {
         ->and($scrapeJob->target_url)->toBe('https://example.com/search')
         ->and($scrapeJob->job_type)->toBe(ScrapeJobType::Discovery)
         ->and($scrapeJob->status)->toBe(ScrapeJobStatus::Completed)
-        ->and($scrapeJob->total_results)->toBe(20)
-        ->and($scrapeJob->total_pages)->toBe(1);
+        ->and($scrapeJob->total_results)->toBe(20);
 });
 
 it('stores discovered listings', function () {
@@ -54,7 +53,7 @@ it('stores discovered listings', function () {
     $mockService->shouldReceive('discoverPage')
         ->andReturn([
             'total_results' => 40,
-            'total_pages' => 2,
+            'visible_pages' => [2], // Page 2 is visible
             'listings' => [
                 ['url' => 'https://example.com/listing/1', 'external_id' => 'abc123'],
                 ['url' => 'https://example.com/listing/2', 'external_id' => 'def456'],
@@ -79,7 +78,7 @@ it('dispatches page jobs for additional pages', function () {
     $mockService->shouldReceive('discoverPage')
         ->andReturn([
             'total_results' => 100,
-            'total_pages' => 5,
+            'visible_pages' => [2, 3, 4, 5], // Visible pages from pagination (excluding page 1)
             'listings' => [
                 ['url' => 'https://example.com/listing/1', 'external_id' => 'abc123'],
             ],
@@ -91,11 +90,12 @@ it('dispatches page jobs for additional pages', function () {
     Queue::assertPushed(DiscoverPageJob::class, 4);
 
     Queue::assertPushed(DiscoverPageJob::class, function ($job) {
-        return $job->pageNumber === 2;
+        return $job->pageNumber === 2 && $job->isScout === false;
     });
 
+    // Page 5 should be the scout (last visible page)
     Queue::assertPushed(DiscoverPageJob::class, function ($job) {
-        return $job->pageNumber === 5;
+        return $job->pageNumber === 5 && $job->isScout === true;
     });
 });
 
@@ -106,7 +106,7 @@ it('does not dispatch page jobs for single page results', function () {
     $mockService->shouldReceive('discoverPage')
         ->andReturn([
             'total_results' => 10,
-            'total_pages' => 1,
+            'visible_pages' => [], // No additional pages visible
             'listings' => [
                 ['url' => 'https://example.com/listing/1', 'external_id' => 'abc123'],
             ],
@@ -150,7 +150,7 @@ it('skips duplicates when storing listings', function () {
     $mockService->shouldReceive('discoverPage')
         ->andReturn([
             'total_results' => 20,
-            'total_pages' => 1,
+            'visible_pages' => [],
             'listings' => [
                 ['url' => 'https://example.com/listing/1', 'external_id' => 'abc123'],
                 ['url' => 'https://example.com/listing/2', 'external_id' => 'def456'],
@@ -170,7 +170,7 @@ it('stores batch id with discovered listings', function () {
     $mockService->shouldReceive('discoverPage')
         ->andReturn([
             'total_results' => 20,
-            'total_pages' => 1,
+            'visible_pages' => [],
             'listings' => [
                 ['url' => 'https://example.com/listing/1', 'external_id' => 'abc123'],
             ],

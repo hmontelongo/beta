@@ -14,7 +14,7 @@ class PropiedadesSearchParser implements SearchParserInterface
      *
      * @param  array<string, mixed>  $extracted  Data from ZenRows css_extractor
      * @param  string  $baseUrl  Base URL for resolving relative links
-     * @return array{total_results: int|null, total_pages: int|null, listings: array<array{url: string, external_id: string|null, preview: array}>}
+     * @return array{total_results: int|null, visible_pages: array<int>, listings: array<array{url: string, external_id: string|null, preview: array}>}
      */
     public function parse(array $extracted, string $baseUrl): array
     {
@@ -75,14 +75,14 @@ class PropiedadesSearchParser implements SearchParserInterface
 
         $totalResults = $this->parseTotalResults($h1Title) ?: $this->parseTotalResults($pageTitle);
 
-        // Parse total pages from pagination
+        // Parse visible pages from pagination
         $paginationLinks = $this->toArray($extracted['pagination_links'] ?? []);
         $paginationNumbers = $this->toArray($extracted['pagination_numbers'] ?? []);
-        $totalPages = $this->parseTotalPages($paginationLinks, $paginationNumbers, $totalResults);
+        $visiblePages = $this->parseVisiblePages($paginationLinks, $paginationNumbers);
 
         return [
             'total_results' => $totalResults,
-            'total_pages' => $totalPages,
+            'visible_pages' => $visiblePages,
             'listings' => $listings,
         ];
     }
@@ -165,44 +165,36 @@ class PropiedadesSearchParser implements SearchParserInterface
     }
 
     /**
-     * Parse total pages from pagination links and numbers.
+     * Extract visible page numbers from pagination UI.
+     * Returns array of page numbers that are clickable/visible.
      *
      * @param  array<string>  $paginationLinks  Pagination link URLs
      * @param  array<string>  $paginationNumbers  Pagination number texts
+     * @return array<int>
      */
-    protected function parseTotalPages(array $paginationLinks, array $paginationNumbers, ?int $totalResults): int
+    protected function parseVisiblePages(array $paginationLinks, array $paginationNumbers): array
     {
-        $maxPage = 1;
+        $pages = [];
 
         // Parse page numbers from pagination links (?pagina=N)
         foreach ($paginationLinks as $link) {
             if (preg_match('/[?&]pagina=(\d+)/', $link, $matches)) {
-                $pageNum = (int) $matches[1];
-                if ($pageNum > $maxPage) {
-                    $maxPage = $pageNum;
-                }
+                $pages[] = (int) $matches[1];
             }
         }
 
         // Parse from pagination number elements
         foreach ($paginationNumbers as $number) {
             if (is_numeric(trim($number))) {
-                $pageNum = (int) trim($number);
-                if ($pageNum > $maxPage) {
-                    $maxPage = $pageNum;
-                }
+                $pages[] = (int) trim($number);
             }
         }
 
-        // Calculate from total results (propiedades.com shows ~48 per page based on initial analysis)
-        if ($totalResults !== null && $totalResults > 0) {
-            $calculated = (int) ceil($totalResults / 48);
-            if ($calculated > $maxPage) {
-                $maxPage = $calculated;
-            }
-        }
+        // Return unique sorted pages
+        $pages = array_unique($pages);
+        sort($pages);
 
-        return $maxPage;
+        return $pages;
     }
 
     /**

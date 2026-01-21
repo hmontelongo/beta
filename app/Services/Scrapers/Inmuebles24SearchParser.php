@@ -14,7 +14,7 @@ class Inmuebles24SearchParser implements SearchParserInterface
      *
      * @param  array<string, mixed>  $extracted  Data from ZenRows css_extractor
      * @param  string  $baseUrl  Base URL for resolving relative links
-     * @return array{total_results: int, total_pages: int, listings: array<array{url: string, external_id: string|null, preview: array}>}
+     * @return array{total_results: int, visible_pages: array<int>, listings: array<array{url: string, external_id: string|null, preview: array}>}
      */
     public function parse(array $extracted, string $baseUrl): array
     {
@@ -59,14 +59,11 @@ class Inmuebles24SearchParser implements SearchParserInterface
             $pageTitle = $pageTitle[0] ?? '';
         }
         $totalResults = $this->parseTotalResults($pageTitle);
-        $totalPages = $this->parseTotalPages(
-            $this->toArray($extracted['page_links'] ?? []),
-            $totalResults
-        );
+        $visiblePages = $this->parseVisiblePages($this->toArray($extracted['page_links'] ?? []));
 
         return [
             'total_results' => $totalResults,
-            'total_pages' => $totalPages,
+            'visible_pages' => $visiblePages,
             'listings' => $listings,
         ];
     }
@@ -112,11 +109,7 @@ class Inmuebles24SearchParser implements SearchParserInterface
      */
     protected function extractExternalId(string $url): ?string
     {
-        if (preg_match($this->config->externalIdPattern(), $url, $matches)) {
-            return $matches[1];
-        }
-
-        return null;
+        return $this->config->extractExternalId($url);
     }
 
     /**
@@ -133,34 +126,28 @@ class Inmuebles24SearchParser implements SearchParserInterface
     }
 
     /**
-     * Parse total pages from pagination links and/or total results.
+     * Extract visible page numbers from pagination UI.
+     * Returns array of page numbers that are clickable/visible.
      *
      * @param  array<string>  $pageLinks  Array of data-qa values like "PAGING_1", "PAGING_2"
+     * @return array<int>
      */
-    protected function parseTotalPages(array $pageLinks, int $totalResults): int
+    protected function parseVisiblePages(array $pageLinks): array
     {
-        $maxPage = 1;
+        $pages = [];
 
         // Parse page numbers from data-qa attributes
         foreach ($pageLinks as $link) {
             if (preg_match('/PAGING_(\d+)/', $link, $matches)) {
-                $pageNum = (int) $matches[1];
-                if ($pageNum > $maxPage) {
-                    $maxPage = $pageNum;
-                }
+                $pages[] = (int) $matches[1];
             }
         }
 
-        // Calculate from total results (Inmuebles24 shows ~30 per page)
-        // Use calculated if higher (pagination may only show first few pages)
-        if ($totalResults > 0) {
-            $calculated = (int) ceil($totalResults / 30);
-            if ($calculated > $maxPage) {
-                $maxPage = $calculated;
-            }
-        }
+        // Return unique sorted pages
+        $pages = array_unique($pages);
+        sort($pages);
 
-        return $maxPage;
+        return $pages;
     }
 
     /**

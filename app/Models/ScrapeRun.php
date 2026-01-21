@@ -34,13 +34,14 @@ class ScrapeRun extends Model
 
     public function getProgressAttribute(): int
     {
-        $pagesTotal = $this->stats['pages_total'] ?? 0;
+        $stats = $this->computeStats();
+        $pagesTotal = $stats['pages_total'] ?? 0;
 
         if ($pagesTotal === 0) {
             return 0;
         }
 
-        return (int) round(($this->stats['pages_done'] ?? 0) / $pagesTotal * 100);
+        return (int) round(($stats['pages_done'] ?? 0) / $pagesTotal * 100);
     }
 
     /**
@@ -79,11 +80,16 @@ class ScrapeRun extends Model
      * Compute accurate stats from actual records.
      * This is the single source of truth for progress tracking.
      *
+     * With the scout pattern, pages_total is computed from actual discovery jobs
+     * rather than being calculated upfront. This ensures we always have an accurate
+     * count even as scouts discover additional pages.
+     *
      * @return array{pages_total: int, pages_done: int, pages_failed: int, listings_found: int, listings_scraped: int, listings_failed: int}
      */
     public function computeStats(): array
     {
         // Discovery stats from scrape_jobs
+        // pages_total = count of all discovery jobs (grows as scouts find more pages)
         $discoveryStats = $this->scrapeJobs()
             ->where('job_type', ScrapeJobType::Discovery)
             ->selectRaw('
@@ -103,7 +109,7 @@ class ScrapeRun extends Model
             ->first();
 
         return [
-            'pages_total' => $this->stats['pages_total'] ?? ($discoveryStats->total ?? 0),
+            'pages_total' => (int) ($discoveryStats->total ?? 0),
             'pages_done' => (int) ($discoveryStats->done ?? 0),
             'pages_failed' => (int) ($discoveryStats->failed ?? 0),
             'listings_found' => (int) ($scrapingStats->total ?? 0),

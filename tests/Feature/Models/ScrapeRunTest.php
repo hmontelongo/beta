@@ -109,11 +109,9 @@ it('has many discovered listings', function () {
 });
 
 it('computes stats from actual records', function () {
-    $run = ScrapeRun::factory()->create([
-        'stats' => ['pages_total' => 5],
-    ]);
+    $run = ScrapeRun::factory()->create();
 
-    // Create discovery jobs
+    // Create discovery jobs (pages_total is now computed from discovery job count)
     ScrapeJob::factory()->forRun($run)->discovery()->completed()->count(3)->create();
     ScrapeJob::factory()->forRun($run)->discovery()->failed()->count(1)->create();
     ScrapeJob::factory()->forRun($run)->discovery()->running()->create();
@@ -135,7 +133,7 @@ it('computes stats from actual records', function () {
 
     $stats = $run->computeStats();
 
-    expect($stats['pages_total'])->toBe(5) // From JSON stats
+    expect($stats['pages_total'])->toBe(5) // Count of all discovery jobs (3 completed + 1 failed + 1 running)
         ->and($stats['pages_done'])->toBe(3) // 3 completed discovery jobs
         ->and($stats['pages_failed'])->toBe(1) // 1 failed discovery job
         ->and($stats['listings_found'])->toBe(19) // 10 + 7 + 2 total
@@ -143,17 +141,15 @@ it('computes stats from actual records', function () {
         ->and($stats['listings_failed'])->toBe(2); // 2 failed
 });
 
-it('computes pages_total from discovery jobs when not in stats', function () {
-    $run = ScrapeRun::factory()->create([
-        'stats' => [], // Empty stats
-    ]);
+it('computes pages_total from discovery jobs count', function () {
+    $run = ScrapeRun::factory()->create();
 
-    // Create 4 discovery jobs
+    // Create 4 discovery jobs - pages_total is always computed from job count
     ScrapeJob::factory()->forRun($run)->discovery()->completed()->count(4)->create();
 
     $stats = $run->computeStats();
 
-    // pages_total should fall back to count of discovery jobs
+    // pages_total is count of all discovery jobs
     expect($stats['pages_total'])->toBe(4);
 });
 
@@ -173,9 +169,7 @@ it('returns zero stats when no records exist', function () {
 });
 
 it('only counts discovery jobs for page stats not listing jobs', function () {
-    $run = ScrapeRun::factory()->create([
-        'stats' => ['pages_total' => 3],
-    ]);
+    $run = ScrapeRun::factory()->create();
 
     // Create discovery jobs
     ScrapeJob::factory()->forRun($run)->discovery()->completed()->count(2)->create();
@@ -186,5 +180,5 @@ it('only counts discovery jobs for page stats not listing jobs', function () {
     $stats = $run->computeStats();
 
     expect($stats['pages_done'])->toBe(2) // Only discovery jobs
-        ->and($stats['pages_total'])->toBe(3);
+        ->and($stats['pages_total'])->toBe(2); // Only discovery jobs count
 });

@@ -2,12 +2,11 @@
 
 namespace App\Jobs;
 
-use App\Enums\DiscoveredListingStatus;
 use App\Enums\ScrapeJobStatus;
 use App\Enums\ScrapeJobType;
 use App\Events\DiscoveryCompleted;
 use App\Jobs\Concerns\ChecksRunStatus;
-use App\Models\DiscoveredListing;
+use App\Jobs\Concerns\StoresDiscoveredListings;
 use App\Models\ScrapeJob;
 use App\Models\ScrapeRun;
 use App\Services\ScrapeOrchestrator;
@@ -19,7 +18,7 @@ use Throwable;
 
 class DiscoverPageJob implements ShouldQueue
 {
-    use ChecksRunStatus, Queueable;
+    use ChecksRunStatus, Queueable, StoresDiscoveredListings;
 
     public int $timeout = 180; // 3 minutes for browser scraping
 
@@ -40,6 +39,7 @@ class DiscoverPageJob implements ShouldQueue
         public string $searchUrl,
         public int $pageNumber,
         public ?int $scrapeRunId = null,
+        public bool $isScout = false,
     ) {
         $this->onQueue('discovery');
     }
@@ -74,17 +74,43 @@ class DiscoverPageJob implements ShouldQueue
                 'completed_at' => now(),
                 'result' => [
                     'listings_found' => count($result['listings']),
+                    'is_scout' => $this->isScout,
                 ],
             ]);
 
             if ($scrapeRun) {
-                // Stats are now computed from actual records - no incrementStat needed
+                // Scout responsibility: check for pages beyond what we've already dispatched
+                if ($this->isScout) {
+                    $visiblePages = $result['visible_pages'] ?? [];
+                    $newPages = array_filter($visiblePages, fn ($p) => $p > $this->pageNumber);
+
+                    if (! empty($newPages)) {
+                        $maxNewPage = max($newPages);
+                        foreach ($newPages as $page) {
+                            $isNewScout = ($page === $maxNewPage);
+                            self::dispatch(
+                                $this->parentJobId,
+                                $this->searchUrl,
+                                $page,
+                                $this->scrapeRunId,
+                                $isNewScout
+                            );
+                        }
+
+                        Log::info('Scout discovered new pages', [
+                            'scout_page' => $this->pageNumber,
+                            'new_pages' => array_values($newPages),
+                            'new_scout' => $maxNewPage,
+                        ]);
+                    }
+                }
 
                 // Dispatch scrape jobs for newly discovered listings immediately
-                $orchestrator->dispatchScrapeBatch($scrapeRun->fresh());
+                $scrapeRun = $scrapeRun->fresh();
+                $orchestrator->dispatchScrapeBatch($scrapeRun);
 
-                if ($orchestrator->checkDiscoveryComplete($scrapeRun->fresh())) {
-                    DiscoveryCompleted::dispatch($scrapeRun->fresh());
+                if ($orchestrator->checkDiscoveryComplete($scrapeRun)) {
+                    DiscoveryCompleted::dispatch($scrapeRun);
                 }
             }
         } catch (\Throwable $e) {
@@ -103,36 +129,6 @@ class DiscoverPageJob implements ShouldQueue
             // Stats are now computed from actual records - no incrementStat needed
 
             throw $e;
-        }
-    }
-
-    /**
-     * @param  array<array{url: string, external_id: string|null, preview?: array}>  $listings
-     */
-    protected function storeListings(int $platformId, array $listings, int $batchId): void
-    {
-        foreach ($listings as $listing) {
-            $preview = $listing['preview'] ?? [];
-
-            // Use updateOrCreate to associate existing listings with the new run
-            // This ensures re-runs properly scrape previously discovered listings
-            DiscoveredListing::updateOrCreate(
-                [
-                    'platform_id' => $platformId,
-                    'url' => $listing['url'],
-                ],
-                [
-                    'external_id' => $listing['external_id'] ?? null,
-                    'batch_id' => (string) $batchId,
-                    'scrape_run_id' => $this->scrapeRunId,
-                    'status' => DiscoveredListingStatus::Pending,
-                    'priority' => 0,
-                    'preview_title' => $preview['title'] ?? null,
-                    'preview_price' => $preview['price'] ?? null,
-                    'preview_location' => $preview['location'] ?? null,
-                    'preview_image' => $preview['image'] ?? null,
-                ]
-            );
         }
     }
 

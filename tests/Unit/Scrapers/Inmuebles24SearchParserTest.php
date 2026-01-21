@@ -38,10 +38,10 @@ it('parses search results with multiple listings', function () {
 
     expect($result)
         ->toHaveKey('total_results')
-        ->toHaveKey('total_pages')
+        ->toHaveKey('visible_pages')
         ->toHaveKey('listings')
         ->and($result['total_results'])->toBe(954)
-        ->and($result['total_pages'])->toBe(32) // ceil(954/30)
+        ->and($result['visible_pages'])->toBe([1, 2, 3]) // Visible pages from pagination
         ->and($result['listings'])->toHaveCount(2);
 
     // Check first listing
@@ -95,7 +95,7 @@ it('handles empty extraction gracefully', function () {
     $result = $this->parser->parse($extracted, 'https://www.inmuebles24.com');
 
     expect($result['total_results'])->toBe(0)
-        ->and($result['total_pages'])->toBe(1)
+        ->and($result['visible_pages'])->toBe([])
         ->and($result['listings'])->toBeEmpty();
 });
 
@@ -118,16 +118,16 @@ it('parses total results from page title', function () {
     }
 });
 
-it('calculates total pages from pagination links', function () {
+it('extracts visible pages from pagination links', function () {
     $extracted = [
         'urls' => [],
-        'page_title' => '30 Departamentos', // Would give 1 page
-        'page_links' => ['PAGING_1', 'PAGING_2', 'PAGING_5'], // But pagination shows 5
+        'page_title' => '30 Departamentos',
+        'page_links' => ['PAGING_1', 'PAGING_2', 'PAGING_5'], // Visible pages in pagination UI
     ];
 
     $result = $this->parser->parse($extracted, 'https://www.inmuebles24.com');
 
-    expect($result['total_pages'])->toBe(5);
+    expect($result['visible_pages'])->toBe([1, 2, 5]);
 });
 
 it('handles absolute URLs correctly', function () {

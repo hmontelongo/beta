@@ -23,7 +23,7 @@ it('creates a child scrape job', function () {
         ->once()
         ->andReturn([
             'total_results' => 100,
-            'total_pages' => 5,
+            'visible_pages' => [],
             'listings' => [
                 ['url' => 'https://example.com/listing/21', 'external_id' => 'abc123'],
             ],
@@ -52,7 +52,7 @@ it('stores discovered listings with parent batch id', function () {
     $mockService->shouldReceive('discoverPage')
         ->andReturn([
             'total_results' => 100,
-            'total_pages' => 5,
+            'visible_pages' => [],
             'listings' => [
                 ['url' => 'https://example.com/listing/21', 'external_id' => 'abc123'],
                 ['url' => 'https://example.com/listing/22', 'external_id' => 'def456'],
@@ -108,7 +108,7 @@ it('skips duplicate urls', function () {
     $mockService->shouldReceive('discoverPage')
         ->andReturn([
             'total_results' => 100,
-            'total_pages' => 5,
+            'visible_pages' => [],
             'listings' => [
                 ['url' => 'https://example.com/listing/21', 'external_id' => 'abc123'],
                 ['url' => 'https://example.com/listing/22', 'external_id' => 'def456'],
@@ -131,7 +131,7 @@ it('stores result with listings count', function () {
     $mockService->shouldReceive('discoverPage')
         ->andReturn([
             'total_results' => 100,
-            'total_pages' => 5,
+            'visible_pages' => [],
             'listings' => [
                 ['url' => 'https://example.com/listing/21', 'external_id' => 'abc123'],
                 ['url' => 'https://example.com/listing/22', 'external_id' => 'def456'],
@@ -157,7 +157,7 @@ it('handles nullable external_id', function () {
     $mockService->shouldReceive('discoverPage')
         ->andReturn([
             'total_results' => 100,
-            'total_pages' => 5,
+            'visible_pages' => [],
             'listings' => [
                 ['url' => 'https://example.com/listing/21', 'external_id' => null],
             ],

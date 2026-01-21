@@ -2,12 +2,11 @@
 
 namespace App\Jobs;
 
-use App\Enums\DiscoveredListingStatus;
 use App\Enums\ScrapeJobStatus;
 use App\Enums\ScrapeJobType;
 use App\Events\DiscoveryCompleted;
 use App\Jobs\Concerns\ChecksRunStatus;
-use App\Models\DiscoveredListing;
+use App\Jobs\Concerns\StoresDiscoveredListings;
 use App\Models\Platform;
 use App\Models\ScrapeJob;
 use App\Models\ScrapeRun;
@@ -20,7 +19,7 @@ use Throwable;
 
 class DiscoverSearchJob implements ShouldQueue
 {
-    use ChecksRunStatus, Queueable;
+    use ChecksRunStatus, Queueable, StoresDiscoveredListings;
 
     public int $timeout = 180; // 3 minutes for browser scraping
 
@@ -67,24 +66,38 @@ class DiscoverSearchJob implements ShouldQueue
 
             $scrapeJob->update([
                 'total_results' => $result['total_results'],
-                'total_pages' => $result['total_pages'],
                 'current_page' => 1,
             ]);
 
-            $this->storeListings($platform, $result['listings'], $scrapeJob->id);
+            $this->storeListings($platform->id, $result['listings'], $scrapeJob->id);
+
+            // Get visible pages from pagination UI (excluding page 1 which we just scraped)
+            $visiblePages = array_filter($result['visible_pages'] ?? [], fn ($p) => $p > 1);
 
             if ($scrapeRun) {
-                // Only store pages_total upfront - other stats computed from actual records
-                $orchestrator->updateStats($scrapeRun, [
-                    'pages_total' => $result['total_pages'],
-                ]);
-
                 // Start scraping page 1 listings immediately
                 $orchestrator->dispatchScrapeBatch($scrapeRun->fresh());
             }
 
-            for ($page = 2; $page <= $result['total_pages']; $page++) {
-                DiscoverPageJob::dispatch($scrapeJob->id, $this->searchUrl, $page, $this->scrapeRunId);
+            if (! empty($visiblePages)) {
+                $maxVisiblePage = max($visiblePages);
+
+                // Dispatch jobs for ALL visible pages in parallel
+                foreach ($visiblePages as $page) {
+                    $isScout = ($page === $maxVisiblePage);
+                    DiscoverPageJob::dispatch(
+                        $scrapeJob->id,
+                        $this->searchUrl,
+                        $page,
+                        $this->scrapeRunId,
+                        $isScout
+                    );
+                }
+
+                Log::info('Dispatched discovery jobs for visible pages', [
+                    'pages' => array_values($visiblePages),
+                    'scout_page' => $maxVisiblePage,
+                ]);
             }
 
             $scrapeJob->update([
@@ -92,11 +105,13 @@ class DiscoverSearchJob implements ShouldQueue
                 'completed_at' => now(),
                 'result' => [
                     'listings_found' => count($result['listings']),
-                    'pages_dispatched' => max(0, $result['total_pages'] - 1),
+                    'visible_pages' => array_values($visiblePages),
+                    'pages_dispatched' => count($visiblePages),
                 ],
             ]);
 
-            if ($scrapeRun && $result['total_pages'] <= 1) {
+            // If no more pages visible, discovery is complete
+            if ($scrapeRun && empty($visiblePages)) {
                 DiscoveryCompleted::dispatch($scrapeRun);
             }
         } catch (\Throwable $e) {
@@ -117,36 +132,6 @@ class DiscoverSearchJob implements ShouldQueue
             }
 
             throw $e;
-        }
-    }
-
-    /**
-     * @param  array<array{url: string, external_id: string|null, preview?: array}>  $listings
-     */
-    protected function storeListings(Platform $platform, array $listings, int $batchId): void
-    {
-        foreach ($listings as $listing) {
-            $preview = $listing['preview'] ?? [];
-
-            // Use updateOrCreate to associate existing listings with the new run
-            // This ensures re-runs properly scrape previously discovered listings
-            DiscoveredListing::updateOrCreate(
-                [
-                    'platform_id' => $platform->id,
-                    'url' => $listing['url'],
-                ],
-                [
-                    'external_id' => $listing['external_id'] ?? null,
-                    'batch_id' => (string) $batchId,
-                    'scrape_run_id' => $this->scrapeRunId,
-                    'status' => DiscoveredListingStatus::Pending,
-                    'priority' => 0,
-                    'preview_title' => $preview['title'] ?? null,
-                    'preview_price' => $preview['price'] ?? null,
-                    'preview_location' => $preview['location'] ?? null,
-                    'preview_image' => $preview['image'] ?? null,
-                ]
-            );
         }
     }
 

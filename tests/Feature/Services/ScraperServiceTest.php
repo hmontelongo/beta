@@ -36,10 +36,10 @@ it('can discover listings from a search page', function () {
     $result = $service->discoverPage('https://www.inmuebles24.com/departamentos-renta-jalisco.html', 1);
 
     expect($result)->toHaveKey('total_results')
-        ->and($result)->toHaveKey('total_pages')
+        ->and($result)->toHaveKey('visible_pages')
         ->and($result)->toHaveKey('listings')
         ->and($result['total_results'])->toBe(100)
-        ->and($result['total_pages'])->toBe(5) // From pagination links
+        ->and($result['visible_pages'])->toBe([1, 2, 3, 4, 5]) // Visible pages from pagination
         ->and($result['listings'])->toHaveCount(2);
 
     // Check first listing
@@ -116,7 +116,7 @@ it('handles empty discovery response gracefully', function () {
     $result = $service->discoverPage('https://www.inmuebles24.com/search.html', 1);
 
     expect($result['total_results'])->toBe(0)
-        ->and($result['total_pages'])->toBe(1)
+        ->and($result['visible_pages'])->toBe([])
         ->and($result['listings'])->toBeArray()->toBeEmpty();
 });
 

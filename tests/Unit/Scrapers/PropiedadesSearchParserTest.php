@@ -41,10 +41,10 @@ it('parses search results with multiple listings', function () {
 
     expect($result)
         ->toHaveKey('total_results')
-        ->toHaveKey('total_pages')
+        ->toHaveKey('visible_pages')
         ->toHaveKey('listings')
         ->and($result['total_results'])->toBe(2163)
-        ->and($result['total_pages'])->toBe(47)
+        ->and($result['visible_pages'])->toBe([2, 47]) // Visible pages from pagination
         ->and($result['listings'])->toHaveCount(2);
 
     // Check first listing
@@ -128,7 +128,7 @@ it('parses total results from H1 title', function () {
     }
 });
 
-it('parses total pages from pagination links', function () {
+it('extracts visible pages from pagination links', function () {
     $extracted = [
         'urls' => [],
         'h1_title' => '100 Casas',
@@ -141,7 +141,7 @@ it('parses total pages from pagination links', function () {
 
     $result = $this->parser->parse($extracted, 'https://propiedades.com');
 
-    expect($result['total_pages'])->toBe(10);
+    expect($result['visible_pages'])->toBe([2, 3, 10]);
 });
 
 it('handles empty extraction gracefully', function () {
@@ -154,7 +154,7 @@ it('handles empty extraction gracefully', function () {
     $result = $this->parser->parse($extracted, 'https://propiedades.com');
 
     expect($result['total_results'])->toBeNull()
-        ->and($result['total_pages'])->toBe(1)
+        ->and($result['visible_pages'])->toBe([])
         ->and($result['listings'])->toBeEmpty();
 });
 
@@ -188,17 +188,15 @@ it('handles single values as arrays from ZenRows', function () {
         ->and($result['listings'][0]['preview']['title'])->toBe('Single Title');
 });
 
-it('calculates total pages from results when pagination is incomplete', function () {
+it('extracts visible pages from pagination numbers', function () {
     $extracted = [
         'urls' => [],
-        'h1_title' => '2,400 Casas', // Would be 50 pages at 48/page
-        'pagination_links' => [
-            'https://propiedades.com/casas?pagina=2',
-            'https://propiedades.com/casas?pagina=5', // Only shows up to 5
-        ],
+        'h1_title' => '2,400 Casas',
+        'pagination_links' => [],
+        'pagination_numbers' => ['1', '2', '3', '4', '5'], // Visible numbers in pagination UI
     ];
 
     $result = $this->parser->parse($extracted, 'https://propiedades.com');
 
-    expect($result['total_pages'])->toBe(50); // ceil(2400/48)
+    expect($result['visible_pages'])->toBe([1, 2, 3, 4, 5]);
 });
