@@ -590,7 +590,7 @@ it('creates PendingAi group when high confidence match against listing with prop
     expect($newListing->dedup_status)->toBe(DedupStatus::Grouped)
         ->and($newListing->listing_group_id)->not->toBeNull();
 
-    // The group should be PendingAi (not PendingReview) because score >= 0.85
+    // The group should be PendingAi because ConfirmedMatch candidates always go to AI
     $group = ListingGroup::find($newListing->listing_group_id);
     expect($group->status)->toBe(ListingGroupStatus::PendingAi)
         ->and($group->matched_property_id)->toBe($property->id)
@@ -598,6 +598,63 @@ it('creates PendingAi group when high confidence match against listing with prop
         ->and($group->listings()->count())->toBe(1);
 
     // Property should be marked for reanalysis
+    $property->refresh();
+    expect($property->needs_reanalysis)->toBeTrue();
+});
+
+it('marks property for reanalysis when NeedsReview candidate matches listing with property', function () {
+    // Create a listing that has a property directly (no group) - simulating unique listing flow
+    $property = Property::factory()->create(['needs_reanalysis' => false]);
+    $existingListing = Listing::factory()->create([
+        'platform_id' => $this->platform->id,
+        'property_id' => $property->id,
+        'listing_group_id' => null,
+        'dedup_status' => DedupStatus::Completed,
+        'geocode_status' => 'success',
+        'latitude' => 20.65,
+        'longitude' => -103.35,
+    ]);
+
+    $newListing = Listing::factory()->unmatched()->create([
+        'platform_id' => $this->platform->id,
+        'dedup_status' => DedupStatus::Processing,
+        'geocode_status' => 'success',
+        'latitude' => 20.65,
+        'longitude' => -103.35,
+    ]);
+
+    // Uncertain match (NeedsReview status, score between 0.65 and 0.92)
+    $candidate = DedupCandidate::create([
+        'listing_a_id' => $existingListing->id,
+        'listing_b_id' => $newListing->id,
+        'status' => DedupCandidateStatus::NeedsReview,
+        'overall_score' => 0.75,
+        'coordinate_score' => 0.8,
+        'address_score' => 0.7,
+        'features_score' => 0.75,
+    ]);
+
+    $mockMatcher = Mockery::mock(CandidateMatcherService::class);
+    $mockMatcher->shouldReceive('findCandidates')
+        ->once()
+        ->andReturn(collect([$candidate]));
+
+    $service = new DeduplicationService($mockMatcher);
+    $service->processListing($newListing);
+
+    $newListing->refresh();
+
+    // New listing should be in a review group
+    expect($newListing->dedup_status)->toBe(DedupStatus::Grouped)
+        ->and($newListing->listing_group_id)->not->toBeNull();
+
+    // The group should be PendingReview with matched_property_id
+    $group = ListingGroup::find($newListing->listing_group_id);
+    expect($group->status)->toBe(ListingGroupStatus::PendingReview)
+        ->and($group->matched_property_id)->toBe($property->id)
+        ->and($group->listings()->count())->toBe(1);
+
+    // Property should be marked for reanalysis even though it's a review candidate
     $property->refresh();
     expect($property->needs_reanalysis)->toBeTrue();
 });
