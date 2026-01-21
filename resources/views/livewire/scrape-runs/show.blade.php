@@ -123,13 +123,26 @@
         {{-- Activity Feed --}}
         <flux:card class="lg:col-span-2">
             <div class="flex justify-between items-center mb-4">
-                <flux:heading size="lg">{{ __('Activity Feed') }}</flux:heading>
-                @if ($this->isActive)
-                    <flux:badge color="green" size="sm">
-                        <span class="mr-1 size-2 animate-pulse rounded-full bg-green-400 inline-block"></span>
-                        {{ __('Live') }}
-                    </flux:badge>
-                @endif
+                <div class="flex items-center gap-4">
+                    <flux:heading size="lg">{{ __('Activity Feed') }}</flux:heading>
+                    @if ($this->isActive)
+                        <flux:badge color="green" size="sm">
+                            <span class="mr-1 size-2 animate-pulse rounded-full bg-green-400 inline-block"></span>
+                            {{ __('Live') }}
+                        </flux:badge>
+                    @endif
+                </div>
+                <div class="flex gap-1">
+                    <flux:button size="sm" :variant="$jobTypeFilter === 'all' ? 'filled' : 'ghost'" wire:click="setJobTypeFilter('all')">
+                        {{ __('All') }}
+                    </flux:button>
+                    <flux:button size="sm" :variant="$jobTypeFilter === 'discovery' ? 'filled' : 'ghost'" wire:click="setJobTypeFilter('discovery')">
+                        {{ __('Discovery') }}
+                    </flux:button>
+                    <flux:button size="sm" :variant="$jobTypeFilter === 'scraping' ? 'filled' : 'ghost'" wire:click="setJobTypeFilter('scraping')">
+                        {{ __('Scraping') }}
+                    </flux:button>
+                </div>
             </div>
 
             @if ($this->recentJobs->isEmpty())

@@ -22,18 +22,31 @@ class Show extends Component
 {
     public ScrapeRun $run;
 
+    public string $jobTypeFilter = 'all';
+
     public function mount(ScrapeRun $run): void
     {
         $this->run = $run->load(['searchQuery', 'platform']);
     }
 
+    public function setJobTypeFilter(string $filter): void
+    {
+        $this->jobTypeFilter = $filter;
+        unset($this->recentJobs);
+    }
+
     #[Computed]
     public function recentJobs()
     {
-        return $this->run->scrapeJobs()
-            ->latest()
-            ->limit(20)
-            ->get();
+        $query = $this->run->scrapeJobs()->latest();
+
+        if ($this->jobTypeFilter === 'discovery') {
+            $query->where('job_type', 'discovery');
+        } elseif ($this->jobTypeFilter === 'scraping') {
+            $query->where('job_type', 'listing');
+        }
+
+        return $query->limit(15)->get();
     }
 
     #[Computed]
