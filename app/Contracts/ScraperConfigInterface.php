@@ -62,4 +62,12 @@ interface ScraperConfigInterface
      * Extract external ID from a listing URL.
      */
     public function extractExternalId(string $url): ?string;
+
+    /**
+     * Additional ZenRows API options for this platform.
+     * Can include proxy_country, custom_headers, wait, etc.
+     *
+     * @return array<string, mixed>
+     */
+    public function zenrowsOptions(): array;
 }

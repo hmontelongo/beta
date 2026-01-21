@@ -31,17 +31,18 @@ class ZenRowsClient
      * Uses networkidle event to wait for all JS content to load.
      *
      * @param  array<string, string>  $cssExtractor
+     * @param  array<string, mixed>  $platformOptions  Additional platform-specific ZenRows options
      * @return array<string, mixed>
      *
      * @throws \RuntimeException
      */
-    public function fetchSearchPage(string $url, array $cssExtractor): array
+    public function fetchSearchPage(string $url, array $cssExtractor, array $platformOptions = []): array
     {
-        return $this->fetch($url, [
+        return $this->fetch($url, array_merge([
             'js_instructions' => json_encode([['wait_event' => 'networkidle']]),
             'block_resources' => 'image,font,media',
             'css_extractor' => json_encode($cssExtractor),
-        ], 'json', ApiOperation::SearchScrape);
+        ], $platformOptions), 'json', ApiOperation::SearchScrape);
     }
 
     /**
@@ -49,31 +50,34 @@ class ZenRowsClient
      * Uses networkidle event to wait for all JS content to load.
      *
      * @param  array<string, string>  $cssExtractor
+     * @param  array<string, mixed>  $platformOptions  Additional platform-specific ZenRows options
      * @return array<string, mixed>
      *
      * @throws \RuntimeException
      */
-    public function fetchListingPage(string $url, array $cssExtractor): array
+    public function fetchListingPage(string $url, array $cssExtractor, array $platformOptions = []): array
     {
-        return $this->fetch($url, [
+        return $this->fetch($url, array_merge([
             'js_instructions' => json_encode([['wait_event' => 'networkidle']]),
             'block_resources' => 'image,font,media',
             'css_extractor' => json_encode($cssExtractor),
-        ], 'json', ApiOperation::ListingScrape);
+        ], $platformOptions), 'json', ApiOperation::ListingScrape);
     }
 
     /**
      * Fetch raw HTML for JavaScript variable extraction.
      * Uses networkidle event to wait for all JS content to load.
      *
+     * @param  array<string, mixed>  $platformOptions  Additional platform-specific ZenRows options
+     *
      * @throws \RuntimeException
      */
-    public function fetchRawHtml(string $url): string
+    public function fetchRawHtml(string $url, array $platformOptions = []): string
     {
-        return $this->fetch($url, [
+        return $this->fetch($url, array_merge([
             'js_instructions' => json_encode([['wait_event' => 'networkidle']]),
             'block_resources' => 'image,font,media',
-        ], 'body', ApiOperation::RawHtmlFetch);
+        ], $platformOptions), 'body', ApiOperation::RawHtmlFetch);
     }
 
     /**

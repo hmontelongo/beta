@@ -347,4 +347,14 @@ class Inmuebles24Config implements ScraperConfigInterface
             '/ESTUDIO/i' => 'studio',
         ];
     }
+
+    /**
+     * Additional ZenRows API options for this platform.
+     *
+     * @return array<string, mixed>
+     */
+    public function zenrowsOptions(): array
+    {
+        return [];
+    }
 }

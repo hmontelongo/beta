@@ -35,7 +35,8 @@ class ScraperService
 
         $extracted = $this->zenRows->fetchSearchPage(
             $paginatedUrl,
-            $config->searchExtractor()
+            $config->searchExtractor(),
+            $config->zenrowsOptions()
         );
 
         return $searchParser->parse($extracted, $this->getBaseUrl($url));
@@ -53,6 +54,7 @@ class ScraperService
         $platform = $this->factory->detectPlatformFromUrl($url);
         $config = $this->factory->createConfig($platform);
         $listingParser = $this->factory->createListingParser($platform, $config);
+        $zenrowsOptions = $config->zenrowsOptions();
 
         Log::debug('ScraperService: scraping listing', [
             'url' => $url,
@@ -62,13 +64,14 @@ class ScraperService
         // Two requests: CSS extraction for structured data, raw HTML for JS variables
         $extracted = $this->zenRows->fetchListingPage(
             $url,
-            $config->listingExtractor()
+            $config->listingExtractor(),
+            $zenrowsOptions
         );
 
         // Second request for JS variables - handle failure gracefully
         $rawHtml = '';
         try {
-            $rawHtml = $this->zenRows->fetchRawHtml($url);
+            $rawHtml = $this->zenRows->fetchRawHtml($url, $zenrowsOptions);
             Log::debug('ScraperService: got raw HTML', [
                 'url' => $url,
                 'length' => strlen($rawHtml),
