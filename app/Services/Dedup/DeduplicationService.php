@@ -70,9 +70,9 @@ class DeduplicationService
         // Find potential matches
         $candidates = $this->matcher->findCandidates($listing);
 
-        // No matches - create a group for this unique listing
+        // No matches - mark as unique for direct property creation
         if ($candidates->isEmpty()) {
-            $this->createSingleListingGroup($listing);
+            $this->markListingAsUnique($listing);
 
             return;
         }
@@ -107,33 +107,23 @@ class DeduplicationService
             return;
         }
 
-        // All candidates are confirmed different - create unique listing group
-        $this->createSingleListingGroup($listing);
+        // All candidates are confirmed different - mark as unique for direct property creation
+        $this->markListingAsUnique($listing);
     }
 
     /**
-     * Create a listing group for a unique listing with no matches.
+     * Mark a listing as unique (no matches found) for direct property creation.
      */
-    protected function createSingleListingGroup(Listing $listing): void
+    protected function markListingAsUnique(Listing $listing): void
     {
-        DB::transaction(function () use ($listing) {
-            $group = ListingGroup::create([
-                'status' => ListingGroupStatus::PendingAi, // High confidence for unique
-                'match_score' => null, // No match
-            ]);
+        $listing->update([
+            'dedup_status' => DedupStatus::Unique,
+            'dedup_checked_at' => now(),
+        ]);
 
-            $listing->update([
-                'listing_group_id' => $group->id,
-                'is_primary_in_group' => true,
-                'dedup_status' => DedupStatus::Grouped,
-                'dedup_checked_at' => now(),
-            ]);
-
-            Log::info('Created unique listing group', [
-                'listing_id' => $listing->id,
-                'listing_group_id' => $group->id,
-            ]);
-        });
+        Log::info('Listing marked as unique for direct property creation', [
+            'listing_id' => $listing->id,
+        ]);
     }
 
     /**
@@ -205,7 +195,27 @@ class DeduplicationService
                 return;
             }
 
-            // Neither listing has a group - create new group with BOTH listings
+            // Check if matched listing has a property directly (unique listing that went to property creation)
+            if ($matchedListing->property_id) {
+                $group = ListingGroup::create([
+                    'status' => ListingGroupStatus::PendingReview,
+                    'match_score' => $candidate->overall_score,
+                    'matched_property_id' => $matchedListing->property_id,
+                ]);
+                $this->markListingAsGrouped($listing, $group->id, isPrimary: true);
+
+                Log::info('Created review group for listing matching property without group', [
+                    'listing_id' => $listing->id,
+                    'listing_group_id' => $group->id,
+                    'matched_listing_id' => $matchedListing->id,
+                    'matched_property_id' => $matchedListing->property_id,
+                    'match_score' => $candidate->overall_score,
+                ]);
+
+                return;
+            }
+
+            // Neither listing has a group or property - create new group with BOTH listings
             $group = ListingGroup::create([
                 'status' => ListingGroupStatus::PendingReview,
                 'match_score' => $candidate->overall_score,
@@ -251,6 +261,30 @@ class DeduplicationService
             return;
         }
 
+        // Check if matched listing has a property directly (unique listing that went to property creation)
+        if ($matchedListing->property_id) {
+            // Mark matched property for reanalysis since we found a potential duplicate
+            $matchedListing->property->markForReanalysis();
+
+            $group = ListingGroup::create([
+                'status' => $newGroupStatus,
+                'match_score' => $candidate->overall_score,
+                'matched_property_id' => $matchedListing->property_id,
+            ]);
+            $this->markListingAsGrouped($listing, $group->id, isPrimary: true);
+
+            Log::info('Created group for listing matching property without group', [
+                'listing_id' => $listing->id,
+                'listing_group_id' => $group->id,
+                'matched_listing_id' => $matchedListing->id,
+                'matched_property_id' => $matchedListing->property_id,
+                'match_score' => $candidate->overall_score,
+            ]);
+
+            return;
+        }
+
+        // Neither listing has a group or property - create new group with BOTH listings
         $group = ListingGroup::create([
             'status' => $newGroupStatus,
             'match_score' => $candidate->overall_score,
@@ -450,14 +484,24 @@ class DeduplicationService
         }
 
         if ($remainingCount === 1) {
-            $group->update([
-                'status' => ListingGroupStatus::PendingAi,
-                'match_score' => null,
-            ]);
+            // If group has matched_property_id, keep it (valid comparison to existing property)
+            if ($group->matched_property_id) {
+                Log::info('Group kept with single listing due to matched_property_id', [
+                    'listing_group_id' => $group->id,
+                    'remaining_listing_id' => $remainingListingIds[0],
+                    'matched_property_id' => $group->matched_property_id,
+                ]);
 
-            Log::info('Group converted to unique after removal', [
+                return;
+            }
+
+            // No matched_property_id - dissolve group and reset listing to pending
+            $this->resetListingsToPending($remainingListingIds);
+            $group->delete();
+
+            Log::info('Group dissolved after removal - listing reset to pending', [
                 'listing_group_id' => $group->id,
-                'remaining_listing_id' => $remainingListingIds[0],
+                'reset_listing_id' => $remainingListingIds[0],
             ]);
         }
     }
@@ -465,13 +509,14 @@ class DeduplicationService
     /**
      * Get statistics for deduplication status.
      *
-     * @return array{pending: int, grouped: int, completed: int, groups_pending_review: int, groups_pending_ai: int}
+     * @return array{pending: int, grouped: int, unique: int, completed: int, groups_pending_review: int, groups_pending_ai: int}
      */
     public function getStats(): array
     {
         return [
             'pending' => Listing::pendingDedup()->count(),
             'grouped' => Listing::grouped()->count(),
+            'unique' => Listing::unique()->count(),
             'completed' => Listing::completed()->count(),
             'groups_pending_review' => ListingGroup::pendingReview()->count(),
             'groups_pending_ai' => ListingGroup::pendingAi()->count(),

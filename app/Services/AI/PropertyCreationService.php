@@ -183,6 +183,135 @@ class PropertyCreationService
     }
 
     /**
+     * Create a property directly from a unique listing (no group needed).
+     * Used for listings with no duplicates that should go straight to property creation.
+     */
+    public function createPropertyFromListing(Listing $listing): Property
+    {
+        $listing->load('platform');
+        $listings = collect([$listing]);
+
+        // Atomically claim the listing to prevent race conditions
+        $claimed = Listing::where('id', $listing->id)
+            ->where('dedup_status', DedupStatus::Unique)
+            ->update(['dedup_status' => DedupStatus::Processing]);
+
+        if ($claimed === 0) {
+            Log::info('PropertyCreationService: Listing already claimed or not unique', [
+                'listing_id' => $listing->id,
+                'current_status' => $listing->fresh()->dedup_status->value ?? 'unknown',
+            ]);
+
+            throw new \RuntimeException('Listing is not available for processing');
+        }
+
+        // Refresh the listing model to get updated status
+        $listing->refresh();
+
+        try {
+            $response = $this->claude->message(
+                messages: $this->buildMessages($listings),
+                tools: [$this->getPropertyCreationToolSchema()],
+                system: $this->getSystemPrompt(false) // Single listing, not multiple
+            );
+
+            $toolResult = $this->claude->extractToolUse($response, 'create_property');
+            $usage = $this->claude->getUsage($response);
+
+            $this->usageTracker->logClaudeUsage(ApiOperation::PropertyCreation, $usage);
+
+            if (! $toolResult) {
+                throw new \RuntimeException('AI did not return structured property data');
+            }
+
+            // Validate required fields in AI response
+            if (empty($toolResult['unified_fields']) || ! is_array($toolResult['unified_fields'])) {
+                throw new \RuntimeException('AI response missing or invalid unified_fields');
+            }
+            if (! isset($toolResult['quality_score']) || ! is_int($toolResult['quality_score'])) {
+                throw new \RuntimeException('AI response missing or invalid quality_score');
+            }
+            if (empty($toolResult['description']) || ! is_string($toolResult['description'])) {
+                throw new \RuntimeException('AI response missing or invalid description');
+            }
+
+            // Create property in a transaction
+            $property = DB::transaction(function () use ($listing, $listings, $toolResult, $usage) {
+                // Build property data from AI analysis
+                $propertyData = $this->buildPropertyData($toolResult, $listings);
+
+                // Add AI metadata
+                $propertyData['ai_unification'] = [
+                    'version' => 2,
+                    'sources' => [[
+                        'listing_id' => $listing->id,
+                        'platform' => $listing->platform->name ?? 'Unknown',
+                    ]],
+                    'field_sources' => $toolResult['field_sources'] ?? [],
+                    'discrepancies' => [], // No discrepancies for single listing
+                    'model' => config('services.anthropic.model', 'claude-sonnet-4-20250514'),
+                    'input_tokens' => $usage['input_tokens'],
+                    'output_tokens' => $usage['output_tokens'],
+                ];
+                $propertyData['ai_unified_at'] = now();
+                $propertyData['needs_reanalysis'] = false;
+                $propertyData['discrepancies'] = [];
+
+                $propertyData['status'] = PropertyStatus::Active;
+                $propertyData['listings_count'] = 1;
+                $property = Property::create($propertyData);
+
+                // Link the listing to the property
+                $listing->update([
+                    'property_id' => $property->id,
+                    'dedup_status' => DedupStatus::Completed,
+                    'dedup_checked_at' => now(),
+                ]);
+
+                // Sync publisher if available
+                if ($listing->publisher_id) {
+                    $property->publishers()->syncWithoutDetaching([$listing->publisher_id]);
+                }
+
+                return $property;
+            });
+
+            Log::info('Property created from unique listing', [
+                'property_id' => $property->id,
+                'listing_id' => $listing->id,
+                'quality_score' => $toolResult['quality_score'] ?? null,
+                'input_tokens' => $usage['input_tokens'],
+                'output_tokens' => $usage['output_tokens'],
+            ]);
+
+            return $property;
+
+        } catch (\Throwable $e) {
+            // Race condition - listing was already claimed by another process
+            if (str_contains($e->getMessage(), 'not available for processing')) {
+                throw $e;
+            }
+
+            Log::error('Property creation from unique listing failed', [
+                'listing_id' => $listing->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            // Re-throw rate limit errors so job retry mechanism can handle them
+            if (str_contains($e->getMessage(), '429') || str_contains($e->getMessage(), 'rate_limit')) {
+                // Reset status to unique so it can be retried
+                $listing->update(['dedup_status' => DedupStatus::Unique]);
+                throw $e;
+            }
+
+            // For other errors, reset to unique for retry
+            $listing->update(['dedup_status' => DedupStatus::Unique]);
+
+            throw $e;
+        }
+    }
+
+    /**
      * Re-analyze a property that has been flagged for re-analysis.
      */
     public function reanalyzeProperty(Property $property): Property

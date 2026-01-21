@@ -15,7 +15,7 @@ beforeEach(function () {
     $this->platform = Platform::factory()->create();
 });
 
-it('creates a single listing group for unique listings with no matches', function () {
+it('marks unique listings with no matches for direct property creation', function () {
     $listing = Listing::factory()->unmatched()->create([
         'platform_id' => $this->platform->id,
         'dedup_status' => DedupStatus::Processing,
@@ -40,13 +40,10 @@ it('creates a single listing group for unique listings with no matches', functio
 
     $listing->refresh();
 
-    expect($listing->dedup_status)->toBe(DedupStatus::Grouped)
-        ->and($listing->listing_group_id)->not->toBeNull();
-
-    $group = ListingGroup::find($listing->listing_group_id);
-    expect($group->status)->toBe(ListingGroupStatus::PendingAi)
-        ->and($group->match_score)->toBeNull()
-        ->and($group->listings()->count())->toBe(1);
+    // Unique listings get marked for direct property creation (no group)
+    expect($listing->dedup_status)->toBe(DedupStatus::Unique)
+        ->and($listing->listing_group_id)->toBeNull()
+        ->and($listing->dedup_checked_at)->not->toBeNull();
 });
 
 it('creates a match group for high confidence matches', function () {
@@ -522,6 +519,10 @@ it('returns correct stats', function () {
         'platform_id' => $this->platform->id,
         'dedup_status' => DedupStatus::Grouped,
     ]);
+    Listing::factory()->unmatched()->count(5)->create([
+        'platform_id' => $this->platform->id,
+        'dedup_status' => DedupStatus::Unique,
+    ]);
     Listing::factory()->count(4)->create([
         'platform_id' => $this->platform->id,
         'dedup_status' => DedupStatus::Completed,
@@ -537,7 +538,66 @@ it('returns correct stats', function () {
 
     expect($stats['pending'])->toBe(3)
         ->and($stats['grouped'])->toBe(2)
+        ->and($stats['unique'])->toBe(5)
         ->and($stats['completed'])->toBe(4)
         ->and($stats['groups_pending_review'])->toBe(2)
         ->and($stats['groups_pending_ai'])->toBe(3);
+});
+
+it('creates PendingAi group when high confidence match against listing with property directly', function () {
+    // Create a listing that has a property directly (no group) - simulating unique listing flow
+    $property = Property::factory()->create();
+    $existingListing = Listing::factory()->create([
+        'platform_id' => $this->platform->id,
+        'property_id' => $property->id,
+        'listing_group_id' => null,  // No group - property was created directly
+        'dedup_status' => DedupStatus::Completed,
+        'geocode_status' => 'success',
+        'latitude' => 20.65,
+        'longitude' => -103.35,
+    ]);
+
+    $newListing = Listing::factory()->unmatched()->create([
+        'platform_id' => $this->platform->id,
+        'dedup_status' => DedupStatus::Processing,
+        'geocode_status' => 'success',
+        'latitude' => 20.65,
+        'longitude' => -103.35,
+    ]);
+
+    // High confidence match (ConfirmedMatch status, score >= 0.92)
+    $candidate = DedupCandidate::create([
+        'listing_a_id' => $existingListing->id,
+        'listing_b_id' => $newListing->id,
+        'status' => DedupCandidateStatus::ConfirmedMatch,
+        'overall_score' => 0.95,
+        'coordinate_score' => 1.0,
+        'address_score' => 0.9,
+        'features_score' => 0.95,
+    ]);
+
+    $mockMatcher = Mockery::mock(CandidateMatcherService::class);
+    $mockMatcher->shouldReceive('findCandidates')
+        ->once()
+        ->andReturn(collect([$candidate]));
+
+    $service = new DeduplicationService($mockMatcher);
+    $service->processListing($newListing);
+
+    $newListing->refresh();
+
+    // New listing should be grouped
+    expect($newListing->dedup_status)->toBe(DedupStatus::Grouped)
+        ->and($newListing->listing_group_id)->not->toBeNull();
+
+    // The group should be PendingAi (not PendingReview) because score >= 0.85
+    $group = ListingGroup::find($newListing->listing_group_id);
+    expect($group->status)->toBe(ListingGroupStatus::PendingAi)
+        ->and($group->matched_property_id)->toBe($property->id)
+        ->and($group->match_score)->toBe('0.95')
+        ->and($group->listings()->count())->toBe(1);
+
+    // Property should be marked for reanalysis
+    $property->refresh();
+    expect($property->needs_reanalysis)->toBeTrue();
 });

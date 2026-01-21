@@ -70,6 +70,11 @@ class Listing extends Model
             return ListingPipelineStatus::ProcessingDedup;
         }
 
+        // Unique - queued for direct AI property creation (no group needed)
+        if ($this->dedup_status === DedupStatus::Unique) {
+            return ListingPipelineStatus::QueuedForAi;
+        }
+
         // Grouped - check group status for more detail
         if ($this->dedup_status === DedupStatus::Grouped && $this->listingGroup) {
             return match ($this->listingGroup->status) {
@@ -179,6 +184,17 @@ class Listing extends Model
     public function scopeGrouped(Builder $query): Builder
     {
         return $query->where('dedup_status', DedupStatus::Grouped);
+    }
+
+    /**
+     * Scope for unique listings awaiting direct property creation.
+     *
+     * @param  Builder<Listing>  $query
+     * @return Builder<Listing>
+     */
+    public function scopeUnique(Builder $query): Builder
+    {
+        return $query->where('dedup_status', DedupStatus::Unique);
     }
 
     /**

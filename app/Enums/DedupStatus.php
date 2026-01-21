@@ -7,6 +7,7 @@ enum DedupStatus: string
     case Pending = 'pending';
     case Processing = 'processing';
     case Grouped = 'grouped';
+    case Unique = 'unique';
     case Completed = 'completed';
     case Failed = 'failed';
 
@@ -16,6 +17,7 @@ enum DedupStatus: string
             self::Pending => 'zinc',
             self::Processing => 'blue',
             self::Grouped => 'purple',
+            self::Unique => 'amber',
             self::Completed => 'green',
             self::Failed => 'red',
         };
@@ -27,6 +29,7 @@ enum DedupStatus: string
             self::Pending => 'clock',
             self::Processing => 'arrow-path',
             self::Grouped => 'squares-2x2',
+            self::Unique => 'sparkles',
             self::Completed => 'check-circle',
             self::Failed => 'x-mark',
         };
@@ -38,6 +41,7 @@ enum DedupStatus: string
             self::Pending => 'Pending',
             self::Processing => 'Processing',
             self::Grouped => 'In Group',
+            self::Unique => 'Unique',
             self::Completed => 'Completed',
             self::Failed => 'Failed',
         };
@@ -56,5 +60,10 @@ enum DedupStatus: string
     public function isCompleted(): bool
     {
         return $this === self::Completed;
+    }
+
+    public function isUnique(): bool
+    {
+        return $this === self::Unique;
     }
 }

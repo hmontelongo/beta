@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Enums\ListingGroupStatus;
+use App\Models\Listing;
 use App\Models\ListingGroup;
 use App\Models\Property;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -31,6 +32,9 @@ class ProcessPropertyCreationBatchJob implements ShouldQueue
         }
 
         $dispatched = 0;
+        $groupsDispatched = 0;
+        $uniqueListingsDispatched = 0;
+        $propertiesReanalyzed = 0;
 
         // 1. Dispatch jobs for listing groups pending AI processing (no limit)
         $groups = ListingGroup::where('status', ListingGroupStatus::PendingAi)
@@ -40,9 +44,22 @@ class ProcessPropertyCreationBatchJob implements ShouldQueue
         foreach ($groups as $group) {
             CreatePropertyFromListingsJob::dispatch($group->id);
             $dispatched++;
+            $groupsDispatched++;
         }
 
-        // 2. Handle properties that need re-analysis (no limit)
+        // 2. Dispatch jobs for unique listings (no duplicates, direct property creation)
+        $uniqueListings = Listing::unique()
+            ->whereNull('property_id')
+            ->orderBy('created_at')
+            ->get();
+
+        foreach ($uniqueListings as $listing) {
+            CreatePropertyFromListingJob::dispatch($listing->id);
+            $dispatched++;
+            $uniqueListingsDispatched++;
+        }
+
+        // 3. Handle properties that need re-analysis (no limit)
         $propertiesToReanalyze = Property::needsReanalysis()
             ->whereHas('listings')
             ->get();
@@ -50,12 +67,14 @@ class ProcessPropertyCreationBatchJob implements ShouldQueue
         foreach ($propertiesToReanalyze as $property) {
             $this->queuePropertyReanalysis($property);
             $dispatched++;
+            $propertiesReanalyzed++;
         }
 
         if ($dispatched > 0) {
             Log::info('Property creation batch dispatched', [
-                'groups_dispatched' => $groups->count(),
-                'properties_reanalyzed' => $propertiesToReanalyze->count(),
+                'groups_dispatched' => $groupsDispatched,
+                'unique_listings_dispatched' => $uniqueListingsDispatched,
+                'properties_reanalyzed' => $propertiesReanalyzed,
                 'total_dispatched' => $dispatched,
             ]);
         }

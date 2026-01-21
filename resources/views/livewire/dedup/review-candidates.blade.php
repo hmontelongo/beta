@@ -44,8 +44,12 @@
                     </div>
                     <flux:separator vertical class="h-12" />
                     <div class="text-center">
-                        <flux:text size="sm" class="text-zinc-500">{{ __('Listings') }}</flux:text>
-                        <flux:heading size="lg">{{ $this->group->listings->count() }}</flux:heading>
+                        <flux:text size="sm" class="text-zinc-500">{{ __('Comparing') }}</flux:text>
+                        @if ($this->group->matched_property_id)
+                            <flux:heading size="lg">1 <span class="text-sm font-normal text-zinc-500">{{ __('vs Property') }}</span></flux:heading>
+                        @else
+                            <flux:heading size="lg">{{ $this->group->listings->count() }} {{ __('listings') }}</flux:heading>
+                        @endif
                     </div>
                     <div class="text-center">
                         <flux:text size="sm" class="text-zinc-500">{{ __('Status') }}</flux:text>
@@ -345,7 +349,11 @@
                                     @endif
                                 </flux:text>
                                 <flux:text size="xs" class="text-zinc-500">
-                                    {{ $g->listings->count() }} {{ __('listings') }}
+                                    @if ($g->matched_property_id)
+                                        1 {{ __('listing vs Property') }}
+                                    @else
+                                        {{ $g->listings->count() }} {{ __('listings') }}
+                                    @endif
                                 </flux:text>
                             </div>
                             @if ($g->match_score !== null)
