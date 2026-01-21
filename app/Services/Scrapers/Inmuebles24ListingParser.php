@@ -131,6 +131,7 @@ class Inmuebles24ListingParser implements ListingParserInterface
             'colonia' => $location['colonia'],
             'city' => $location['city'],
             'state' => $location['state'],
+            'location_raw' => $location['location_raw'],
             'latitude' => $coordinates['latitude'],
             'longitude' => $coordinates['longitude'],
 
@@ -533,7 +534,7 @@ class Inmuebles24ListingParser implements ListingParserInterface
     /**
      * Parse location from extracted data, JS variables, and dataLayer.
      *
-     * @return array{address: string|null, colonia: string|null, city: string|null, state: string|null}
+     * @return array{address: string|null, colonia: string|null, city: string|null, state: string|null, location_raw: string|null}
      */
     protected function parseLocation(array $extracted, array $jsData, array $dataLayerData = []): array
     {
@@ -542,11 +543,16 @@ class Inmuebles24ListingParser implements ListingParserInterface
             'colonia' => null,
             'city' => null,
             'state' => null,
+            'location_raw' => null,
         ];
 
         // Parse from location header (e.g., "Calle 1, Col. Centro, Guadalajara, Jalisco")
         $header = $this->cleanText($extracted['location_header'] ?? null);
         if ($header) {
+            // Store raw location string for geocoder to parse properly
+            $location['location_raw'] = $header;
+
+            // Attempt basic parsing - geocoded data will be used as source of truth
             $parts = array_map('trim', explode(',', $header));
             if (count($parts) >= 1) {
                 $location['address'] = $parts[0];

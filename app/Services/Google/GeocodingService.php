@@ -18,9 +18,9 @@ class GeocodingService
     }
 
     /**
-     * Geocode an address to get coordinates.
+     * Geocode an address to get coordinates and structured address components.
      *
-     * @return array{lat: float, lng: float, formatted_address: string, place_id: string}|null
+     * @return array{lat: float, lng: float, formatted_address: string, place_id: string, colonia: ?string, city: ?string, state: ?string, postal_code: ?string}|null
      */
     public function geocode(string $address, ?string $city = null, ?string $state = null, string $country = 'Mexico'): ?array
     {
@@ -62,6 +62,7 @@ class GeocodingService
 
             $result = $data['results'][0];
             $location = $result['geometry']['location'];
+            $addressComponents = $this->parseAddressComponents($result['address_components'] ?? []);
 
             return [
                 'lat' => $location['lat'],
@@ -69,6 +70,10 @@ class GeocodingService
                 'formatted_address' => $result['formatted_address'],
                 'place_id' => $result['place_id'],
                 'location_type' => $result['geometry']['location_type'] ?? 'APPROXIMATE',
+                'colonia' => $addressComponents['colonia'],
+                'city' => $addressComponents['city'],
+                'state' => $addressComponents['state'],
+                'postal_code' => $addressComponents['postal_code'],
             ];
         } catch (\Throwable $e) {
             Log::error('Geocoding error', [
@@ -78,6 +83,50 @@ class GeocodingService
 
             return null;
         }
+    }
+
+    /**
+     * Parse address components from Google Maps response.
+     *
+     * @param  array<array{types: array<string>, long_name: string, short_name: string}>  $components
+     * @return array{colonia: ?string, city: ?string, state: ?string, postal_code: ?string}
+     */
+    protected function parseAddressComponents(array $components): array
+    {
+        $result = [
+            'colonia' => null,
+            'city' => null,
+            'state' => null,
+            'postal_code' => null,
+        ];
+
+        foreach ($components as $component) {
+            $types = $component['types'] ?? [];
+
+            // Colonia: sublocality_level_1, neighborhood, or sublocality
+            if (in_array('sublocality_level_1', $types) || in_array('neighborhood', $types)) {
+                $result['colonia'] = $component['long_name'];
+            } elseif (in_array('sublocality', $types) && $result['colonia'] === null) {
+                $result['colonia'] = $component['long_name'];
+            }
+
+            // City: locality
+            if (in_array('locality', $types)) {
+                $result['city'] = $component['long_name'];
+            }
+
+            // State: administrative_area_level_1
+            if (in_array('administrative_area_level_1', $types)) {
+                $result['state'] = $component['long_name'];
+            }
+
+            // Postal code
+            if (in_array('postal_code', $types)) {
+                $result['postal_code'] = $component['long_name'];
+            }
+        }
+
+        return $result;
     }
 
     /**

@@ -128,6 +128,7 @@ class VivanunciosListingParser implements ListingParserInterface
             'colonia' => $location['colonia'],
             'city' => $location['city'],
             'state' => $location['state'],
+            'location_raw' => $location['location_raw'],
             'latitude' => $coordinates['latitude'],
             'longitude' => $coordinates['longitude'],
 
@@ -481,7 +482,7 @@ class VivanunciosListingParser implements ListingParserInterface
     /**
      * Parse location from JSON-LD and extracted data.
      *
-     * @return array{address: string|null, colonia: string|null, city: string|null, state: string|null}
+     * @return array{address: string|null, colonia: string|null, city: string|null, state: string|null, location_raw: string|null}
      */
     protected function parseLocation(array $jsonLd, array $extracted, array $dataLayerData): array
     {
@@ -490,6 +491,7 @@ class VivanunciosListingParser implements ListingParserInterface
             'colonia' => null,
             'city' => null,
             'state' => null,
+            'location_raw' => null,
         ];
 
         // Primary: JSON-LD address
@@ -498,6 +500,16 @@ class VivanunciosListingParser implements ListingParserInterface
             if (is_array($address)) {
                 $location['address'] = $address['streetAddress'] ?? null;
                 $location['colonia'] = $address['addressRegion'] ?? null;
+
+                // Build raw location from JSON-LD for geocoder
+                $locationParts = array_filter([
+                    $address['streetAddress'] ?? null,
+                    $address['addressRegion'] ?? null,
+                    $address['addressLocality'] ?? null,
+                ]);
+                if (! empty($locationParts)) {
+                    $location['location_raw'] = implode(', ', $locationParts);
+                }
 
                 // Parse locality (format: "City, State, Country")
                 if (isset($address['addressLocality'])) {
@@ -514,6 +526,10 @@ class VivanunciosListingParser implements ListingParserInterface
         if (! $location['address']) {
             $header = $this->cleanText($extracted['location_header'] ?? null);
             if ($header) {
+                // Store raw location string for geocoder
+                $location['location_raw'] = $header;
+
+                // Attempt basic parsing - geocoded data will be used as source of truth
                 $parts = array_map('trim', explode(',', $header));
                 $location['address'] = $parts[0] ?? null;
                 if (count($parts) >= 2) {

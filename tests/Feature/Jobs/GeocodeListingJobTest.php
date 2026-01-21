@@ -29,6 +29,10 @@ it('geocodes a listing with address and city', function () {
             'lng' => -103.35123456,
             'formatted_address' => 'Calzada Central 293, Zapopan, Jalisco, Mexico',
             'place_id' => 'test_place_id',
+            'colonia' => 'Centro',
+            'city' => 'Zapopan',
+            'state' => 'Jalisco',
+            'postal_code' => '45000',
         ]);
 
     $job = new GeocodeListingJob($listing->id);
@@ -39,7 +43,10 @@ it('geocodes a listing with address and city', function () {
     expect($listing->latitude)->toBe('20.65123456')
         ->and($listing->longitude)->toBe('-103.35123456')
         ->and($listing->geocode_status)->toBe('success')
-        ->and($listing->geocoded_at)->not->toBeNull();
+        ->and($listing->geocoded_at)->not->toBeNull()
+        ->and($listing->raw_data['geocoded_colonia'])->toBe('Centro')
+        ->and($listing->raw_data['geocoded_city'])->toBe('Zapopan')
+        ->and($listing->raw_data['geocoded_state'])->toBe('Jalisco');
 });
 
 it('skips listing without address or city', function () {
@@ -140,6 +147,12 @@ it('geocodes with city only when no address', function () {
         ->andReturn([
             'lat' => 20.65,
             'lng' => -103.35,
+            'formatted_address' => 'Guadalajara, Jalisco, Mexico',
+            'place_id' => 'test_place_id',
+            'colonia' => null,
+            'city' => 'Guadalajara',
+            'state' => 'Jalisco',
+            'postal_code' => null,
         ]);
 
     $job = new GeocodeListingJob($listing->id);
@@ -148,7 +161,9 @@ it('geocodes with city only when no address', function () {
     $listing->refresh();
 
     expect($listing->geocode_status)->toBe('success')
-        ->and($listing->latitude)->not->toBeNull();
+        ->and($listing->latitude)->not->toBeNull()
+        ->and($listing->raw_data['geocoded_city'])->toBe('Guadalajara')
+        ->and($listing->raw_data['geocoded_state'])->toBe('Jalisco');
 });
 
 it('is queued on the geocoding queue', function () {

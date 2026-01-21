@@ -373,13 +373,17 @@ class PropertyCreationService
             $content .= '**Title:** '.($rawData['title'] ?? 'N/A')."\n\n";
             $content .= "**Description:**\n".($rawData['description'] ?? 'N/A')."\n\n";
 
-            // Location
+            // Location (geocoded data is the authoritative source for structured address)
             $content .= "**Location:**\n";
-            $content .= '- Address: '.($rawData['address'] ?? 'N/A')."\n";
-            $content .= '- Colonia: '.($rawData['colonia'] ?? 'N/A')."\n";
-            $content .= '- City: '.($rawData['city'] ?? 'N/A')."\n";
-            $content .= '- State: '.($rawData['state'] ?? 'N/A')."\n";
-            $content .= '- Coordinates: '.($rawData['latitude'] ?? 'N/A').', '.($rawData['longitude'] ?? 'N/A')."\n\n";
+            $content .= '- Raw Location: '.($rawData['location_raw'] ?? 'N/A')."\n";
+            $content .= '- Geocoded Colonia: '.($rawData['geocoded_colonia'] ?? 'N/A')."\n";
+            $content .= '- Geocoded City: '.($rawData['geocoded_city'] ?? 'N/A')."\n";
+            $content .= '- Geocoded State: '.($rawData['geocoded_state'] ?? 'N/A')."\n";
+            $content .= '- Parsed Address: '.($rawData['address'] ?? 'N/A')."\n";
+            $content .= '- Parsed Colonia: '.($rawData['colonia'] ?? 'N/A')."\n";
+            $content .= '- Parsed City: '.($rawData['city'] ?? 'N/A')."\n";
+            $content .= '- Parsed State: '.($rawData['state'] ?? 'N/A')."\n";
+            $content .= '- Coordinates: '.($listing->latitude ?? 'N/A').', '.($listing->longitude ?? 'N/A')."\n\n";
 
             // Property details
             $content .= "**Details:**\n";
@@ -485,6 +489,9 @@ YOUR TASKS:
    - Only include fields where you have confidence
 
 2. ADDRESS FORMATTING - CRITICAL:
+   - GEOCODED DATA IS AUTHORITATIVE: Use "Geocoded Colonia", "Geocoded City", and "Geocoded State" when available.
+     These come from Google Maps and are always correct. Only fall back to "Parsed" values if geocoded data is missing.
+   - For the address field: Use "Parsed Address" or extract from "Raw Location" if available.
    - Use Title Case for street names (Avenida Reforma, not AVENIDA REFORMA)
    - Use proper Mexican abbreviations:
      * "Calle" (not "C." or "CALLE")

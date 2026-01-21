@@ -63,17 +63,30 @@ class GeocodeListingJob implements ShouldQueue
         $result = $geocodingService->geocode($address ?? '', $city, $state);
 
         if ($result) {
+            // Store geocoded address components in raw_data
+            $updatedRawData = array_merge($rawData, [
+                'geocoded_colonia' => $result['colonia'],
+                'geocoded_city' => $result['city'],
+                'geocoded_state' => $result['state'],
+                'geocoded_postal_code' => $result['postal_code'],
+                'geocoded_formatted_address' => $result['formatted_address'],
+            ]);
+
             $listing->update([
                 'latitude' => $result['lat'],
                 'longitude' => $result['lng'],
                 'geocode_status' => 'success',
                 'geocoded_at' => now(),
+                'raw_data' => $updatedRawData,
             ]);
 
             Log::info('GeocodeListingJob: Success', [
                 'listing_id' => $this->listingId,
                 'latitude' => $result['lat'],
                 'longitude' => $result['lng'],
+                'geocoded_colonia' => $result['colonia'],
+                'geocoded_city' => $result['city'],
+                'geocoded_state' => $result['state'],
             ]);
         } else {
             $listing->update([

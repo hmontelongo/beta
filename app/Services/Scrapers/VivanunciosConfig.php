@@ -106,23 +106,41 @@ class VivanunciosConfig implements ScraperConfigInterface
 
     /**
      * Generate paginated URL from base URL and page number.
-     * Vivanuncios uses pN suffix at end of URL path segment.
-     * Example: /s-renta-inmuebles/granja/v1c1098l15143p1 -> v1c1098l15143p2
+     * Vivanuncios uses page-N/ prefix before the last path segment.
+     * Example: /s-renta-inmuebles/puerto-vallarta/v1c1098l10594p1
+     *       -> /s-renta-inmuebles/puerto-vallarta/page-2/v1c1098l10594p2
      */
     public function paginateUrl(string $baseUrl, int $page): string
     {
-        // Vivanuncios uses pN format preceded by a digit (e.g., l15143p1)
-        // The pattern requires a digit before 'p' to avoid matching words like "prop123"
-        if (preg_match('/(\d)p\d+($|\?)/', $baseUrl)) {
-            return preg_replace('/(\d)p\d+($|\?)/', "\${1}p{$page}\$2", $baseUrl);
+        // For page 1, return as-is
+        if ($page <= 1) {
+            return $baseUrl;
         }
 
-        // If no existing page marker, append pN before query string
+        // Vivanuncios uses page-N/ prefix before the last path segment
         $parts = parse_url($baseUrl);
-        $query = isset($parts['query']) ? '?'.$parts['query'] : '';
-        $baseWithoutQuery = str_replace($query, '', $baseUrl);
+        $path = $parts['path'] ?? '';
 
-        return rtrim($baseWithoutQuery, '/')."p{$page}".$query;
+        // Split path into segments
+        $segments = explode('/', trim($path, '/'));
+        $lastSegment = array_pop($segments);
+
+        // Update the pN suffix in the last segment
+        if (preg_match('/p\d+$/', $lastSegment)) {
+            $lastSegment = preg_replace('/p\d+$/', "p{$page}", $lastSegment);
+        }
+
+        // Reconstruct path with page-N/ before last segment
+        $segments[] = "page-{$page}";
+        $segments[] = $lastSegment;
+        $newPath = '/'.implode('/', $segments);
+
+        // Rebuild URL
+        $scheme = $parts['scheme'] ?? 'https';
+        $host = $parts['host'] ?? '';
+        $query = isset($parts['query']) ? '?'.$parts['query'] : '';
+
+        return "{$scheme}://{$host}{$newPath}{$query}";
     }
 
     /**
@@ -285,5 +303,15 @@ class VivanunciosConfig implements ScraperConfigInterface
             'aire acondicionado' => 'ac',
             'amueblado' => 'furnished',
         ];
+    }
+
+    /**
+     * Additional ZenRows API options for this platform.
+     *
+     * @return array<string, mixed>
+     */
+    public function zenrowsOptions(): array
+    {
+        return [];
     }
 }
