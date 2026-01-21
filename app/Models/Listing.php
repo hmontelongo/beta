@@ -70,6 +70,11 @@ class Listing extends Model
             return ListingPipelineStatus::ProcessingDedup;
         }
 
+        // Waiting for a group to resolve before re-processing
+        if ($this->dedup_status === DedupStatus::Waiting) {
+            return ListingPipelineStatus::WaitingForGroup;
+        }
+
         // Unique - queued for direct AI property creation (no group needed)
         if ($this->dedup_status === DedupStatus::Unique) {
             return ListingPipelineStatus::QueuedForAi;
@@ -142,6 +147,16 @@ class Listing extends Model
     public function listingGroup(): BelongsTo
     {
         return $this->belongsTo(ListingGroup::class);
+    }
+
+    /**
+     * The group this listing is waiting for to resolve before re-processing.
+     *
+     * @return BelongsTo<ListingGroup, $this>
+     */
+    public function waitingForGroup(): BelongsTo
+    {
+        return $this->belongsTo(ListingGroup::class, 'waiting_for_group_id');
     }
 
     /**

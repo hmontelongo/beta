@@ -16,11 +16,14 @@ class CandidateMatcherService
 
     protected float $reviewThreshold;
 
+    protected float $mxnToUsdRate;
+
     public function __construct()
     {
         $this->distanceThreshold = config('services.dedup.distance_threshold_meters', 100);
-        $this->autoMatchThreshold = config('services.dedup.auto_match_threshold', 0.9);
-        $this->reviewThreshold = config('services.dedup.review_threshold', 0.6);
+        $this->autoMatchThreshold = config('services.dedup.auto_match_threshold', 0.87);
+        $this->reviewThreshold = config('services.dedup.review_threshold', 0.73);
+        $this->mxnToUsdRate = config('services.dedup.mxn_to_usd_rate', 18.0);
     }
 
     /**
@@ -204,8 +207,17 @@ class CandidateMatcherService
     }
 
     /**
+     * Normalize a price to MXN for comparison.
+     */
+    protected function normalizePriceToMxn(float $price, string $currency): float
+    {
+        return $currency === 'USD' ? $price * $this->mxnToUsdRate : $price;
+    }
+
+    /**
      * Get the price difference ratio between two listings.
      * Returns null if prices can't be compared.
+     * Converts currencies to MXN for comparison.
      *
      * @param  array<string, mixed>  $dataA
      * @param  array<string, mixed>  $dataB
@@ -222,15 +234,23 @@ class CandidateMatcherService
         // Compare matching operation types
         foreach ($opsA as $opA) {
             foreach ($opsB as $opB) {
-                if (($opA['type'] ?? '') === ($opB['type'] ?? '') &&
-                    ($opA['currency'] ?? 'MXN') === ($opB['currency'] ?? 'MXN')) {
-                    $priceA = (float) ($opA['price'] ?? 0);
-                    $priceB = (float) ($opB['price'] ?? 0);
-
-                    if ($priceA > 0 && $priceB > 0) {
-                        return abs($priceA - $priceB) / max($priceA, $priceB);
-                    }
+                // Same operation type required
+                if (($opA['type'] ?? '') !== ($opB['type'] ?? '')) {
+                    continue;
                 }
+
+                $priceA = (float) ($opA['price'] ?? 0);
+                $priceB = (float) ($opB['price'] ?? 0);
+
+                if ($priceA <= 0 || $priceB <= 0) {
+                    continue;
+                }
+
+                // Convert to common currency (MXN)
+                $priceA = $this->normalizePriceToMxn($priceA, $opA['currency'] ?? 'MXN');
+                $priceB = $this->normalizePriceToMxn($priceB, $opB['currency'] ?? 'MXN');
+
+                return abs($priceA - $priceB) / max($priceA, $priceB);
             }
         }
 
@@ -337,36 +357,47 @@ class CandidateMatcherService
     /**
      * Calculate features similarity score (0-1).
      * Compares bedrooms, bathrooms, size, property type, and price.
+     * Price has double weight (2/7) compared to other factors (1/7 each).
      *
      * @param  array<string, mixed>  $dataA
      * @param  array<string, mixed>  $dataB
      */
     protected function calculateFeaturesScore(array $dataA, array $dataB): float
     {
-        $matches = 0;
-        $total = 0;
+        $score = 0;
+        $totalWeight = 0;
+
+        // Weight map - price gets double weight
+        $weights = [
+            'property_type' => 1,
+            'bedrooms' => 1,
+            'bathrooms' => 1,
+            'built_size' => 1,
+            'lot_size' => 1,
+            'price' => 2,  // Double weight for price
+        ];
 
         // Property type (exact match required)
         if (! empty($dataA['property_type']) && ! empty($dataB['property_type'])) {
-            $total++;
+            $totalWeight += $weights['property_type'];
             if ($dataA['property_type'] === $dataB['property_type']) {
-                $matches++;
+                $score += $weights['property_type'];
             }
         }
 
         // Bedrooms (exact match)
         if (isset($dataA['bedrooms']) && isset($dataB['bedrooms'])) {
-            $total++;
+            $totalWeight += $weights['bedrooms'];
             if ((int) $dataA['bedrooms'] === (int) $dataB['bedrooms']) {
-                $matches++;
+                $score += $weights['bedrooms'];
             }
         }
 
         // Bathrooms (within 1)
         if (isset($dataA['bathrooms']) && isset($dataB['bathrooms'])) {
-            $total++;
+            $totalWeight += $weights['bathrooms'];
             if (abs((int) $dataA['bathrooms'] - (int) $dataB['bathrooms']) <= 1) {
-                $matches++;
+                $score += $weights['bathrooms'];
             }
         }
 
@@ -376,10 +407,10 @@ class CandidateMatcherService
             $sizeB = (float) $dataB['built_size_m2'];
 
             if ($sizeA > 0 && $sizeB > 0) {
-                $total++;
+                $totalWeight += $weights['built_size'];
                 $difference = abs($sizeA - $sizeB) / max($sizeA, $sizeB);
                 if ($difference <= 0.05) {
-                    $matches++;
+                    $score += $weights['built_size'];
                 }
             }
         }
@@ -390,28 +421,28 @@ class CandidateMatcherService
             $sizeB = (float) $dataB['lot_size_m2'];
 
             if ($sizeA > 0 && $sizeB > 0) {
-                $total++;
+                $totalWeight += $weights['lot_size'];
                 $difference = abs($sizeA - $sizeB) / max($sizeA, $sizeB);
                 if ($difference <= 0.05) {
-                    $matches++;
+                    $score += $weights['lot_size'];
                 }
             }
         }
 
-        // Price comparison (within 5% for same currency/operation)
+        // Price comparison (within 5%, with currency conversion, double weight)
         $priceMatch = $this->comparePrices($dataA, $dataB);
         if ($priceMatch !== null) {
-            $total++;
+            $totalWeight += $weights['price'];
             if ($priceMatch) {
-                $matches++;
+                $score += $weights['price'];
             }
         }
 
-        if ($total === 0) {
+        if ($totalWeight === 0) {
             return 0.5; // Neutral score if no features to compare
         }
 
-        return $matches / $total;
+        return $score / $totalWeight;
     }
 
     /**
@@ -423,32 +454,9 @@ class CandidateMatcherService
      */
     protected function comparePrices(array $dataA, array $dataB): ?bool
     {
-        $opsA = $dataA['operations'] ?? [];
-        $opsB = $dataB['operations'] ?? [];
+        $ratio = $this->getPriceDifferenceRatio($dataA, $dataB);
 
-        if (empty($opsA) || empty($opsB)) {
-            return null;
-        }
-
-        // Compare matching operation types
-        foreach ($opsA as $opA) {
-            foreach ($opsB as $opB) {
-                // Same operation type and currency
-                if (($opA['type'] ?? '') === ($opB['type'] ?? '') &&
-                    ($opA['currency'] ?? 'MXN') === ($opB['currency'] ?? 'MXN')) {
-                    $priceA = (float) ($opA['price'] ?? 0);
-                    $priceB = (float) ($opB['price'] ?? 0);
-
-                    if ($priceA > 0 && $priceB > 0) {
-                        $difference = abs($priceA - $priceB) / max($priceA, $priceB);
-
-                        return $difference <= 0.05; // Within 5%
-                    }
-                }
-            }
-        }
-
-        return null;
+        return $ratio === null ? null : $ratio <= 0.05;
     }
 
     /**

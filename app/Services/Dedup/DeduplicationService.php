@@ -5,6 +5,7 @@ namespace App\Services\Dedup;
 use App\Enums\DedupCandidateStatus;
 use App\Enums\DedupStatus;
 use App\Enums\ListingGroupStatus;
+use App\Jobs\DeduplicateListingJob;
 use App\Models\DedupCandidate;
 use App\Models\Listing;
 use App\Models\ListingGroup;
@@ -136,160 +137,209 @@ class DeduplicationService
     /**
      * Create a listing group for human review containing both potential matches.
      * Both listings are placed in the same group so the reviewer can compare them side-by-side.
+     * Uses transaction with row-level locking to prevent race conditions with parallel workers.
      */
     protected function createReviewGroup(Listing $listing, DedupCandidate $candidate): void
     {
-        $matchedListing = $candidate->listing_a_id === $listing->id
-            ? $candidate->listingB
-            : $candidate->listingA;
+        DB::transaction(function () use ($listing, $candidate) {
+            $matchedListingId = $candidate->listing_a_id === $listing->id
+                ? $candidate->listing_b_id
+                : $candidate->listing_a_id;
 
-        // If matched listing already has a completed group (property exists), don't disturb it
-        // Create a standalone group for the new listing with reference to the matched property
-        if ($matchedListing->listing_group_id) {
-            $existingGroup = ListingGroup::find($matchedListing->listing_group_id);
-            if ($existingGroup && $existingGroup->status === ListingGroupStatus::Completed) {
-                $existingGroup->property->markForReanalysis();
+            // Lock both listings in consistent order (lower ID first) to prevent deadlocks
+            $lockIds = [$listing->id, $matchedListingId];
+            sort($lockIds);
+            Listing::whereIn('id', $lockIds)->lockForUpdate()->get();
+
+            $matchedListing = Listing::find($matchedListingId);
+
+            if (! $matchedListing) {
+                Log::warning('Matched listing not found', ['listing_id' => $matchedListingId]);
+
+                return;
+            }
+
+            // If matched listing already has a completed group (property exists), don't disturb it
+            // Create a standalone group for the new listing with reference to the matched property
+            if ($matchedListing->listing_group_id) {
+                $existingGroup = ListingGroup::lockForUpdate()->find($matchedListing->listing_group_id);
+                if ($existingGroup && $existingGroup->status === ListingGroupStatus::Completed) {
+                    $existingGroup->property->markForReanalysis();
+
+                    $group = ListingGroup::create([
+                        'status' => ListingGroupStatus::PendingReview,
+                        'match_score' => $candidate->overall_score,
+                        'matched_property_id' => $existingGroup->property_id,
+                    ]);
+                    $this->markListingAsGrouped($listing, $group->id, isPrimary: true);
+
+                    Log::info('Created review group for listing matching completed property', [
+                        'listing_id' => $listing->id,
+                        'listing_group_id' => $group->id,
+                        'matched_listing_id' => $matchedListing->id,
+                        'matched_property_id' => $existingGroup->property_id,
+                        'match_score' => $candidate->overall_score,
+                    ]);
+
+                    return;
+                }
+
+                // Matched listing has a non-completed group - check if new listing matches ALL members
+                if ($this->matchesAllGroupMembers($listing, $existingGroup)) {
+                    $existingGroup->update([
+                        'status' => ListingGroupStatus::PendingReview,
+                        'match_score' => min($existingGroup->match_score ?? 1.0, $candidate->overall_score),
+                    ]);
+                    $this->markListingAsGrouped($listing, $existingGroup->id, isPrimary: false);
+
+                    Log::info('Added listing to existing review group (validated all members)', [
+                        'listing_id' => $listing->id,
+                        'listing_group_id' => $existingGroup->id,
+                        'matched_listing_id' => $matchedListing->id,
+                        'match_score' => $candidate->overall_score,
+                    ]);
+                } else {
+                    // Doesn't match all members - wait for group to resolve
+                    $this->markListingAsWaiting($listing, $existingGroup->id);
+                }
+
+                return;
+            }
+
+            // Check if matched listing has a property directly (unique listing that went to property creation)
+            if ($matchedListing->property_id) {
+                $matchedListing->property->markForReanalysis();
 
                 $group = ListingGroup::create([
                     'status' => ListingGroupStatus::PendingReview,
                     'match_score' => $candidate->overall_score,
-                    'matched_property_id' => $existingGroup->property_id,
+                    'matched_property_id' => $matchedListing->property_id,
                 ]);
                 $this->markListingAsGrouped($listing, $group->id, isPrimary: true);
 
-                Log::info('Created review group for listing matching completed property', [
+                Log::info('Created review group for listing matching property without group', [
                     'listing_id' => $listing->id,
                     'listing_group_id' => $group->id,
                     'matched_listing_id' => $matchedListing->id,
-                    'matched_property_id' => $existingGroup->property_id,
+                    'matched_property_id' => $matchedListing->property_id,
                     'match_score' => $candidate->overall_score,
                 ]);
 
                 return;
             }
 
-            // Matched listing has a non-completed group - add new listing to that group
-            $existingGroup->update([
-                'status' => ListingGroupStatus::PendingReview,
-                'match_score' => $candidate->overall_score,
-            ]);
-            $this->markListingAsGrouped($listing, $existingGroup->id, isPrimary: false);
-
-            Log::info('Added listing to existing review group', [
-                'listing_id' => $listing->id,
-                'listing_group_id' => $existingGroup->id,
-                'matched_listing_id' => $matchedListing->id,
-                'match_score' => $candidate->overall_score,
-            ]);
-
-            return;
-        }
-
-        // Check if matched listing has a property directly (unique listing that went to property creation)
-        if ($matchedListing->property_id) {
-            $matchedListing->property->markForReanalysis();
-
+            // Neither listing has a group or property - create new group with BOTH listings
             $group = ListingGroup::create([
                 'status' => ListingGroupStatus::PendingReview,
                 'match_score' => $candidate->overall_score,
-                'matched_property_id' => $matchedListing->property_id,
             ]);
-            $this->markListingAsGrouped($listing, $group->id, isPrimary: true);
 
-            Log::info('Created review group for listing matching property without group', [
-                'listing_id' => $listing->id,
+            $this->markListingAsGrouped($matchedListing, $group->id, isPrimary: true);
+            $this->markListingAsGrouped($listing, $group->id, isPrimary: false);
+
+            Log::info('Created review group with both listings', [
                 'listing_group_id' => $group->id,
-                'matched_listing_id' => $matchedListing->id,
-                'matched_property_id' => $matchedListing->property_id,
+                'listing_ids' => [$matchedListing->id, $listing->id],
                 'match_score' => $candidate->overall_score,
             ]);
-
-            return;
-        }
-
-        // Neither listing has a group or property - create new group with BOTH listings
-        $group = ListingGroup::create([
-            'status' => ListingGroupStatus::PendingReview,
-            'match_score' => $candidate->overall_score,
-        ]);
-
-        $this->markListingAsGrouped($matchedListing, $group->id, isPrimary: true);
-        $this->markListingAsGrouped($listing, $group->id, isPrimary: false);
-
-        Log::info('Created review group with both listings', [
-            'listing_group_id' => $group->id,
-            'listing_ids' => [$matchedListing->id, $listing->id],
-            'match_score' => $candidate->overall_score,
-        ]);
+        });
     }
 
     /**
      * Add a listing to an existing or new group based on a candidate match.
+     * Uses transaction with row-level locking to prevent race conditions with parallel workers.
      */
     protected function addListingToGroupWithCandidate(
         Listing $listing,
         DedupCandidate $candidate,
         ListingGroupStatus $newGroupStatus
     ): void {
-        $matchedListing = $candidate->listing_a_id === $listing->id
-            ? $candidate->listingB
-            : $candidate->listingA;
+        DB::transaction(function () use ($listing, $candidate, $newGroupStatus) {
+            $matchedListingId = $candidate->listing_a_id === $listing->id
+                ? $candidate->listing_b_id
+                : $candidate->listing_a_id;
 
-        $existingGroup = $matchedListing->listing_group_id
-            ? ListingGroup::lockForUpdate()->find($matchedListing->listing_group_id)
-            : null;
+            // Lock both listings in consistent order (lower ID first) to prevent deadlocks
+            $lockIds = [$listing->id, $matchedListingId];
+            sort($lockIds);
+            Listing::whereIn('id', $lockIds)->lockForUpdate()->get();
 
-        if ($existingGroup) {
-            $this->handleCompletedGroupReanalysis($existingGroup);
-            $this->markListingAsGrouped($listing, $existingGroup->id, isPrimary: false);
+            $matchedListing = Listing::find($matchedListingId);
 
-            Log::info('Added listing to existing group', [
-                'listing_id' => $listing->id,
-                'listing_group_id' => $existingGroup->id,
-                'matched_listing_id' => $matchedListing->id,
-            ]);
+            $existingGroup = $matchedListing->listing_group_id
+                ? ListingGroup::lockForUpdate()->find($matchedListing->listing_group_id)
+                : null;
 
-            return;
-        }
+            if ($existingGroup) {
+                // For completed groups, existing logic is fine (property reanalysis)
+                if ($existingGroup->status === ListingGroupStatus::Completed) {
+                    $this->handleCompletedGroupReanalysis($existingGroup);
+                    $this->markListingAsGrouped($listing, $existingGroup->id, isPrimary: false);
 
-        // Check if matched listing has a property directly (unique listing that went to property creation)
-        if ($matchedListing->property_id) {
-            // Mark matched property for reanalysis since we found a potential duplicate
-            $matchedListing->property->markForReanalysis();
+                    Log::info('Added listing to completed group for reanalysis', [
+                        'listing_id' => $listing->id,
+                        'listing_group_id' => $existingGroup->id,
+                        'matched_listing_id' => $matchedListing->id,
+                    ]);
 
+                    return;
+                }
+
+                // For pending groups, validate all members
+                if ($this->matchesAllGroupMembers($listing, $existingGroup)) {
+                    $this->markListingAsGrouped($listing, $existingGroup->id, isPrimary: false);
+
+                    Log::info('Added listing to existing group (validated all members)', [
+                        'listing_id' => $listing->id,
+                        'listing_group_id' => $existingGroup->id,
+                        'matched_listing_id' => $matchedListing->id,
+                    ]);
+                } else {
+                    $this->markListingAsWaiting($listing, $existingGroup->id);
+                }
+
+                return;
+            }
+
+            // Check if matched listing has a property directly (unique listing that went to property creation)
+            if ($matchedListing->property_id) {
+                // Mark matched property for reanalysis since we found a potential duplicate
+                $matchedListing->property->markForReanalysis();
+
+                $group = ListingGroup::create([
+                    'status' => $newGroupStatus,
+                    'match_score' => $candidate->overall_score,
+                    'matched_property_id' => $matchedListing->property_id,
+                ]);
+                $this->markListingAsGrouped($listing, $group->id, isPrimary: true);
+
+                Log::info('Created group for listing matching property without group', [
+                    'listing_id' => $listing->id,
+                    'listing_group_id' => $group->id,
+                    'matched_listing_id' => $matchedListing->id,
+                    'matched_property_id' => $matchedListing->property_id,
+                    'match_score' => $candidate->overall_score,
+                ]);
+
+                return;
+            }
+
+            // Neither listing has a group or property - create new group with BOTH listings
             $group = ListingGroup::create([
                 'status' => $newGroupStatus,
                 'match_score' => $candidate->overall_score,
-                'matched_property_id' => $matchedListing->property_id,
             ]);
-            $this->markListingAsGrouped($listing, $group->id, isPrimary: true);
 
-            Log::info('Created group for listing matching property without group', [
-                'listing_id' => $listing->id,
+            $this->markListingAsGrouped($matchedListing, $group->id, isPrimary: true);
+            $this->markListingAsGrouped($listing, $group->id, isPrimary: false);
+
+            Log::info('Created listing group', [
                 'listing_group_id' => $group->id,
-                'matched_listing_id' => $matchedListing->id,
-                'matched_property_id' => $matchedListing->property_id,
+                'listing_ids' => [$matchedListing->id, $listing->id],
                 'match_score' => $candidate->overall_score,
+                'status' => $group->status->value,
             ]);
-
-            return;
-        }
-
-        // Neither listing has a group or property - create new group with BOTH listings
-        $group = ListingGroup::create([
-            'status' => $newGroupStatus,
-            'match_score' => $candidate->overall_score,
-        ]);
-
-        $this->markListingAsGrouped($matchedListing, $group->id, isPrimary: true);
-        $this->markListingAsGrouped($listing, $group->id, isPrimary: false);
-
-        Log::info('Created listing group', [
-            'listing_group_id' => $group->id,
-            'listing_ids' => [$matchedListing->id, $listing->id],
-            'match_score' => $candidate->overall_score,
-            'status' => $group->status->value,
-        ]);
+        });
     }
 
     /**
@@ -313,6 +363,85 @@ class DeduplicationService
             'is_primary_in_group' => $isPrimary,
             'dedup_status' => DedupStatus::Grouped,
             'dedup_checked_at' => now(),
+        ]);
+    }
+
+    /**
+     * Check if a listing has passing candidate scores with ALL members of a group.
+     * Uses a single query instead of N queries for efficiency.
+     */
+    protected function matchesAllGroupMembers(Listing $listing, ListingGroup $group): bool
+    {
+        $memberIds = $group->listings()->pluck('id')->toArray();
+        $requiredMatches = count($memberIds);
+
+        if ($requiredMatches === 0) {
+            return true;
+        }
+
+        $reviewThreshold = config('services.dedup.review_threshold', 0.73);
+
+        // Count candidates that pass: score >= threshold AND not confirmed different
+        $passingCount = DedupCandidate::where(function ($q) use ($listing, $memberIds) {
+            $q->where('listing_a_id', $listing->id)->whereIn('listing_b_id', $memberIds);
+        })->orWhere(function ($q) use ($listing, $memberIds) {
+            $q->whereIn('listing_a_id', $memberIds)->where('listing_b_id', $listing->id);
+        })
+            ->where('overall_score', '>=', $reviewThreshold)
+            ->where('status', '!=', DedupCandidateStatus::ConfirmedDifferent)
+            ->count();
+
+        return $passingCount === $requiredMatches;
+    }
+
+    /**
+     * Mark a listing as waiting for busy matches to resolve.
+     */
+    protected function markListingAsWaiting(Listing $listing, int $groupId): void
+    {
+        $listing->update([
+            'dedup_status' => DedupStatus::Waiting,
+            'dedup_checked_at' => now(),
+            'waiting_for_group_id' => $groupId,
+        ]);
+
+        Log::info('Listing marked as waiting', [
+            'listing_id' => $listing->id,
+            'waiting_for_group_id' => $groupId,
+        ]);
+    }
+
+    /**
+     * Reset listings that were waiting for a group to resolve.
+     * They go back to pending and are immediately queued for re-processing.
+     */
+    protected function resetWaitingListings(int $groupId): void
+    {
+        $waitingListings = Listing::where('waiting_for_group_id', $groupId)
+            ->where('dedup_status', DedupStatus::Waiting)
+            ->get();
+
+        if ($waitingListings->isEmpty()) {
+            return;
+        }
+
+        // Reset all to pending
+        Listing::whereIn('id', $waitingListings->pluck('id'))
+            ->update([
+                'dedup_status' => DedupStatus::Pending,
+                'waiting_for_group_id' => null,
+                'dedup_checked_at' => null,
+            ]);
+
+        // Dispatch jobs immediately for each waiting listing
+        foreach ($waitingListings as $listing) {
+            DeduplicateListingJob::dispatch($listing->id);
+        }
+
+        Log::info('Reset and re-queued waiting listings after group resolved', [
+            'group_id' => $groupId,
+            'count' => $waitingListings->count(),
+            'listing_ids' => $waitingListings->pluck('id')->toArray(),
         ]);
     }
 
@@ -342,6 +471,9 @@ class DeduplicationService
                 'status' => DedupCandidateStatus::ConfirmedMatch,
                 'resolved_at' => now(),
             ]);
+
+        // Reset any listings waiting for this group to resolve
+        $this->resetWaitingListings($group->id);
 
         Log::info('Listing group approved', ['listing_group_id' => $group->id]);
     }
@@ -380,6 +512,9 @@ class DeduplicationService
             $this->resetListingsToPending($listingIds);
 
             $group->reject($reason);
+
+            // Reset any listings waiting for this group to resolve
+            $this->resetWaitingListings($group->id);
         });
 
         Log::info('Listing group rejected', [

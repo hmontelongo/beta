@@ -99,7 +99,7 @@ it('creates a match group for high confidence matches', function () {
 
     $group = ListingGroup::find($newListing->listing_group_id);
     expect($group->status)->toBe(ListingGroupStatus::PendingAi)
-        ->and($group->match_score)->toBe('0.92')
+        ->and((float) $group->match_score)->toBe(0.92)
         ->and($group->listings()->count())->toBe(2);
 });
 
@@ -151,7 +151,7 @@ it('creates a review group with both listings for uncertain matches', function (
 
     $group = ListingGroup::find($newListing->listing_group_id);
     expect($group->status)->toBe(ListingGroupStatus::PendingReview)
-        ->and($group->match_score)->toBe('0.75')
+        ->and((float) $group->match_score)->toBe(0.75)
         ->and($group->listings()->count())->toBe(2);
 
     // Existing listing is primary, new listing is not
@@ -430,7 +430,7 @@ it('creates review group with matched_property_id when matching completed group'
     $newGroup = ListingGroup::find($newListing->listing_group_id);
     expect($newGroup->status)->toBe(ListingGroupStatus::PendingReview)
         ->and($newGroup->matched_property_id)->toBe($property->id)
-        ->and($newGroup->match_score)->toBe('0.75')
+        ->and((float) $newGroup->match_score)->toBe(0.75)
         ->and($newGroup->listings()->count())->toBe(1);
 
     // The completed group should remain untouched
@@ -594,12 +594,243 @@ it('creates PendingAi group when high confidence match against listing with prop
     $group = ListingGroup::find($newListing->listing_group_id);
     expect($group->status)->toBe(ListingGroupStatus::PendingAi)
         ->and($group->matched_property_id)->toBe($property->id)
-        ->and($group->match_score)->toBe('0.95')
+        ->and((float) $group->match_score)->toBe(0.95)
         ->and($group->listings()->count())->toBe(1);
 
     // Property should be marked for reanalysis
     $property->refresh();
     expect($property->needs_reanalysis)->toBeTrue();
+});
+
+it('marks listing as waiting when it does not match all group members', function () {
+    // Create a group with two listings (A and B)
+    $existingGroup = ListingGroup::factory()->pendingReview()->create(['match_score' => 0.80]);
+
+    $listingA = Listing::factory()->unmatched()->create([
+        'platform_id' => $this->platform->id,
+        'dedup_status' => DedupStatus::Grouped,
+        'listing_group_id' => $existingGroup->id,
+        'is_primary_in_group' => true,
+        'geocode_status' => 'success',
+        'latitude' => 20.65,
+        'longitude' => -103.35,
+    ]);
+
+    $listingB = Listing::factory()->unmatched()->create([
+        'platform_id' => $this->platform->id,
+        'dedup_status' => DedupStatus::Grouped,
+        'listing_group_id' => $existingGroup->id,
+        'is_primary_in_group' => false,
+        'geocode_status' => 'success',
+        'latitude' => 20.65,
+        'longitude' => -103.35,
+    ]);
+
+    // Create a new listing C that matches A but NOT B
+    $listingC = Listing::factory()->unmatched()->create([
+        'platform_id' => $this->platform->id,
+        'dedup_status' => DedupStatus::Processing,
+        'geocode_status' => 'success',
+        'latitude' => 20.65,
+        'longitude' => -103.35,
+    ]);
+
+    // Candidate between A and B (already in group)
+    DedupCandidate::create([
+        'listing_a_id' => $listingA->id,
+        'listing_b_id' => $listingB->id,
+        'status' => DedupCandidateStatus::NeedsReview,
+        'overall_score' => 0.80,
+    ]);
+
+    // Candidate C-A: good match (above threshold)
+    DedupCandidate::create([
+        'listing_a_id' => $listingA->id,
+        'listing_b_id' => $listingC->id,
+        'status' => DedupCandidateStatus::NeedsReview,
+        'overall_score' => 0.78,
+    ]);
+
+    // Candidate C-B: confirmed different (below threshold)
+    DedupCandidate::create([
+        'listing_a_id' => $listingB->id,
+        'listing_b_id' => $listingC->id,
+        'status' => DedupCandidateStatus::ConfirmedDifferent,
+        'overall_score' => 0.50,
+    ]);
+
+    $mockMatcher = Mockery::mock(CandidateMatcherService::class);
+    $mockMatcher->shouldReceive('findCandidates')
+        ->once()
+        ->andReturn(collect([
+            DedupCandidate::where('listing_a_id', $listingA->id)
+                ->where('listing_b_id', $listingC->id)
+                ->first(),
+        ]));
+
+    $service = new DeduplicationService($mockMatcher);
+    $service->processListing($listingC);
+
+    $listingC->refresh();
+
+    // Listing C should be waiting (not added to group)
+    expect($listingC->dedup_status)->toBe(DedupStatus::Waiting)
+        ->and($listingC->listing_group_id)->toBeNull()
+        ->and($listingC->waiting_for_group_id)->toBe($existingGroup->id);
+
+    // Group should still have only 2 listings
+    expect($existingGroup->listings()->count())->toBe(2);
+});
+
+it('adds listing to group when it matches all existing members', function () {
+    // Create a group with two listings (A and B)
+    $existingGroup = ListingGroup::factory()->pendingReview()->create(['match_score' => 0.80]);
+
+    $listingA = Listing::factory()->unmatched()->create([
+        'platform_id' => $this->platform->id,
+        'dedup_status' => DedupStatus::Grouped,
+        'listing_group_id' => $existingGroup->id,
+        'is_primary_in_group' => true,
+        'geocode_status' => 'success',
+        'latitude' => 20.65,
+        'longitude' => -103.35,
+    ]);
+
+    $listingB = Listing::factory()->unmatched()->create([
+        'platform_id' => $this->platform->id,
+        'dedup_status' => DedupStatus::Grouped,
+        'listing_group_id' => $existingGroup->id,
+        'is_primary_in_group' => false,
+        'geocode_status' => 'success',
+        'latitude' => 20.65,
+        'longitude' => -103.35,
+    ]);
+
+    // Create a new listing C that matches BOTH A and B
+    $listingC = Listing::factory()->unmatched()->create([
+        'platform_id' => $this->platform->id,
+        'dedup_status' => DedupStatus::Processing,
+        'geocode_status' => 'success',
+        'latitude' => 20.65,
+        'longitude' => -103.35,
+    ]);
+
+    // Candidate between A and B (already in group)
+    DedupCandidate::create([
+        'listing_a_id' => $listingA->id,
+        'listing_b_id' => $listingB->id,
+        'status' => DedupCandidateStatus::NeedsReview,
+        'overall_score' => 0.80,
+    ]);
+
+    // Candidate C-A: good match
+    DedupCandidate::create([
+        'listing_a_id' => $listingA->id,
+        'listing_b_id' => $listingC->id,
+        'status' => DedupCandidateStatus::NeedsReview,
+        'overall_score' => 0.78,
+    ]);
+
+    // Candidate C-B: also good match
+    DedupCandidate::create([
+        'listing_a_id' => $listingB->id,
+        'listing_b_id' => $listingC->id,
+        'status' => DedupCandidateStatus::NeedsReview,
+        'overall_score' => 0.76,
+    ]);
+
+    $mockMatcher = Mockery::mock(CandidateMatcherService::class);
+    $mockMatcher->shouldReceive('findCandidates')
+        ->once()
+        ->andReturn(collect([
+            DedupCandidate::where('listing_a_id', $listingA->id)
+                ->where('listing_b_id', $listingC->id)
+                ->first(),
+        ]));
+
+    $service = new DeduplicationService($mockMatcher);
+    $service->processListing($listingC);
+
+    $listingC->refresh();
+    $existingGroup->refresh();
+
+    // Listing C should be added to the group
+    expect($listingC->dedup_status)->toBe(DedupStatus::Grouped)
+        ->and($listingC->listing_group_id)->toBe($existingGroup->id)
+        ->and($listingC->waiting_for_group_id)->toBeNull();
+
+    // Group should now have 3 listings
+    expect($existingGroup->listings()->count())->toBe(3);
+});
+
+it('marks listing as waiting when no candidate exists for a group member', function () {
+    // Create a group with two listings (A and B)
+    $existingGroup = ListingGroup::factory()->pendingReview()->create(['match_score' => 0.80]);
+
+    $listingA = Listing::factory()->unmatched()->create([
+        'platform_id' => $this->platform->id,
+        'dedup_status' => DedupStatus::Grouped,
+        'listing_group_id' => $existingGroup->id,
+        'is_primary_in_group' => true,
+        'geocode_status' => 'success',
+        'latitude' => 20.65,
+        'longitude' => -103.35,
+    ]);
+
+    $listingB = Listing::factory()->unmatched()->create([
+        'platform_id' => $this->platform->id,
+        'dedup_status' => DedupStatus::Grouped,
+        'listing_group_id' => $existingGroup->id,
+        'is_primary_in_group' => false,
+        'geocode_status' => 'success',
+        'latitude' => 20.65,
+        'longitude' => -103.35,
+    ]);
+
+    // Create a new listing C
+    $listingC = Listing::factory()->unmatched()->create([
+        'platform_id' => $this->platform->id,
+        'dedup_status' => DedupStatus::Processing,
+        'geocode_status' => 'success',
+        'latitude' => 20.65,
+        'longitude' => -103.35,
+    ]);
+
+    // Candidate between A and B (already in group)
+    DedupCandidate::create([
+        'listing_a_id' => $listingA->id,
+        'listing_b_id' => $listingB->id,
+        'status' => DedupCandidateStatus::NeedsReview,
+        'overall_score' => 0.80,
+    ]);
+
+    // Only candidate C-A exists (C-B was never compared)
+    $candidateCA = DedupCandidate::create([
+        'listing_a_id' => $listingA->id,
+        'listing_b_id' => $listingC->id,
+        'status' => DedupCandidateStatus::NeedsReview,
+        'overall_score' => 0.78,
+    ]);
+
+    // NO candidate between C and B - never compared
+
+    $mockMatcher = Mockery::mock(CandidateMatcherService::class);
+    $mockMatcher->shouldReceive('findCandidates')
+        ->once()
+        ->andReturn(collect([$candidateCA]));
+
+    $service = new DeduplicationService($mockMatcher);
+    $service->processListing($listingC);
+
+    $listingC->refresh();
+
+    // Listing C should be waiting (no candidate with B)
+    expect($listingC->dedup_status)->toBe(DedupStatus::Waiting)
+        ->and($listingC->listing_group_id)->toBeNull()
+        ->and($listingC->waiting_for_group_id)->toBe($existingGroup->id);
+
+    // Group should still have only 2 listings
+    expect($existingGroup->listings()->count())->toBe(2);
 });
 
 it('marks property for reanalysis when NeedsReview candidate matches listing with property', function () {

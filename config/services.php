@@ -61,8 +61,12 @@ return [
     'dedup' => [
         'batch_size' => env('DEDUP_BATCH_SIZE', 100),
         'distance_threshold_meters' => env('DEDUP_DISTANCE_METERS', 300),
-        'auto_match_threshold' => 0.92, // Require high confidence for auto-matching
-        'review_threshold' => 0.65, // Catch more edge cases for human review
+        'auto_match_threshold' => 0.87, // Auto-match at 87%+ confidence
+        'review_threshold' => 0.73, // Minimum score for human review
+        // Exchange rate for cross-currency price comparison.
+        // Note: This is a static approximation. Real exchange rates fluctuate.
+        // For MVP this is acceptable, but consider periodic updates for production accuracy.
+        'mxn_to_usd_rate' => env('DEDUP_MXN_TO_USD_RATE', 18.0),
         'enabled' => env('DEDUP_ENABLED', true),
     ],
 
