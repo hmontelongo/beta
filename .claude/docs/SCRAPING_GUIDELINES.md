@@ -870,6 +870,108 @@ Without this, `ScraperFactory::detectPlatformFromUrl()` will throw "Platform not
 
 ---
 
+## Mandatory Real Data Validation (CRITICAL)
+
+**A scraper implementation is NOT complete until it has been validated with real ZenRows data.**
+
+Unit tests with mocked data only verify that the parser logic works in isolation. Real websites have:
+- Different JSON-LD structures (e.g., `@graph` wrappers)
+- CSS selectors that capture unintended elements (e.g., navigation mixed with breadcrumbs)
+- Unexpected data formats
+- Content that differs from what Playwright shows locally
+
+### Validation Process
+
+#### Step 1: Test Search Page with Real ZenRows
+
+```php
+// In tinker
+$platform = \App\Models\Platform::where('slug', 'newplatform')->first();
+$factory = app(\App\Services\Scrapers\ScraperFactory::class);
+$config = $factory->createConfig($platform);
+$parser = $factory->createSearchParser($platform);
+$zenRows = app(\App\Services\ZenRowsClient::class);
+
+$searchUrl = 'https://www.newplatform.com/search-url';
+$extracted = $zenRows->fetchSearchPage($searchUrl, $config->searchExtractor(), $config->zenrowsOptions());
+$result = $parser->parse($extracted, $searchUrl);
+
+// Verify these are populated correctly:
+dump([
+    'total_results' => $result['total_results'],
+    'visible_pages' => count($result['visible_pages']),
+    'listings_count' => count($result['listings']),
+    'first_listing' => $result['listings'][0] ?? null,
+]);
+```
+
+**Check for:**
+- `total_results` is not null
+- `listings` count matches expected (after deduplication)
+- Titles don't contain garbage text (filter buttons, navigation items)
+- Prices are properly formatted
+- URLs are clean (no hash fragments, no duplicates)
+
+#### Step 2: Test Listing Page with Real ZenRows
+
+```php
+// Get a listing URL from search results
+$listingUrl = $result['listings'][0]['url'];
+$listingParser = $factory->createListingParser($platform);
+
+$extracted = $zenRows->fetchListingPage($listingUrl, $config->listingExtractor(), $config->zenrowsOptions());
+$syntheticHtml = $this->buildSyntheticHtml($extracted); // Use ScraperService method
+
+// Or test via ScraperService directly:
+$scraperService = app(\App\Services\Scrapers\ScraperService::class);
+$listing = $scraperService->scrapeListing($listingUrl, $platform);
+
+// Verify critical fields:
+dump([
+    'external_id' => $listing['external_id'],
+    'title' => $listing['title'],
+    'bedrooms' => $listing['bedrooms'],
+    'bathrooms' => $listing['bathrooms'],
+    'price' => $listing['operations'][0]['price'] ?? null,
+    'city' => $listing['city'],
+    'state' => $listing['state'],
+    'coordinates' => [$listing['latitude'], $listing['longitude']],
+    'images_count' => count($listing['images']),
+    'amenities' => $listing['amenities'],
+]);
+```
+
+**Check for:**
+- Coordinates are within Mexico bounds (not null unless truly unavailable)
+- City/State are real locations (not navigation items like "Departamentos en Venta")
+- Bedrooms/bathrooms are extracted
+- Images count is reasonable (not 1 when gallery has 20)
+- Amenities are standardized English keys (not Spanish text)
+
+#### Step 3: Compare Against Working Scrapers
+
+Run the same tests against an existing working scraper (e.g., Inmuebles24) and compare:
+- Data completeness (which fields are populated)
+- Data quality (formats, standardization)
+- Error handling (graceful nulls vs crashes)
+
+### Common Real Data Issues
+
+| Issue | Symptom | Cause | Fix |
+|-------|---------|-------|-----|
+| JSON-LD not parsing | Empty structured data | Site uses `@graph` wrapper | Handle `@graph` array in `extractJsonLd()` |
+| Wrong location | City shows "Casas en Venta" | CSS selector catches navigation | Filter non-location items, use JSON-LD BreadcrumbList |
+| Missing images | Only 1 image found | Images in different structure | Check gallery arrays, JS variables |
+| Null coordinates | lat/lng always null | Different meta tag format | Add fallback sources (JSON-LD geo, HTML patterns) |
+| Garbage in titles | Filter text in titles | Selector too broad | Filter navigation/UI strings |
+
+### When to Fix vs Document
+
+- **Fix:** Issues that affect data quality or cause crashes
+- **Document:** Platform limitations (e.g., truncated descriptions, expired listing redirects)
+
+---
+
 ## New Scraper Checklist
 
 When implementing a new scraper:
@@ -881,6 +983,10 @@ When implementing a new scraper:
 - [ ] Add platform to `PlatformSeeder.php`
 - [ ] Run `php artisan db:seed --class=PlatformSeeder`
 - [ ] Add unit tests for search and listing parsers
-- [ ] Test with real ZenRows requests (not just mocked data)
+- [ ] **MANDATORY: Validate with real ZenRows requests** (see "Mandatory Real Data Validation" section above)
+  - [ ] Test search page - verify listings, total results, pagination
+  - [ ] Test listing page - verify all fields parse correctly
+  - [ ] Compare results against existing working scrapers
+  - [ ] Fix any issues found during real data testing
 - [ ] Document any platform-specific quirks in this file
 - [ ] Verify `zenrowsOptions()` includes necessary parameters (e.g., `proxy_country` for geo-restricted sites)

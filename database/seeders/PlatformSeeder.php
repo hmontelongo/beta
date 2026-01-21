@@ -38,6 +38,11 @@ class PlatformSeeder extends Seeder
                 'slug' => 'propiedades',
                 'base_url' => 'https://propiedades.com',
             ],
+            [
+                'name' => 'lamudi',
+                'slug' => 'lamudi',
+                'base_url' => 'https://www.lamudi.com.mx',
+            ],
         ];
 
         foreach ($platforms as $platform) {

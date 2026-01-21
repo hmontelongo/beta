@@ -21,6 +21,7 @@ class ScraperFactory
             'inmuebles24' => new Inmuebles24Config,
             'vivanuncios' => new VivanunciosConfig,
             'propiedades' => new PropiedadesConfig,
+            'lamudi' => new LamudiConfig,
             default => throw new InvalidArgumentException("No scraper config for platform: {$identifier}"),
         };
     }
@@ -37,6 +38,7 @@ class ScraperFactory
             'inmuebles24' => new Inmuebles24SearchParser($config),
             'vivanuncios' => new VivanunciosSearchParser($config),
             'propiedades' => new PropiedadesSearchParser($config),
+            'lamudi' => new LamudiSearchParser($config),
             default => throw new InvalidArgumentException("No search parser for platform: {$identifier}"),
         };
     }
@@ -53,6 +55,7 @@ class ScraperFactory
             'inmuebles24' => new Inmuebles24ListingParser($config),
             'vivanuncios' => new VivanunciosListingParser($config),
             'propiedades' => new PropiedadesListingParser($config),
+            'lamudi' => new LamudiListingParser($config),
             default => throw new InvalidArgumentException("No listing parser for platform: {$identifier}"),
         };
     }
@@ -68,6 +71,7 @@ class ScraperFactory
             str_contains($host, 'inmuebles24.com') => 'inmuebles24',
             str_contains($host, 'vivanuncios.com') => 'vivanuncios',
             str_contains($host, 'propiedades.com') => 'propiedades',
+            str_contains($host, 'lamudi.com.mx') => 'lamudi',
             str_contains($host, 'mercadolibre.com') => 'mercadolibre',
             str_contains($host, 'easybroker.com') => 'easybroker',
             default => null,
