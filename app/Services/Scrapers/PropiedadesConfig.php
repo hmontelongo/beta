@@ -256,6 +256,17 @@ class PropiedadesConfig implements ScraperConfigInterface
     }
 
     /**
+     * Publisher type mappings.
+     * Propiedades.com doesn't use numeric IDs for publisher types.
+     *
+     * @return array<int|string, string>
+     */
+    public function publisherTypes(): array
+    {
+        return [];
+    }
+
+    /**
      * Amenity mappings (Spanish keyword => standardized English name).
      *
      * @return array<string, string>

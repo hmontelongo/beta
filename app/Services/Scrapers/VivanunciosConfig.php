@@ -309,6 +309,23 @@ class VivanunciosConfig implements ScraperConfigInterface
     }
 
     /**
+     * Property subtype patterns (regex => subtype).
+     *
+     * @return array<string, string>
+     */
+    public function subtypePatterns(): array
+    {
+        return [
+            '/\\bPH\\b|PENTHOUSE/i' => 'penthouse',
+            '/GARDEN|PLANTA\\s+BAJA|\\bPB\\b/i' => 'ground_floor',
+            '/\\bLOFT\\b/i' => 'loft',
+            '/DUPLEX|D[ÚU]PLEX/i' => 'duplex',
+            '/TRIPLEX/i' => 'triplex',
+            '/ESTUDIO/i' => 'studio',
+        ];
+    }
+
+    /**
      * Additional ZenRows API options for this platform.
      *
      * @return array<string, mixed>

@@ -42,7 +42,7 @@ class PlatformSeeder extends Seeder
 
         foreach ($platforms as $platform) {
             Platform::updateOrCreate(
-                ['name' => $platform['name']],
+                ['slug' => $platform['slug']],
                 $platform
             );
         }

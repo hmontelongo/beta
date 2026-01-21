@@ -42,14 +42,14 @@ interface ScraperConfigInterface
     /**
      * Operation type mappings (platform ID => standard type).
      *
-     * @return array<int, string>
+     * @return array<int|string, string>
      */
     public function operationTypes(): array;
 
     /**
      * Currency type mappings (platform ID => standard code).
      *
-     * @return array<int, string>
+     * @return array<int|string, string>
      */
     public function currencyTypes(): array;
 
@@ -70,4 +70,33 @@ interface ScraperConfigInterface
      * @return array<string, mixed>
      */
     public function zenrowsOptions(): array;
+
+    /**
+     * Map Spanish property type text names to standard types.
+     *
+     * @return array<string, string>
+     */
+    public function propertyTypeTextMappings(): array;
+
+    /**
+     * Publisher type mappings (platform ID => standard type).
+     *
+     * @return array<int|string, string>
+     */
+    public function publisherTypes(): array;
+
+    /**
+     * Amenity mappings (Spanish keyword => standardized English name).
+     *
+     * @return array<string, string>
+     */
+    public function amenityMappings(): array;
+
+    /**
+     * Property subtype patterns (regex => subtype).
+     * Used to detect penthouse, loft, duplex, etc. from title/description.
+     *
+     * @return array<string, string>
+     */
+    public function subtypePatterns(): array;
 }
