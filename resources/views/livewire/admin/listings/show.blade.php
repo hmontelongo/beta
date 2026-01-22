@@ -333,7 +333,7 @@
                                     size="sm"
                                     variant="ghost"
                                     icon="eye"
-                                    :href="route('properties.show', $listing->property_id)"
+                                    :href="route('admin.properties.show', $listing->property_id)"
                                     wire:navigate
                                 />
                                 <flux:badge color="zinc">#{{ $listing->property_id }}</flux:badge>

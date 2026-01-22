@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire\ScrapeRuns;
+namespace App\Livewire\Admin\ScrapeRuns;
 
 use App\Enums\ScrapeJobStatus;
 use App\Enums\ScrapeRunStatus;
@@ -260,6 +260,6 @@ class Show extends Component
 
     public function render(): View
     {
-        return view('livewire.scrape-runs.show');
+        return view('livewire.admin.scrape-runs.show');
     }
 }

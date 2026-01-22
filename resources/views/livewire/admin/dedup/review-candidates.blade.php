@@ -125,7 +125,7 @@
                                     size="sm"
                                     variant="ghost"
                                     icon="arrow-top-right-on-square"
-                                    :href="route('properties.show', $property)"
+                                    :href="route('admin.properties.show', $property)"
                                     target="_blank"
                                     title="{{ __('View Property') }}"
                                 />

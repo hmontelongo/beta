@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire\Listings;
+namespace App\Livewire\Admin\Listings;
 
 use App\Enums\DedupCandidateStatus;
 use App\Enums\DedupStatus;
@@ -142,6 +142,6 @@ class Show extends Component
         $this->listing->refresh();
         $this->listing->load(['property', 'listingGroup']);
 
-        return view('livewire.listings.show');
+        return view('livewire.admin.listings.show');
     }
 }

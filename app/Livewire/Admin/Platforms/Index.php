@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire\Platforms;
+namespace App\Livewire\Admin\Platforms;
 
 use App\Enums\ScrapeRunStatus;
 use App\Models\Platform;
@@ -15,7 +15,7 @@ class Index extends Component
 {
     public function render(): View
     {
-        return view('livewire.platforms.index', [
+        return view('livewire.admin.platforms.index', [
             'platforms' => Platform::query()
                 ->withCount(['searchQueries', 'scrapeRuns', 'listings'])
                 ->withCount(['scrapeRuns as active_runs_count' => function ($query) {

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire;
+namespace App\Livewire\Admin;
 
 use App\Enums\ApiService;
 use App\Models\ApiUsageLog;
@@ -113,6 +113,6 @@ class Dashboard extends Component
 
     public function render(): View
     {
-        return view('livewire.dashboard');
+        return view('livewire.admin.dashboard');
     }
 }

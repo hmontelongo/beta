@@ -16,21 +16,21 @@ beforeEach(function () {
 });
 
 test('two factor settings page can be rendered', function () {
-    $user = User::factory()->withoutTwoFactor()->create();
+    $user = User::factory()->admin()->withoutTwoFactor()->create();
 
     $this->actingAs($user)
         ->withSession(['auth.password_confirmed_at' => time()])
-        ->get(route('two-factor.show'))
+        ->get(route('admin.two-factor.show'))
         ->assertOk()
         ->assertSee('Two Factor Authentication')
         ->assertSee('Disabled');
 });
 
 test('two factor settings page requires password confirmation when enabled', function () {
-    $user = User::factory()->create();
+    $user = User::factory()->admin()->create();
 
     $response = $this->actingAs($user)
-        ->get(route('two-factor.show'));
+        ->get(route('admin.two-factor.show'));
 
     $response->assertRedirect(route('password.confirm'));
 });
@@ -38,11 +38,11 @@ test('two factor settings page requires password confirmation when enabled', fun
 test('two factor settings page returns forbidden response when two factor is disabled', function () {
     config(['fortify.features' => []]);
 
-    $user = User::factory()->create();
+    $user = User::factory()->admin()->create();
 
     $response = $this->actingAs($user)
         ->withSession(['auth.password_confirmed_at' => time()])
-        ->get(route('two-factor.show'));
+        ->get(route('admin.two-factor.show'));
 
     $response->assertForbidden();
 });

@@ -5,9 +5,9 @@ use App\Models\User;
 use Livewire\Livewire;
 
 test('profile page is displayed', function () {
-    $this->actingAs($user = User::factory()->create());
+    $this->actingAs(User::factory()->admin()->create());
 
-    $this->get('/settings/profile')->assertOk();
+    $this->get('http://'.config('domains.admin').'/settings/profile')->assertOk();
 });
 
 test('profile information can be updated', function () {

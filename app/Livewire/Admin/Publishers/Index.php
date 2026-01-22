@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire\Publishers;
+namespace App\Livewire\Admin\Publishers;
 
 use App\Enums\PublisherType;
 use App\Models\Publisher;
@@ -127,7 +127,7 @@ class Index extends Component
     {
         $publishers = $this->buildQuery()->paginate(20);
 
-        return view('livewire.publishers.index', [
+        return view('livewire.admin.publishers.index', [
             'publishers' => $publishers,
             'publisherTypes' => PublisherType::cases(),
         ]);

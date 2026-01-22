@@ -260,7 +260,7 @@
                                 size="sm"
                                 variant="ghost"
                                 icon="eye"
-                                :href="route('properties.show', $property)"
+                                :href="route('admin.properties.show', $property)"
                                 wire:navigate
                                 aria-label="{{ __('View property') }}"
                             />

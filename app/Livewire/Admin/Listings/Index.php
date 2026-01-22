@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire\Listings;
+namespace App\Livewire\Admin\Listings;
 
 use App\Enums\DedupStatus;
 use App\Enums\ListingGroupStatus;
@@ -403,7 +403,7 @@ class Index extends Component
     {
         $listings = $this->buildQuery()->paginate(20);
 
-        return view('livewire.listings.index', [
+        return view('livewire.admin.listings.index', [
             'listings' => $listings,
             'platforms' => Platform::orderBy('name')->get(),
             'dedupStatuses' => DedupStatus::cases(),

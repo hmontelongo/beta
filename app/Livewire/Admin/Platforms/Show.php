@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire\Platforms;
+namespace App\Livewire\Admin\Platforms;
 
 use App\Enums\DiscoveredListingStatus;
 use App\Enums\ScrapeRunStatus;
@@ -346,6 +346,6 @@ class Show extends Component
 
     public function render(): View
     {
-        return view('livewire.platforms.show');
+        return view('livewire.admin.platforms.show');
     }
 }

@@ -3,7 +3,7 @@
 use App\Enums\ApiOperation;
 use App\Enums\ApiService;
 use App\Enums\ScrapeRunStatus;
-use App\Livewire\Dashboard;
+use App\Livewire\Admin\Dashboard;
 use App\Models\ApiUsageLog;
 use App\Models\Listing;
 use App\Models\Platform;
@@ -15,7 +15,7 @@ use App\Models\User;
 use Livewire\Livewire;
 
 beforeEach(function () {
-    $this->actingAs(User::factory()->create());
+    $this->actingAs(User::factory()->admin()->create());
 });
 
 describe('cost stats', function () {

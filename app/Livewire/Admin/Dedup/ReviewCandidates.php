@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire\Dedup;
+namespace App\Livewire\Admin\Dedup;
 
 use App\Enums\ListingGroupStatus;
 use App\Models\ListingGroup;
@@ -183,6 +183,6 @@ class ReviewCandidates extends Component
 
     public function render(): View
     {
-        return view('livewire.dedup.review-candidates');
+        return view('livewire.admin.dedup.review-candidates');
     }
 }

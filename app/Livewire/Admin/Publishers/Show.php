@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire\Publishers;
+namespace App\Livewire\Admin\Publishers;
 
 use App\Models\Publisher;
 use Illuminate\View\View;
@@ -51,7 +51,7 @@ class Show extends Component
             ->latest()
             ->paginate(10);
 
-        return view('livewire.publishers.show', [
+        return view('livewire.admin.publishers.show', [
             'properties' => $properties,
         ])->title($this->publisher->name);
     }

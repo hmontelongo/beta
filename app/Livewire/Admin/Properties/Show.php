@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire\Properties;
+namespace App\Livewire\Admin\Properties;
 
 use App\Jobs\CreatePropertyFromListingsJob;
 use App\Models\Listing;
@@ -423,7 +423,7 @@ class Show extends Component
 
     public function render(): View
     {
-        return view('livewire.properties.show')
+        return view('livewire.admin.properties.show')
             ->title($this->property->address ?? 'Property Details');
     }
 }

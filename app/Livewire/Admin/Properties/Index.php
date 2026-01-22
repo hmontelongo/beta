@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Livewire\Properties;
+namespace App\Livewire\Admin\Properties;
 
 use App\Enums\PropertyType;
 use App\Models\Property;
@@ -335,7 +335,7 @@ class Index extends Component
     {
         $properties = $this->buildQuery()->paginate(20);
 
-        return view('livewire.properties.index', [
+        return view('livewire.admin.properties.index', [
             'properties' => $properties,
             'propertyTypes' => PropertyType::cases(),
         ]);

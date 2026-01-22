@@ -2,7 +2,7 @@
 
 use App\Enums\DedupStatus;
 use App\Enums\ListingGroupStatus;
-use App\Livewire\Listings\Index;
+use App\Livewire\Admin\Listings\Index;
 use App\Models\Listing;
 use App\Models\ListingGroup;
 use App\Models\Platform;
@@ -10,7 +10,7 @@ use App\Models\User;
 use Livewire\Livewire;
 
 beforeEach(function () {
-    $this->actingAs(User::factory()->create());
+    $this->actingAs(User::factory()->admin()->create());
 });
 
 it('computes dedup stats from actual records', function () {

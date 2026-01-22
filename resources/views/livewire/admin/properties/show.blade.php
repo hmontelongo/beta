@@ -4,7 +4,7 @@
         <div>
             <div class="flex items-center gap-3">
                 <flux:button
-                    :href="route('properties.index')"
+                    :href="route('admin.properties.index')"
                     wire:navigate
                     variant="ghost"
                     size="sm"
