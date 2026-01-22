@@ -46,6 +46,7 @@ class GeocodeListingJob implements ShouldQueue
 
         $rawData = $listing->raw_data ?? [];
         $address = $rawData['address'] ?? null;
+        $colonia = $rawData['colonia'] ?? null;
         $city = $rawData['city'] ?? null;
         $state = $rawData['state'] ?? null;
 
@@ -60,7 +61,10 @@ class GeocodeListingJob implements ShouldQueue
             return;
         }
 
-        $result = $geocodingService->geocode($address ?? '', $city, $state);
+        // Build full address with colonia for better geocoding accuracy
+        $fullAddress = collect([$address, $colonia])->filter()->implode(', ');
+
+        $result = $geocodingService->geocode($fullAddress ?: '', $city, $state);
 
         if ($result) {
             // Store geocoded address components in raw_data
@@ -96,8 +100,9 @@ class GeocodeListingJob implements ShouldQueue
 
             Log::warning('GeocodeListingJob: Failed to geocode', [
                 'listing_id' => $this->listingId,
-                'address' => $address,
+                'full_address' => $fullAddress,
                 'city' => $city,
+                'state' => $state,
             ]);
         }
     }

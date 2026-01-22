@@ -64,6 +64,16 @@ class GeocodingService
             $location = $result['geometry']['location'];
             $addressComponents = $this->parseAddressComponents($result['address_components'] ?? []);
 
+            // If colonia is missing, try reverse geocoding to fill it in
+            if ($addressComponents['colonia'] === null) {
+                $reverseComponents = $this->reverseGeocode($location['lat'], $location['lng']);
+                if ($reverseComponents) {
+                    // Only fill in missing structured data, never street address
+                    $addressComponents['colonia'] = $reverseComponents['colonia'];
+                    $addressComponents['postal_code'] = $addressComponents['postal_code'] ?? $reverseComponents['postal_code'];
+                }
+            }
+
             return [
                 'lat' => $location['lat'],
                 'lng' => $location['lng'],
@@ -78,6 +88,60 @@ class GeocodingService
         } catch (\Throwable $e) {
             Log::error('Geocoding error', [
                 'address' => $fullAddress,
+                'error' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
+    /**
+     * Reverse geocode coordinates to get structured address components.
+     *
+     * Used as a fallback when forward geocoding doesn't return colonia.
+     *
+     * @return array{colonia: ?string, city: ?string, state: ?string, postal_code: ?string}|null
+     */
+    public function reverseGeocode(float $lat, float $lng): ?array
+    {
+        if (! $this->enabled || empty($this->apiKey)) {
+            return null;
+        }
+
+        try {
+            $response = Http::timeout(10)->get('https://maps.googleapis.com/maps/api/geocode/json', [
+                'latlng' => "{$lat},{$lng}",
+                'key' => $this->apiKey,
+                'language' => 'es',
+            ]);
+
+            if (! $response->successful()) {
+                Log::warning('Reverse geocoding request failed', [
+                    'lat' => $lat,
+                    'lng' => $lng,
+                    'status' => $response->status(),
+                ]);
+
+                return null;
+            }
+
+            $data = $response->json();
+
+            if ($data['status'] !== 'OK' || empty($data['results'])) {
+                Log::debug('Reverse geocoding returned no results', [
+                    'lat' => $lat,
+                    'lng' => $lng,
+                    'status' => $data['status'],
+                ]);
+
+                return null;
+            }
+
+            return $this->parseAddressComponents($data['results'][0]['address_components'] ?? []);
+        } catch (\Throwable $e) {
+            Log::error('Reverse geocoding error', [
+                'lat' => $lat,
+                'lng' => $lng,
                 'error' => $e->getMessage(),
             ]);
 

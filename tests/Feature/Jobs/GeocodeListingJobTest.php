@@ -179,3 +179,39 @@ it('has timeout and retry configuration', function () {
         ->and($job->tries)->toBe(3)
         ->and($job->backoff())->toBe([10, 30, 60]);
 });
+
+it('includes colonia in geocoding request when present', function () {
+    $listing = Listing::factory()->create([
+        'platform_id' => $this->platform->id,
+        'raw_data' => [
+            'address' => 'Calzada Central 293',
+            'colonia' => 'Ciudad Granja',
+            'city' => 'Zapopan',
+            'state' => 'Jalisco',
+        ],
+        'geocode_status' => null,
+    ]);
+
+    $mockService = Mockery::mock(GeocodingService::class);
+    $mockService->shouldReceive('geocode')
+        ->once()
+        ->with('Calzada Central 293, Ciudad Granja', 'Zapopan', 'Jalisco')
+        ->andReturn([
+            'lat' => 20.65123456,
+            'lng' => -103.35123456,
+            'formatted_address' => 'Calzada Central 293, Ciudad Granja, Zapopan, Jalisco, Mexico',
+            'place_id' => 'test_place_id',
+            'colonia' => 'Ciudad Granja',
+            'city' => 'Zapopan',
+            'state' => 'Jalisco',
+            'postal_code' => '45010',
+        ]);
+
+    $job = new GeocodeListingJob($listing->id);
+    $job->handle($mockService);
+
+    $listing->refresh();
+
+    expect($listing->geocode_status)->toBe('success')
+        ->and($listing->raw_data['geocoded_colonia'])->toBe('Ciudad Granja');
+});
