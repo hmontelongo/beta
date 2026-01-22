@@ -118,7 +118,7 @@ Tracks API usage and costs for Claude and ZenRows
 | `CandidateMatcherService` | Finds potential duplicate matches |
 | `PropertyCreationService` | Creates properties from listing groups via Claude AI |
 | `PublisherExtractionService` | Extracts/links publishers from listing data |
-| `GeocodingService` | Google Geocoding API wrapper |
+| `GeocodingService` | Google Geocoding API wrapper (forward + reverse geocode fallback) |
 | `ClaudeClient` | Anthropic Claude API client |
 | `ApiUsageTracker` | Tracks API usage and costs |
 | `JobCancellationService` | Handles job cancellation/cleanup |
@@ -181,7 +181,7 @@ Platform-specific scraping is implemented via interfaces:
 - `SearchParserInterface` - Parse search results page
 - `ListingParserInterface` - Parse individual listing
 
-Implementations: Inmuebles24 (complete), Vivanuncios (in progress)
+Implementations: Inmuebles24, Vivanuncios, Propiedades.com (all complete)
 
 ## Database Tables
 
@@ -195,10 +195,8 @@ Implementations: Inmuebles24 (complete), Vivanuncios (in progress)
 
 ## Recent Changes
 
-<!-- Add recent architectural changes here -->
-
----
-
-## Current Focus
-
-<!-- Add current development focus here -->
+- **Reverse Geocoding Fallback**: GeocodingService now automatically reverse geocodes when forward geocoding returns no colonia (common for route-level matches). Only fills in colonia and postal_code from reverse geocode, never alters street address.
+- **Propiedades.com Scraper**: Complete implementation with geo-restriction handling (`proxy_country=mx`).
+- **Single-Request Optimization**: Scraping reduced from 2 ZenRows calls to 1 by extracting scripts via CSS selector.
+- **Dedup Review UI**: Added human review interface for uncertain deduplication matches.
+- **Pipeline Reset on Re-scrape**: Fixed bug where re-scraping didn't reset pipeline status.

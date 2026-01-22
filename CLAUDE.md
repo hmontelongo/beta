@@ -474,7 +474,8 @@ Always look up documentation through context-7 MCP before implementing anything.
 
 ### Architecture
 - Laravel app: main application, data storage, business logic, UI
-- Node/Playwright service: separate scraper service, communicates with Laravel via HTTP
+- Scraping via ZenRows API (browser rendering service) with platform-specific parsers in PHP
+- See `.claude/docs/ARCHITECTURE_STATE.md` for detailed architecture
 
 ### Target Platforms
 - Inmuebles24
@@ -492,42 +493,32 @@ Always look up documentation through context-7 MCP before implementing anything.
 ### Data Pipeline Flow
 
 ```
-Scrape Request (via UI or scheduled)
+Scrape Trigger (UI or scheduled)
     ↓
-ScrapeOrchestrator → dispatches ScrapeJob per platform
-    ↓
-ScraperService → calls Node/Playwright service via HTTP
-    ↓
-ProcessScrapedListingsJob → processes raw listing data
-    ↓
-┌─────────────────────────────────────┐
-│         Parallel Processing          │
-├─────────────────────────────────────┤
-│ GeocodeListingJob (Google Maps API)  │
-│ EnrichListingJob (AI enhancement)    │
-│ PublisherExtractionService           │
-└─────────────────────────────────────┘
-    ↓
-DeduplicationJob
-    ↓
-DeduplicationService → CandidateMatcherService
+ScrapeOrchestrator.startRun()
+    ├── DiscoverSearchJob (queue: discovery)
+    │       └── DiscoverPageJob (per page)
+    │               └── Creates DiscoveredListing records
+    └── ScrapeListingJob (queue: scraping)
+            └── Creates Listing records via ZenRows API
     ↓
 ┌─────────────────────────────────────┐
-│        Dedup Outcomes                │
+│   Scheduled Pipeline Jobs (minutely) │
 ├─────────────────────────────────────┤
-│ No matches → Single-listing group    │
-│ High confidence → Auto-grouped       │
-│ Uncertain → PendingReview group      │
+│ ProcessGeocodingBatchJob             │
+│   └── GeocodeListingJob (Google API) │
+│       └── Reverse geocode fallback   │
+│ ProcessDeduplicationBatchJob         │
+│   └── DeduplicationService           │
+│ ProcessPropertyCreationBatchJob      │
+│   └── CreatePropertyFromListingsJob  │
+│       └── PropertyCreationService    │
 └─────────────────────────────────────┘
-    ↓
-Human Review (if PendingReview)
-    ↓
-CreatePropertyFromListingsJob
-    ↓
-PropertyCreationService → Claude AI analysis
     ↓
 Property created with unified/canonical data
 ```
+
+See `.claude/docs/ARCHITECTURE_STATE.md` for complete pipeline details.
 
 ### Key Models & Relationships
 
