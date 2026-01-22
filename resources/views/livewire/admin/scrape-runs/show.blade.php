@@ -2,7 +2,7 @@
     {{-- Header --}}
     <div class="flex justify-between items-start">
         <div class="flex items-center gap-4">
-            <flux:button variant="ghost" icon="arrow-left" :href="route('platforms.show', $run->platform)" wire:navigate />
+            <flux:button variant="ghost" icon="arrow-left" :href="route('admin.platforms.show', $run->platform)" wire:navigate />
             <div>
                 <div class="flex items-center gap-2">
                     <flux:heading size="xl">{{ $run->searchQuery?->name ?? __('Unknown Query') }}</flux:heading>
@@ -40,7 +40,7 @@
                 </flux:button>
             @endif
             @if ($run->status->value === 'completed')
-                <flux:button variant="primary" icon="document-text" :href="route('listings.index', ['platform' => $run->platform_id])" wire:navigate>{{ __('View Listings') }}</flux:button>
+                <flux:button variant="primary" icon="document-text" :href="route('admin.listings.index', ['platform' => $run->platform_id])" wire:navigate>{{ __('View Listings') }}</flux:button>
             @endif
         </div>
     </div>

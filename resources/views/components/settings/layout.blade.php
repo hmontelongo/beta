@@ -1,7 +1,5 @@
 @php
-    // Determine route prefix based on current subdomain
-    $host = request()->getHost();
-    $routePrefix = str_contains($host, 'admin.') ? 'admin.' : 'agents.';
+    $routePrefix = auth()->user()?->isAdmin() ? 'admin.' : 'agents.';
 @endphp
 <div class="flex items-start max-md:flex-col">
     <div class="me-10 w-full pb-4 md:w-[220px]">

@@ -36,21 +36,21 @@ Route::domain(config('domains.admin'))->group(function () {
     Route::middleware(['auth', 'verified', 'role:admin'])->group(function () {
         Route::livewire('dashboard', Dashboard::class)->name('admin.dashboard');
 
-        Route::livewire('platforms', PlatformsIndex::class)->name('platforms.index');
-        Route::livewire('platforms/{platform}', PlatformsShow::class)->name('platforms.show');
+        Route::livewire('platforms', PlatformsIndex::class)->name('admin.platforms.index');
+        Route::livewire('platforms/{platform}', PlatformsShow::class)->name('admin.platforms.show');
 
-        Route::livewire('listings', ListingsIndex::class)->name('listings.index');
-        Route::livewire('listings/{listing}', ListingsShow::class)->name('listings.show');
+        Route::livewire('listings', ListingsIndex::class)->name('admin.listings.index');
+        Route::livewire('listings/{listing}', ListingsShow::class)->name('admin.listings.show');
 
         Route::livewire('properties', PropertiesIndex::class)->name('admin.properties.index');
         Route::livewire('properties/{property}', PropertiesShow::class)->name('admin.properties.show');
 
-        Route::livewire('publishers', PublishersIndex::class)->name('publishers.index');
-        Route::livewire('publishers/{publisher}', PublishersShow::class)->name('publishers.show');
+        Route::livewire('publishers', PublishersIndex::class)->name('admin.publishers.index');
+        Route::livewire('publishers/{publisher}', PublishersShow::class)->name('admin.publishers.show');
 
-        Route::livewire('dedup/review', ReviewCandidates::class)->name('dedup.review');
+        Route::livewire('dedup/review', ReviewCandidates::class)->name('admin.dedup.review');
 
-        Route::livewire('runs/{run}', ScrapeRunsShow::class)->name('runs.show');
+        Route::livewire('runs/{run}', ScrapeRunsShow::class)->name('admin.runs.show');
     });
 
     // Settings routes on admin subdomain

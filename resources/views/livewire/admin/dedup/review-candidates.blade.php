@@ -240,7 +240,7 @@
                                 size="sm"
                                 variant="ghost"
                                 icon="arrow-top-right-on-square"
-                                :href="route('listings.show', $listing)"
+                                :href="route('admin.listings.show', $listing)"
                                 target="_blank"
                             />
                         </div>
@@ -374,7 +374,7 @@
             <flux:icon name="check-circle" class="mx-auto h-12 w-12 text-green-500" />
             <flux:heading size="lg" class="mt-4">{{ __('All caught up!') }}</flux:heading>
             <flux:text class="mt-2 text-zinc-500">{{ __('No listing groups need review right now.') }}</flux:text>
-            <flux:button :href="route('listings.index')" wire:navigate class="mt-4">
+            <flux:button :href="route('admin.listings.index')" wire:navigate class="mt-4">
                 {{ __('Back to Listings') }}
             </flux:button>
         </flux:card>

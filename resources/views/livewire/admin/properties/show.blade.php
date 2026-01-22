@@ -383,7 +383,7 @@
                                     size="sm"
                                     variant="ghost"
                                     icon="eye"
-                                    :href="route('listings.show', $listing)"
+                                    :href="route('admin.listings.show', $listing)"
                                     wire:navigate
                                 />
                             </div>
@@ -840,7 +840,7 @@
                                     size="xs"
                                     variant="ghost"
                                     icon="eye"
-                                    :href="route('publishers.show', $publisher)"
+                                    :href="route('admin.publishers.show', $publisher)"
                                     wire:navigate
                                 />
                             </div>

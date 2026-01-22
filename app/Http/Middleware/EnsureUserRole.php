@@ -35,18 +35,6 @@ class EnsureUserRole
 
     protected function redirectToCorrectSubdomain(Request $request): Response
     {
-        $user = $request->user();
-
-        if ($user->isAdmin()) {
-            $domain = config('domains.admin');
-            $path = '/platforms';
-        } else {
-            $domain = config('domains.agents');
-            $path = '/properties';
-        }
-
-        $scheme = $request->secure() ? 'https' : 'http';
-
-        return redirect("{$scheme}://{$domain}{$path}");
+        return redirect($request->user()->homeUrl($request->secure()));
     }
 }

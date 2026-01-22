@@ -2,7 +2,7 @@
     {{-- Header --}}
     <div class="flex justify-between items-start">
         <div class="flex items-center gap-4">
-            <flux:button variant="ghost" icon="arrow-left" :href="route('platforms.index')" wire:navigate aria-label="{{ __('Back to platforms') }}" />
+            <flux:button variant="ghost" icon="arrow-left" :href="route('admin.platforms.index')" wire:navigate aria-label="{{ __('Back to platforms') }}" />
             <div>
                 <div class="flex items-center gap-2">
                     <flux:heading size="xl">{{ $platform->name }}</flux:heading>
@@ -18,7 +18,7 @@
                 <span wire:loading.remove wire:target="runScheduledNow">{{ __('Run Scheduled') }}</span>
                 <span wire:loading wire:target="runScheduledNow">{{ __('Running...') }}</span>
             </flux:button>
-            <flux:button variant="ghost" icon="document-text" :href="route('listings.index', ['platform' => $platform->id])" wire:navigate>
+            <flux:button variant="ghost" icon="document-text" :href="route('admin.listings.index', ['platform' => $platform->id])" wire:navigate>
                 {{ __('View Listings') }}
             </flux:button>
             <flux:button icon="plus" wire:click="$set('showAddQueryModal', true)" wire:loading.attr="disabled">
@@ -115,7 +115,7 @@
                             </div>
 
                             @if ($query->activeRun)
-                                <a href="{{ route('runs.show', $query->activeRun) }}" wire:navigate class="mt-3 block rounded-lg bg-blue-50 dark:bg-blue-900/20 p-3 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors">
+                                <a href="{{ route('admin.runs.show', $query->activeRun) }}" wire:navigate class="mt-3 block rounded-lg bg-blue-50 dark:bg-blue-900/20 p-3 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors">
                                     <div class="flex justify-between items-center">
                                         <flux:badge :color="$query->activeRun->status->color()" size="sm">
                                             <span class="mr-1 size-2 animate-pulse rounded-full bg-current inline-block"></span>
@@ -132,7 +132,7 @@
                             @else
                                 <div class="mt-3 flex justify-between items-center gap-3">
                                     @if ($query->latestRun)
-                                        <a href="{{ route('runs.show', $query->latestRun) }}" wire:navigate class="group flex items-center gap-2 min-w-0">
+                                        <a href="{{ route('admin.runs.show', $query->latestRun) }}" wire:navigate class="group flex items-center gap-2 min-w-0">
                                             <flux:icon :name="$query->latestRun->status->icon()" class="size-4 shrink-0 {{ $query->latestRun->status->iconClass() }}" />
                                             <div class="min-w-0">
                                                 <flux:text size="sm" class="group-hover:text-zinc-700 dark:group-hover:text-zinc-300 truncate">
@@ -172,7 +172,7 @@
             @else
                 <div class="space-y-2">
                     @foreach ($this->recentRuns as $run)
-                        <a wire:key="run-{{ $run->id }}" href="{{ route('runs.show', $run) }}" wire:navigate class="block rounded-lg border border-zinc-100 dark:border-zinc-700/50 p-3 hover:bg-zinc-50 dark:hover:bg-zinc-700/50 transition-colors">
+                        <a wire:key="run-{{ $run->id }}" href="{{ route('admin.runs.show', $run) }}" wire:navigate class="block rounded-lg border border-zinc-100 dark:border-zinc-700/50 p-3 hover:bg-zinc-50 dark:hover:bg-zinc-700/50 transition-colors">
                             <div class="flex items-start gap-3">
                                 <div class="mt-0.5">
                                     <flux:icon :name="$run->status->icon()" class="size-5 {{ $run->status->iconClass() }}" />

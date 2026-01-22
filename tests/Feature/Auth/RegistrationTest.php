@@ -14,8 +14,9 @@ test('new users can register', function () {
         'password_confirmation' => 'password',
     ]);
 
+    // New users default to agent role and are redirected to agents subdomain
     $response->assertSessionHasNoErrors()
-        ->assertRedirect(route('platforms.index', absolute: false));
+        ->assertRedirect('http://'.config('domains.agents').'/properties');
 
     $this->assertAuthenticated();
 });

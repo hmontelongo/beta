@@ -3,17 +3,13 @@
 namespace App\Http\Responses;
 
 use Illuminate\Http\Request;
-use Laravel\Fortify\Contracts\LoginResponse as LoginResponseContract;
+use Laravel\Fortify\Contracts\RegisterResponse as RegisterResponseContract;
 use Symfony\Component\HttpFoundation\Response;
 
-class LoginResponse implements LoginResponseContract
+class RegisterResponse implements RegisterResponseContract
 {
     public function toResponse($request): Response
     {
-        if ($request->wantsJson()) {
-            return response()->json(['two_factor' => false]);
-        }
-
         return redirect($this->redirectUrl($request));
     }
 

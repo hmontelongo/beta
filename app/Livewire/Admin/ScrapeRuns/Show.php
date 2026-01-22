@@ -232,7 +232,7 @@ class Show extends Component
 
         Flux::toast('New run started!', variant: 'success');
 
-        $this->redirect(route('runs.show', $newRun), navigate: true);
+        $this->redirect(route('admin.runs.show', $newRun), navigate: true);
     }
 
     public function resumeRun(): void

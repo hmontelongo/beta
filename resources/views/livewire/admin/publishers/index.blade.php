@@ -197,7 +197,7 @@
                                 size="sm"
                                 variant="ghost"
                                 icon="eye"
-                                :href="route('publishers.show', $publisher)"
+                                :href="route('admin.publishers.show', $publisher)"
                                 wire:navigate
                             />
                         </flux:table.cell>

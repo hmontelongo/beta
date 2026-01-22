@@ -4,22 +4,38 @@
         @include('partials.head')
     </head>
     <body class="min-h-screen bg-white dark:bg-zinc-800">
+        @php
+            $isAdmin = auth()->user()?->isAdmin();
+            $settingsRoute = $isAdmin ? 'admin.profile.edit' : 'agents.profile.edit';
+        @endphp
         <flux:sidebar sticky stashable class="border-e border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900">
             <flux:sidebar.toggle class="lg:hidden" icon="x-mark" />
 
-            <a href="{{ route('admin.dashboard') }}" class="me-5 flex items-center space-x-2 rtl:space-x-reverse" wire:navigate>
-                <x-app-logo />
-            </a>
+            @if($isAdmin)
+                <a href="{{ route('admin.dashboard') }}" class="me-5 flex items-center space-x-2 rtl:space-x-reverse" wire:navigate>
+                    <x-app-logo />
+                </a>
 
-            <flux:navlist variant="outline">
-                <flux:navlist.group :heading="__('Platform')" class="grid">
-                    <flux:navlist.item icon="home" :href="route('admin.dashboard')" :current="request()->routeIs('admin.dashboard')" wire:navigate>{{ __('Dashboard') }}</flux:navlist.item>
-                    <flux:navlist.item icon="globe-alt" :href="route('platforms.index')" :current="request()->routeIs('platforms.*')" wire:navigate>{{ __('Platforms') }}</flux:navlist.item>
-                    <flux:navlist.item icon="document-text" :href="route('listings.index')" :current="request()->routeIs('listings.*')" wire:navigate>{{ __('Listings') }}</flux:navlist.item>
-                    <flux:navlist.item icon="building-office" :href="route('admin.properties.index')" :current="request()->routeIs('admin.properties.*')" wire:navigate>{{ __('Properties') }}</flux:navlist.item>
-                    <flux:navlist.item icon="user-group" :href="route('publishers.index')" :current="request()->routeIs('publishers.*')" wire:navigate>{{ __('Publishers') }}</flux:navlist.item>
-                </flux:navlist.group>
-            </flux:navlist>
+                <flux:navlist variant="outline">
+                    <flux:navlist.group :heading="__('Platform')" class="grid">
+                        <flux:navlist.item icon="home" :href="route('admin.dashboard')" :current="request()->routeIs('admin.dashboard')" wire:navigate>{{ __('Dashboard') }}</flux:navlist.item>
+                        <flux:navlist.item icon="globe-alt" :href="route('admin.platforms.index')" :current="request()->routeIs('admin.platforms.*')" wire:navigate>{{ __('Platforms') }}</flux:navlist.item>
+                        <flux:navlist.item icon="document-text" :href="route('admin.listings.index')" :current="request()->routeIs('admin.listings.*')" wire:navigate>{{ __('Listings') }}</flux:navlist.item>
+                        <flux:navlist.item icon="building-office" :href="route('admin.properties.index')" :current="request()->routeIs('admin.properties.*')" wire:navigate>{{ __('Properties') }}</flux:navlist.item>
+                        <flux:navlist.item icon="user-group" :href="route('admin.publishers.index')" :current="request()->routeIs('admin.publishers.*')" wire:navigate>{{ __('Publishers') }}</flux:navlist.item>
+                    </flux:navlist.group>
+                </flux:navlist>
+            @else
+                <a href="{{ route('agents.properties.index') }}" class="me-5 flex items-center space-x-2 rtl:space-x-reverse" wire:navigate>
+                    <x-app-logo />
+                </a>
+
+                <flux:navlist variant="outline">
+                    <flux:navlist.group :heading="__('Agent')" class="grid">
+                        <flux:navlist.item icon="building-office" :href="route('agents.properties.index')" :current="request()->routeIs('agents.properties.*')" wire:navigate>{{ __('Properties') }}</flux:navlist.item>
+                    </flux:navlist.group>
+                </flux:navlist>
+            @endif
 
             <flux:spacer />
 
@@ -54,7 +70,7 @@
                     <flux:menu.separator />
 
                     <flux:menu.radio.group>
-                        <flux:menu.item :href="route('admin.profile.edit')" icon="cog" wire:navigate>{{ __('Settings') }}</flux:menu.item>
+                        <flux:menu.item :href="route($settingsRoute)" icon="cog" wire:navigate>{{ __('Settings') }}</flux:menu.item>
                     </flux:menu.radio.group>
 
                     <flux:menu.separator />
@@ -104,7 +120,7 @@
                     <flux:menu.separator />
 
                     <flux:menu.radio.group>
-                        <flux:menu.item :href="route('admin.profile.edit')" icon="cog" wire:navigate>{{ __('Settings') }}</flux:menu.item>
+                        <flux:menu.item :href="route($settingsRoute)" icon="cog" wire:navigate>{{ __('Settings') }}</flux:menu.item>
                     </flux:menu.radio.group>
 
                     <flux:menu.separator />

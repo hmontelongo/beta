@@ -130,7 +130,7 @@
                 <div class="divide-y divide-zinc-100 dark:divide-zinc-800">
                     @foreach ($this->recentRuns as $run)
                         <a
-                            href="{{ route('runs.show', $run) }}"
+                            href="{{ route('admin.runs.show', $run) }}"
                             wire:navigate
                             class="flex items-center gap-3 p-3 hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors"
                         >

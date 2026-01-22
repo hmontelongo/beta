@@ -294,7 +294,7 @@ class Show extends Component
 
         Flux::toast('Scrape started!', variant: 'success');
 
-        return $this->redirect(route('runs.show', $run), navigate: true);
+        return $this->redirect(route('admin.runs.show', $run), navigate: true);
     }
 
     public function runScheduledNow(): void

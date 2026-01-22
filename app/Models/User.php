@@ -74,4 +74,16 @@ class User extends Authenticatable
     {
         return $this->role === UserRole::Agent;
     }
+
+    /**
+     * Get the home URL for this user based on their role.
+     */
+    public function homeUrl(bool $secure = false): string
+    {
+        $scheme = $secure ? 'https' : 'http';
+        $domain = $this->isAdmin() ? config('domains.admin') : config('domains.agents');
+        $path = $this->isAdmin() ? '/platforms' : '/properties';
+
+        return "{$scheme}://{$domain}{$path}";
+    }
 }

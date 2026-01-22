@@ -1,7 +1,7 @@
 <div class="space-y-6" @if($this->isProcessing) wire:poll.2s @endif>
     {{-- Page Header --}}
     <div class="flex items-start gap-4">
-        <flux:button variant="ghost" icon="arrow-left" :href="route('listings.index')" wire:navigate aria-label="{{ __('Back to listings') }}" />
+        <flux:button variant="ghost" icon="arrow-left" :href="route('admin.listings.index')" wire:navigate aria-label="{{ __('Back to listings') }}" />
         <div class="flex-1">
             <div class="flex items-center gap-3">
                 <flux:heading size="xl" level="1">{{ $listing->raw_data['title'] ?? 'Listing Details' }}</flux:heading>
@@ -400,7 +400,7 @@
                                 <div class="space-y-2">
                                     @foreach ($this->siblingListings as $sibling)
                                         <a
-                                            href="{{ route('listings.show', $sibling) }}"
+                                            href="{{ route('admin.listings.show', $sibling) }}"
                                             wire:navigate
                                             class="flex items-center gap-2 rounded-lg bg-zinc-50 dark:bg-zinc-800 p-2 hover:bg-zinc-100 dark:hover:bg-zinc-700 transition-colors"
                                         >

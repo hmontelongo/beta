@@ -62,7 +62,7 @@
             {{-- Review Groups link --}}
             @if ($this->stats['groups_pending_review'] > 0)
                 <flux:button
-                    :href="route('dedup.review')"
+                    :href="route('admin.dedup.review')"
                     wire:navigate
                     variant="filled"
                     size="sm"
@@ -331,7 +331,7 @@
                                     size="sm"
                                     variant="ghost"
                                     icon="eye"
-                                    :href="route('listings.show', $listing)"
+                                    :href="route('admin.listings.show', $listing)"
                                     wire:navigate
                                 />
                             </div>

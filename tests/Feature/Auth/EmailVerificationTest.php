@@ -29,7 +29,8 @@ test('email can be verified', function () {
     Event::assertDispatched(Verified::class);
 
     expect($user->fresh()->hasVerifiedEmail())->toBeTrue();
-    $response->assertRedirect(route('platforms.index', absolute: false).'?verified=1');
+    // Users default to agent role and are redirected to agents subdomain
+    $response->assertRedirect('http://'.config('domains.agents').'/properties?verified=1');
 });
 
 test('email is not verified with invalid hash', function () {
