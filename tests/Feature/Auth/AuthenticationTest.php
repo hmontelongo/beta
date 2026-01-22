@@ -9,8 +9,8 @@ test('login screen can be rendered', function () {
     $response->assertStatus(200);
 });
 
-test('users can authenticate using the login screen', function () {
-    $user = User::factory()->withoutTwoFactor()->create();
+test('admin users are redirected to admin subdomain after login', function () {
+    $user = User::factory()->withoutTwoFactor()->admin()->create();
 
     $response = $this->post(route('login.store'), [
         'email' => $user->email,
@@ -19,7 +19,22 @@ test('users can authenticate using the login screen', function () {
 
     $response
         ->assertSessionHasNoErrors()
-        ->assertRedirect(route('platforms.index', absolute: false));
+        ->assertRedirect('http://'.config('domains.admin').'/platforms');
+
+    $this->assertAuthenticated();
+});
+
+test('agent users are redirected to agents subdomain after login', function () {
+    $user = User::factory()->withoutTwoFactor()->agent()->create();
+
+    $response = $this->post(route('login.store'), [
+        'email' => $user->email,
+        'password' => 'password',
+    ]);
+
+    $response
+        ->assertSessionHasNoErrors()
+        ->assertRedirect('http://'.config('domains.agents').'/properties');
 
     $this->assertAuthenticated();
 });
