@@ -377,22 +377,6 @@ class PropertyCreationService
             }
         }
 
-        // Validate required fields
-        $requiredFields = ['address', 'colonia', 'city', 'state', 'property_type'];
-        $missingFields = [];
-        foreach ($requiredFields as $field) {
-            if (empty($data[$field])) {
-                $missingFields[] = $field;
-            }
-        }
-
-        if (! empty($missingFields)) {
-            throw new \RuntimeException(
-                'AI response missing required fields: '.implode(', ', $missingFields).
-                '. Listing IDs: '.$listings->pluck('id')->implode(', ')
-            );
-        }
-
         // Sanitize enum fields - AI may return invalid values
         $data = $this->sanitizeEnumFields($data);
 
@@ -647,14 +631,6 @@ YOUR TASKS:
    - Capitalize colonia names properly: "Del Valle" not "DEL VALLE"
    - City names in Title Case: "Ciudad de México" not "CIUDAD DE MEXICO"
 
-   REQUIRED FIELDS - address, colonia, city, state are ALL REQUIRED:
-   - If colonia is not explicitly provided, YOU MUST INFER IT:
-     * From the street name or area mentioned in the address
-     * From well-known landmarks or zones mentioned in the description
-     * From the general city area if coordinates are available (e.g., "Centro", "Zona Hotelera", "Zona Romántica")
-     * Use "Centro" as fallback for central/downtown areas
-   - NEVER return null for colonia, city, or state - always provide your best inference
-
 3. DESCRIPTION:
    - Write in the SAME LANGUAGE as input (usually Spanish)
    - Clean and professional
@@ -717,11 +693,11 @@ PROMPT;
                         'type' => 'object',
                         'description' => 'Best values for property fields.',
                         'properties' => [
-                            'address' => ['type' => 'string', 'description' => 'Street address (required)'],
+                            'address' => ['type' => ['string', 'null']],
                             'interior_number' => ['type' => ['string', 'null']],
-                            'colonia' => ['type' => 'string', 'description' => 'Neighborhood/colonia (required - infer from city area if not explicit)'],
-                            'city' => ['type' => 'string', 'description' => 'City name (required)'],
-                            'state' => ['type' => 'string', 'description' => 'State name (required)'],
+                            'colonia' => ['type' => ['string', 'null']],
+                            'city' => ['type' => ['string', 'null']],
+                            'state' => ['type' => ['string', 'null']],
                             'postal_code' => ['type' => ['string', 'null']],
                             'latitude' => ['type' => ['number', 'null']],
                             'longitude' => ['type' => ['number', 'null']],
