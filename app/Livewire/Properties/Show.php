@@ -374,6 +374,26 @@ class Show extends Component
     }
 
     /**
+     * Get AI-extracted data (pricing, terms, amenities, location, inferred).
+     *
+     * @return array{pricing: array, terms: array, amenities_categorized: array, location: array, inferred: array}|null
+     */
+    #[Computed]
+    public function extractedData(): ?array
+    {
+        return $this->property->ai_extracted_data;
+    }
+
+    /**
+     * Check if we have AI-extracted data available.
+     */
+    #[Computed]
+    public function hasExtractedData(): bool
+    {
+        return ! empty($this->property->ai_extracted_data);
+    }
+
+    /**
      * Trigger AI re-analysis for this property.
      */
     public function reanalyzeWithAi(): void

@@ -95,44 +95,127 @@
             {{-- Description --}}
             @if ($this->description['text'])
                 <flux:card class="p-4">
-                    <div class="flex items-center gap-2 mb-4">
+                    <div class="flex items-center gap-2">
                         <flux:heading size="lg">{{ __('Description') }}</flux:heading>
-                        @if ($this->description['source'] === 'unified')
-                            <flux:badge size="sm" color="blue">{{ __('AI Unified') }}</flux:badge>
-                        @elseif ($this->description['source'] === 'enriched')
-                            <flux:badge size="sm" color="green">{{ __('AI Enhanced') }}</flux:badge>
+                        @if ($this->description['source'] === 'ai')
+                            <flux:badge size="sm" color="blue">{{ __('AI Generated') }}</flux:badge>
                         @endif
                     </div>
-                    <div
-                        x-data="{ expanded: false }"
-                        class="relative"
-                    >
+                    <flux:separator class="my-4" />
+                    <div x-data="{ expanded: false }" class="relative">
                         <div
-                            class="prose prose-sm dark:prose-invert max-w-none"
-                            :class="{ 'line-clamp-6': !expanded }"
+                            x-bind:class="{ 'max-h-48 overflow-hidden': !expanded }"
+                            class="prose prose-sm dark:prose-invert max-w-none prose-headings:font-medium prose-headings:text-sm prose-headings:text-zinc-700 dark:prose-headings:text-zinc-300"
                         >
-                            {!! nl2br(e($this->description['text'])) !!}
+                            {!! $this->description['text'] !!}
                         </div>
-                        @if (strlen($this->description['text']) > 500)
-                            <button
-                                @click="expanded = !expanded"
-                                class="mt-2 text-sm text-blue-600 hover:text-blue-800 dark:text-blue-400"
-                                x-text="expanded ? '{{ __('Show less') }}' : '{{ __('Show more') }}'"
-                            ></button>
+                        @if (strlen($this->description['text']) > 400)
+                            <div
+                                x-show="!expanded"
+                                class="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-white dark:from-zinc-800 to-transparent pointer-events-none"
+                            ></div>
+                            <flux:button
+                                variant="ghost"
+                                size="sm"
+                                class="mt-2"
+                                x-on:click="expanded = !expanded"
+                            >
+                                <span x-text="expanded ? '{{ __('Show less') }}' : '{{ __('Show more') }}'"></span>
+                                <flux:icon
+                                    name="chevron-down"
+                                    class="size-4 transition-transform"
+                                    x-bind:class="expanded && 'rotate-180'"
+                                />
+                            </flux:button>
                         @endif
                     </div>
                 </flux:card>
             @endif
 
-            {{-- Amenities --}}
-            @if ($property->amenities && count($property->amenities) > 0)
+            {{-- What This Place Offers (Amenities) --}}
+            @if (($this->hasExtractedData && !empty($this->extractedData['amenities_categorized'])) || ($property->amenities && count($property->amenities) > 0))
                 <flux:card class="p-4">
-                    <flux:heading size="lg" class="mb-4">{{ __('Amenities') }}</flux:heading>
-                    <div class="flex flex-wrap gap-2">
-                        @foreach ($property->amenities as $amenity)
-                            <flux:badge size="sm" color="zinc">{{ str_replace('_', ' ', ucfirst($amenity)) }}</flux:badge>
-                        @endforeach
-                    </div>
+                    <flux:heading size="lg" class="mb-4">{{ __('What this place offers') }}</flux:heading>
+
+                    @if ($this->hasExtractedData && !empty($this->extractedData['amenities_categorized']))
+                        @php $amenities = $this->extractedData['amenities_categorized']; @endphp
+                        <div class="grid md:grid-cols-2 gap-6">
+                            {{-- In the unit --}}
+                            @if (!empty($amenities['unit']))
+                                <div>
+                                    <flux:text size="sm" class="font-medium text-zinc-700 dark:text-zinc-300 mb-2">{{ __('In the unit') }}</flux:text>
+                                    <div class="space-y-2">
+                                        @foreach ($amenities['unit'] as $amenity)
+                                            <div class="flex items-center gap-2">
+                                                <flux:icon name="check" class="size-4 text-green-500" />
+                                                <flux:text size="sm">{{ str_replace('_', ' ', ucfirst($amenity)) }}</flux:text>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            @endif
+
+                            {{-- Building amenities --}}
+                            @if (!empty($amenities['building']))
+                                <div>
+                                    <flux:text size="sm" class="font-medium text-zinc-700 dark:text-zinc-300 mb-2">{{ __('Building amenities') }}</flux:text>
+                                    <div class="space-y-2">
+                                        @foreach ($amenities['building'] as $amenity)
+                                            <div class="flex items-center gap-2">
+                                                <flux:icon name="check" class="size-4 text-green-500" />
+                                                <flux:text size="sm">{{ str_replace('_', ' ', ucfirst($amenity)) }}</flux:text>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            @endif
+
+                            {{-- Included services --}}
+                            @if (!empty($amenities['services']))
+                                <div>
+                                    <flux:text size="sm" class="font-medium text-zinc-700 dark:text-zinc-300 mb-2">{{ __('Included') }}</flux:text>
+                                    <div class="space-y-2">
+                                        @foreach ($amenities['services'] as $service)
+                                            <div class="flex items-center gap-2">
+                                                <flux:icon name="check-circle" class="size-4 text-blue-500" />
+                                                <flux:text size="sm">{{ str_replace('_', ' ', ucfirst($service)) }}</flux:text>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            @endif
+
+                            {{-- Optional (extra cost) --}}
+                            @if (!empty($amenities['optional']))
+                                <div>
+                                    <flux:text size="sm" class="font-medium text-zinc-700 dark:text-zinc-300 mb-2">{{ __('Available (extra cost)') }}</flux:text>
+                                    <div class="space-y-2">
+                                        @foreach ($amenities['optional'] as $optional)
+                                            @php
+                                                $extraCost = collect($this->extractedData['pricing']['extra_costs'] ?? [])->firstWhere('item', $optional);
+                                            @endphp
+                                            <div class="flex items-center gap-2">
+                                                <flux:icon name="plus-circle" class="size-4 text-zinc-400" />
+                                                <flux:text size="sm">
+                                                    {{ str_replace('_', ' ', ucfirst($optional)) }}
+                                                    @if ($extraCost && $extraCost['price'])
+                                                        <span class="text-zinc-400">(+${{ number_format($extraCost['price']) }}{{ $extraCost['period'] === 'monthly' ? '/mo' : '' }})</span>
+                                                    @endif
+                                                </flux:text>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            @endif
+                        </div>
+                    @else
+                        {{-- Fallback: flat badges for non-AI-extracted amenities --}}
+                        <div class="flex flex-wrap gap-2">
+                            @foreach ($property->amenities as $amenity)
+                                <flux:badge size="sm" color="zinc">{{ str_replace('_', ' ', ucfirst($amenity)) }}</flux:badge>
+                            @endforeach
+                        </div>
+                    @endif
                 </flux:card>
             @endif
 
@@ -372,6 +455,57 @@
                                 + ${{ number_format($this->primaryPrice['maintenance_fee']) }} {{ __('maint.') }}
                             </flux:text>
                         @endif
+
+                        {{-- Included Services (from AI extracted data) --}}
+                        @if ($this->hasExtractedData && !empty($this->extractedData['pricing']['included_services']))
+                            <div class="mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-800">
+                                <flux:text size="xs" class="text-zinc-500 mb-2">{{ __("What's included") }}</flux:text>
+                                <div class="space-y-1">
+                                    @foreach ($this->extractedData['pricing']['included_services'] as $service)
+                                        <div class="flex items-center gap-2">
+                                            <flux:icon name="check" class="size-3 text-green-500" />
+                                            <flux:text size="sm">
+                                                {{ ucfirst($service['service']) }}
+                                                @if (!empty($service['details']))
+                                                    <span class="text-zinc-400">({{ $service['details'] }})</span>
+                                                @endif
+                                            </flux:text>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
+
+                        {{-- Extra Costs (from AI extracted data) --}}
+                        @if ($this->hasExtractedData && !empty($this->extractedData['pricing']['extra_costs']))
+                            <div class="mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-800">
+                                <flux:text size="xs" class="text-zinc-500 mb-2">{{ __('Additional costs') }}</flux:text>
+                                <div class="space-y-1">
+                                    @foreach ($this->extractedData['pricing']['extra_costs'] as $cost)
+                                        <div class="flex items-center justify-between">
+                                            <flux:text size="sm" class="text-zinc-600 dark:text-zinc-400">{{ ucfirst($cost['item']) }}</flux:text>
+                                            <flux:text size="sm">
+                                                @if ($cost['price'])
+                                                    +${{ number_format($cost['price']) }}{{ $cost['period'] === 'monthly' ? '/mo' : '' }}
+                                                @else
+                                                    <span class="text-zinc-400">{{ __('varies') }}</span>
+                                                @endif
+                                            </flux:text>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
+
+                        {{-- Price per m² --}}
+                        @if ($this->hasExtractedData && !empty($this->extractedData['pricing']['price_per_m2']))
+                            <div class="mt-2">
+                                <flux:text size="xs" class="text-zinc-400">
+                                    ${{ number_format($this->extractedData['pricing']['price_per_m2'], 0) }}/m²
+                                </flux:text>
+                            </div>
+                        @endif
+
                         @if ($hasMultipleTypes)
                             @foreach ($pricesByType as $type => $prices)
                                 @if ($type !== $this->primaryPrice['type'])
@@ -450,6 +584,162 @@
                     @endif
                 </div>
             </flux:card>
+
+            {{-- Rental Requirements (from AI extracted data) --}}
+            @if ($this->hasExtractedData && !empty($this->extractedData['terms']))
+                @php $terms = $this->extractedData['terms']; @endphp
+                <flux:card class="p-4">
+                    <flux:heading size="lg" class="mb-3">{{ __('Rental Requirements') }}</flux:heading>
+                    <div class="space-y-2">
+                        @if (!empty($terms['deposit_months']))
+                            <div class="flex items-center gap-2">
+                                <flux:icon name="banknotes" class="size-4 text-zinc-400" />
+                                <flux:text size="sm">{{ __('Deposit') }}: {{ $terms['deposit_months'] }} {{ Str::plural(__('month'), $terms['deposit_months']) }}</flux:text>
+                            </div>
+                        @endif
+                        @if (!empty($terms['advance_months']))
+                            <div class="flex items-center gap-2">
+                                <flux:icon name="calendar" class="size-4 text-zinc-400" />
+                                <flux:text size="sm">{{ __('Advance') }}: {{ $terms['advance_months'] }} {{ Str::plural(__('month'), $terms['advance_months']) }}</flux:text>
+                            </div>
+                        @endif
+                        @if (!empty($terms['income_proof_months']))
+                            <div class="flex items-center gap-2">
+                                <flux:icon name="document-text" class="size-4 text-zinc-400" />
+                                <flux:text size="sm">{{ __('Income proof') }}: {{ $terms['income_proof_months'] }} {{ Str::plural(__('month'), $terms['income_proof_months']) }}</flux:text>
+                            </div>
+                        @endif
+                        @if (isset($terms['guarantor_required']))
+                            <div class="flex items-center gap-2">
+                                @if ($terms['guarantor_required'])
+                                    <flux:icon name="user-circle" class="size-4 text-amber-500" />
+                                    <flux:text size="sm">{{ __('Guarantor required') }}</flux:text>
+                                @else
+                                    <flux:icon name="check-circle" class="size-4 text-green-500" />
+                                    <flux:text size="sm">{{ __('No guarantor needed') }}</flux:text>
+                                @endif
+                            </div>
+                        @endif
+                        @if (isset($terms['pets_allowed']))
+                            <div class="flex items-center gap-2">
+                                @if ($terms['pets_allowed'])
+                                    <flux:icon name="check-circle" class="size-4 text-green-500" />
+                                    <flux:text size="sm">{{ __('Pets allowed') }}</flux:text>
+                                @else
+                                    <flux:icon name="x-circle" class="size-4 text-red-500" />
+                                    <flux:text size="sm">{{ __('No pets') }}</flux:text>
+                                @endif
+                            </div>
+                        @endif
+                        @if (!empty($terms['max_occupants']))
+                            <div class="flex items-center gap-2">
+                                <flux:icon name="user" class="size-4 text-zinc-400" />
+                                <flux:text size="sm">{{ __('Max') }}: {{ $terms['max_occupants'] }} {{ Str::plural(__('person'), $terms['max_occupants']) }}</flux:text>
+                            </div>
+                        @endif
+                    </div>
+                </flux:card>
+            @endif
+
+            {{-- About This Building (from AI extracted data) --}}
+            @if ($this->hasExtractedData && !empty($this->extractedData['location']))
+                @php $location = $this->extractedData['location']; @endphp
+                @if (!empty($location['building_name']) || !empty($location['nearby']))
+                    <flux:card class="p-4">
+                        <flux:heading size="lg" class="mb-3">{{ __('About this building') }}</flux:heading>
+
+                        {{-- Building Info --}}
+                        @if (!empty($location['building_name']))
+                            <div class="flex items-start gap-3 mb-4">
+                                <flux:icon name="building-office" class="size-5 text-zinc-400 mt-0.5" />
+                                <div>
+                                    <flux:text class="font-medium">{{ $location['building_name'] }}</flux:text>
+                                    @if (!empty($location['building_type']))
+                                        <flux:text size="sm" class="text-zinc-500 capitalize">{{ str_replace('_', ' ', $location['building_type']) }}</flux:text>
+                                    @endif
+                                </div>
+                            </div>
+                        @endif
+
+                        {{-- Nearby Landmarks --}}
+                        @if (!empty($location['nearby']))
+                            <div>
+                                <flux:text size="sm" class="text-zinc-500 mb-2">{{ __('Nearby') }}</flux:text>
+                                <div class="space-y-2">
+                                    @foreach ($location['nearby'] as $landmark)
+                                        <div class="flex items-center justify-between">
+                                            <div class="flex items-center gap-2">
+                                                @php
+                                                    $iconName = match($landmark['type'] ?? 'default') {
+                                                        'university', 'school' => 'academic-cap',
+                                                        'shopping_center', 'mall' => 'shopping-bag',
+                                                        'hospital', 'clinic' => 'heart',
+                                                        'park' => 'sun',
+                                                        'metro', 'subway', 'station' => 'truck',
+                                                        default => 'map-pin'
+                                                    };
+                                                @endphp
+                                                <flux:icon name="{{ $iconName }}" class="size-4 text-zinc-400" />
+                                                <flux:text size="sm">{{ $landmark['name'] }}</flux:text>
+                                            </div>
+                                            @if (!empty($landmark['distance']))
+                                                <flux:text size="xs" class="text-zinc-400">{{ $landmark['distance'] }}</flux:text>
+                                            @endif
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
+                    </flux:card>
+                @endif
+            @endif
+
+            {{-- Good to Know (AI Inferred Insights) --}}
+            @if ($this->hasExtractedData && !empty($this->extractedData['inferred']))
+                @php $inferred = $this->extractedData['inferred']; @endphp
+                <flux:card class="p-4">
+                    <flux:heading size="lg" class="mb-3">{{ __('Good to know') }}</flux:heading>
+                    <div class="space-y-2">
+                        @if (!empty($inferred['target_audience']))
+                            <div class="flex items-center gap-2">
+                                <flux:icon name="users" class="size-4 text-zinc-400" />
+                                <flux:text size="sm">
+                                    {{ __('Ideal for') }}:
+                                    @if (is_array($inferred['target_audience']))
+                                        {{ collect($inferred['target_audience'])->map(fn($a) => __(ucfirst(str_replace('_', ' ', $a))))->join(', ') }}
+                                    @else
+                                        {{ __(ucfirst(str_replace('_', ' ', $inferred['target_audience']))) }}
+                                    @endif
+                                </flux:text>
+                            </div>
+                        @endif
+                        @if (!empty($inferred['occupancy_type']))
+                            <div class="flex items-center gap-2">
+                                <flux:icon name="home" class="size-4 text-zinc-400" />
+                                <flux:text size="sm">
+                                    {{ __('Best for') }}: {{ __(ucfirst(str_replace('_', ' ', $inferred['occupancy_type']))) }}
+                                </flux:text>
+                            </div>
+                        @endif
+                        @if (!empty($inferred['property_condition']))
+                            <div class="flex items-center gap-2">
+                                @php
+                                    $conditionColor = match($inferred['property_condition']) {
+                                        'excellent', 'new' => 'text-green-500',
+                                        'good' => 'text-blue-500',
+                                        'fair' => 'text-yellow-500',
+                                        default => 'text-zinc-400'
+                                    };
+                                @endphp
+                                <flux:icon name="star" class="size-4 {{ $conditionColor }}" />
+                                <flux:text size="sm">
+                                    {{ __('Condition') }}: {{ __(ucfirst(str_replace('_', ' ', $inferred['property_condition']))) }}
+                                </flux:text>
+                            </div>
+                        @endif
+                    </div>
+                </flux:card>
+            @endif
 
             {{-- Location + Map --}}
             <flux:card class="p-4">
@@ -658,6 +948,7 @@
                     @endif
                 </div>
             </flux:card>
+
         </div>
     </div>
 </div>

@@ -36,6 +36,7 @@ class Property extends Model
             'amenities' => 'array',
             'status' => PropertyStatus::class,
             'ai_unification' => 'array',
+            'ai_extracted_data' => 'array',
             'ai_unified_at' => 'datetime',
             'needs_reanalysis' => 'boolean',
             'discrepancies' => 'array',
