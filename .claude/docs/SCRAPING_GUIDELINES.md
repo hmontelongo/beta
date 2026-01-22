@@ -211,7 +211,9 @@ See existing tests for patterns.
 
 ## Implementation Workflow
 
-### Step 1: Analyze Search Page
+> **Note:** Steps 1-3 use Playwright for local page exploration. Step 5 validates with real ZenRows data, which often behaves differently (geo-restrictions, CSS extraction format).
+
+### Step 1: Analyze Search Page (Playwright Exploration)
 Use Playwright MCP tools to inspect the search results page:
 
 1. Navigate to a search URL
@@ -229,7 +231,7 @@ Use Playwright MCP tools to inspect the search results page:
 - `h1_title`: Total results count (e.g., "2,163 Casas en Renta")
 - `pagination_links`: Page navigation links
 
-### Step 2: Analyze Listing Page
+### Step 2: Analyze Listing Page (Playwright Exploration)
 Navigate to an individual listing and identify:
 
 1. **Structured Data** (preferred sources):
@@ -247,7 +249,7 @@ Navigate to an individual listing and identify:
    - Publisher/agent information
    - Amenities lists
 
-### Step 3: Understand URL Patterns
+### Step 3: Understand URL Patterns (Playwright Exploration)
 Document:
 - **Pagination:** How pages are numbered (`?pagina=N`, `?page=N`, `/page/N`)
 - **External ID:** Where the unique ID appears in URLs (end, middle, query param)
@@ -259,7 +261,27 @@ Follow this order:
 2. Search parser (URL extraction, deduplication, pagination)
 3. Listing parser (multi-source extraction with fallbacks)
 4. Factory registration
-5. Tests
+5. Unit tests with synthetic data
+
+### Step 5: Validate with Real ZenRows Data (MANDATORY)
+
+**The implementation is NOT complete until this step passes.**
+
+Unit tests verify parser logic works with expected input. Real ZenRows data often reveals:
+- CSS extraction returns concatenated text (e.g., `Recámaras5Baños4`) instead of separated values
+- JSON-LD wrapped in `@graph` arrays
+- Different content than what Playwright shows (geo-restrictions, anti-bot variations)
+- Missing data that appeared in Playwright exploration
+
+**Validation steps:**
+1. Test search page via `ScraperService::scrapeSearchPage()` or ZenRows directly
+2. Verify listing count, titles, prices, URLs are correct
+3. Test listing page via `ScraperService::scrapeListing()`
+4. Verify ALL fields: bedrooms, bathrooms, coordinates, images, amenities
+5. Compare output format against existing working scrapers (e.g., Inmuebles24)
+6. Fix any extraction issues discovered with real data
+
+See the **"Mandatory Real Data Validation"** section below for detailed tinker examples.
 
 ---
 
@@ -415,6 +437,8 @@ Use these standardized property type values:
 ---
 
 ## Testing Guidelines
+
+> **Note:** Unit tests use synthetic data. Real ZenRows validation (Step 5) is still required.
 
 ### Search Parser Tests
 Test these scenarios:
@@ -712,7 +736,10 @@ Always implement fallback extraction chains. JSON-LD may have wrong operation ty
 The URL often contains reliable operation type and property type info. Use it to correct potentially wrong JSON-LD data (e.g., propiedades.com marking rentals as "Sell").
 
 ### 3. Test with Real ZenRows, Not Playwright
-Playwright captures what a browser sees locally. ZenRows uses different IPs and may get geo-blocked or receive different content. Always validate with actual ZenRows requests.
+Playwright captures what a browser sees locally. ZenRows uses different IPs and may get geo-blocked or receive different content. **Critical differences:**
+- ZenRows CSS extraction returns concatenated text without HTML structure (e.g., `Recámaras5Baños4Estacionamientos6`)
+- Playwright shows the full DOM with proper separation between elements
+- Parsers must handle BOTH formats or rely on ZenRows-specific fallbacks
 
 ### 4. Expired/Redirect Listings
 Sites may redirect old listing URLs to other active listings. Your parser will extract data from wherever it lands - this is expected behavior.

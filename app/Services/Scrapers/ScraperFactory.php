@@ -22,6 +22,7 @@ class ScraperFactory
             'vivanuncios' => new VivanunciosConfig,
             'propiedades' => new PropiedadesConfig,
             'lamudi' => new LamudiConfig,
+            'mercadolibre' => new MercadoLibreConfig,
             default => throw new InvalidArgumentException("No scraper config for platform: {$identifier}"),
         };
     }
@@ -39,6 +40,7 @@ class ScraperFactory
             'vivanuncios' => new VivanunciosSearchParser($config),
             'propiedades' => new PropiedadesSearchParser($config),
             'lamudi' => new LamudiSearchParser($config),
+            'mercadolibre' => new MercadoLibreSearchParser($config),
             default => throw new InvalidArgumentException("No search parser for platform: {$identifier}"),
         };
     }
@@ -56,6 +58,7 @@ class ScraperFactory
             'vivanuncios' => new VivanunciosListingParser($config),
             'propiedades' => new PropiedadesListingParser($config),
             'lamudi' => new LamudiListingParser($config),
+            'mercadolibre' => new MercadoLibreListingParser($config),
             default => throw new InvalidArgumentException("No listing parser for platform: {$identifier}"),
         };
     }
