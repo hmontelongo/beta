@@ -6,11 +6,13 @@ use App\Livewire\Admin\Listings\Index as ListingsIndex;
 use App\Livewire\Admin\Listings\Show as ListingsShow;
 use App\Livewire\Admin\Platforms\Index as PlatformsIndex;
 use App\Livewire\Admin\Platforms\Show as PlatformsShow;
-use App\Livewire\Admin\Properties\Index as PropertiesIndex;
+use App\Livewire\Admin\Properties\Index as AdminPropertiesIndex;
 use App\Livewire\Admin\Properties\Show as PropertiesShow;
 use App\Livewire\Admin\Publishers\Index as PublishersIndex;
 use App\Livewire\Admin\Publishers\Show as PublishersShow;
 use App\Livewire\Admin\ScrapeRuns\Show as ScrapeRunsShow;
+use App\Livewire\Agents\Properties\Index as AgentPropertiesIndex;
+use App\Livewire\Agents\Properties\Show as AgentPropertiesShow;
 use App\Livewire\Settings\Appearance;
 use App\Livewire\Settings\Password;
 use App\Livewire\Settings\Profile;
@@ -42,7 +44,7 @@ Route::domain(config('domains.admin'))->group(function () {
         Route::livewire('listings', ListingsIndex::class)->name('admin.listings.index');
         Route::livewire('listings/{listing}', ListingsShow::class)->name('admin.listings.show');
 
-        Route::livewire('properties', PropertiesIndex::class)->name('admin.properties.index');
+        Route::livewire('properties', AdminPropertiesIndex::class)->name('admin.properties.index');
         Route::livewire('properties/{property}', PropertiesShow::class)->name('admin.properties.show');
 
         Route::livewire('publishers', PublishersIndex::class)->name('admin.publishers.index');
@@ -84,10 +86,8 @@ Route::domain(config('domains.agents'))->group(function () {
         // Redirect root to properties search
         Route::redirect('/', '/properties');
 
-        // Placeholder - will be implemented in Phase 4
-        Route::get('/properties', function () {
-            return 'Agent properties search - Coming in Phase 4';
-        })->name('agents.properties.index');
+        Route::livewire('properties', AgentPropertiesIndex::class)->name('agents.properties.index');
+        Route::livewire('properties/{property}', AgentPropertiesShow::class)->name('agents.properties.show');
     });
 
     // Settings routes on agents subdomain
