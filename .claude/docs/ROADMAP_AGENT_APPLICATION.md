@@ -3,8 +3,8 @@
 **Document:** `.claude/docs/ROADMAP_AGENT_APPLICATION.md`
 **Related:** `.claude/docs/ARCHITECTURE_STATE.md` (current system architecture)
 **Created:** 2026-01-21
-**Status:** Approved
-**Last Updated:** 2026-01-21
+**Status:** In Progress
+**Last Updated:** 2026-01-22
 
 ---
 
@@ -25,7 +25,7 @@ Build the agent-facing portion of PropData where real estate agents can search p
 
 ---
 
-## Phase 1: Subdomain Infrastructure
+## Phase 1: Subdomain Infrastructure ✅ COMPLETE
 
 **Goal:** Create the foundation for subdomain-based routing without breaking anything.
 
@@ -34,386 +34,277 @@ Build the agent-facing portion of PropData where real estate agents can search p
 - Custom middleware - Role-based access control
 - Custom LoginResponse - Redirect users to correct subdomain after auth
 
-### Step 1.1: Domain Configuration
-- [ ] Create `config/domains.php`
-  ```php
-  return [
-      'admin' => env('ADMIN_DOMAIN', 'admin.propdata.test'),
-      'agents' => env('AGENTS_DOMAIN', 'agents.propdata.test'),
-      'public' => env('PUBLIC_DOMAIN', 'propdata.test'),
-  ];
-  ```
-- [ ] Update `.env` with domain values
-- [ ] Update `.env.example` with domain values
+### Step 1.1: Domain Configuration ✅
+- [x] Create `config/domains.php`
+- [x] Update `.env` with domain values
+- [x] Update `.env.example` with domain values
 
-**Files:**
-- `config/domains.php` (new)
-- `.env` (modify)
-- `.env.example` (modify)
+**Files Created:**
+- `config/domains.php`
 
-### Step 1.2: User Role System
-- [ ] Create `UserRole` enum with `Admin` and `Agent` cases
-- [ ] Create migration to add `role` column to users table (default: 'agent')
-- [ ] Update `User` model with role cast and helper methods (`isAdmin()`, `isAgent()`)
-- [ ] Run migration
+### Step 1.2: User Role System ✅
+- [x] Create `UserRole` enum with `Admin` and `Agent` cases
+- [x] Create migration to add `role` column to users table (default: 'agent')
+- [x] Update `User` model with role cast and helper methods (`isAdmin()`, `isAgent()`)
+- [x] **Added:** `homeUrl(bool $secure): string` method to User model for centralized redirect logic
+- [x] **Added:** Explicit `role => UserRole::Agent` default to UserFactory
+- [x] Run migration
 
-**Files:**
-- `app/Enums/UserRole.php` (new)
-- `database/migrations/xxxx_add_role_to_users_table.php` (new)
-- `app/Models/User.php` (modify)
+**Files Created:**
+- `app/Enums/UserRole.php`
+- `database/migrations/2026_01_22_185333_add_role_to_users_table.php`
 
-### Step 1.3: Role Middleware
-- [ ] Create `EnsureUserRole` middleware
+**Files Modified:**
+- `app/Models/User.php`
+- `database/factories/UserFactory.php`
+
+### Step 1.3: Role Middleware ✅
+- [x] Create `EnsureUserRole` middleware
   - Accepts role parameter (e.g., `role:admin`)
   - Checks authenticated user's role
-  - Redirects to appropriate subdomain if unauthorized
+  - Redirects to appropriate subdomain using `User::homeUrl()` if unauthorized
   - Handles unauthenticated users gracefully
-- [ ] Register middleware alias in `bootstrap/app.php`
+- [x] Register middleware alias in `bootstrap/app.php`
+- [x] **Added:** Comprehensive permission tests
 
-**Files:**
-- `app/Http/Middleware/EnsureUserRole.php` (new)
-- `bootstrap/app.php` (modify)
+**Files Created:**
+- `app/Http/Middleware/EnsureUserRole.php`
+- `tests/Feature/Middleware/EnsureUserRoleTest.php`
 
-### Step 1.4: Login Response Customization
-- [ ] Create custom `LoginResponse` class
-  - Check user role after successful login
-  - Redirect admin → `admin.{domain}/platforms`
-  - Redirect agent → `agents.{domain}/properties`
-- [ ] Register in `FortifyServiceProvider`
+**Files Modified:**
+- `bootstrap/app.php`
 
-**Files:**
-- `app/Http/Responses/LoginResponse.php` (new)
-- `app/Providers/FortifyServiceProvider.php` (modify)
+### Step 1.4: Auth Response Customization ✅
+- [x] Create custom `LoginResponse` class using `User::homeUrl()`
+- [x] **Added:** Create custom `RegisterResponse` class using `User::homeUrl()`
+- [x] **Added:** Create custom `VerifyEmailResponse` class using `User::homeUrl()`
+- [x] Register all responses in `FortifyServiceProvider`
 
-### Step 1.5: User Seeder
-- [ ] Create `UserSeeder` with:
-  - Admin user (role: admin)
-  - 2-3 sample agent users (role: agent)
-- [ ] Register in `DatabaseSeeder`
+**Implementation Note:** All three auth responses (login, register, email verification) use the centralized `User::homeUrl()` method for redirect logic, ensuring consistency. This was an addition to the original plan.
 
-**Files:**
-- `database/seeders/UserSeeder.php` (new)
-- `database/seeders/DatabaseSeeder.php` (modify)
+**Files Created:**
+- `app/Http/Responses/LoginResponse.php`
+- `app/Http/Responses/RegisterResponse.php`
+- `app/Http/Responses/VerifyEmailResponse.php`
 
-**Phase 1 Verification:**
-- [ ] `php artisan migrate` runs successfully
-- [ ] `php artisan db:seed --class=UserSeeder` creates users
-- [ ] Config values accessible via `config('domains.admin')` etc.
-- [ ] Middleware registered (check `php artisan route:list`)
+**Files Modified:**
+- `app/Providers/FortifyServiceProvider.php`
+
+### Step 1.5: User Seeder ✅
+- [x] Create `UserSeeder` with admin and agent users
+- [x] Register in `DatabaseSeeder`
+
+**Files Created/Modified:**
+- `database/seeders/UserSeeder.php`
+- `database/seeders/DatabaseSeeder.php`
+
+**Phase 1 Verification:** ✅ All checks passed
 
 ---
 
-## Phase 2: Migrate Existing Functionality to Admin Subdomain
+## Phase 2: Migrate Existing Functionality to Admin Subdomain ✅ COMPLETE
 
 **Goal:** Move all current functionality to `admin.propdata.test` and verify it works identically.
 
-**Critical Checkpoint:** We do NOT proceed to Phase 3 until everything works. If stuck, we revert.
+**Critical Checkpoint:** ✅ PASSED - All functionality verified via Playwright browser testing.
 
-### Step 2.1: Route Restructuring
-- [ ] Wrap all existing authenticated routes in `Route::domain(config('domains.admin'))`
-- [ ] Add `role.admin` middleware to admin route group
-- [ ] Keep auth routes (login, register, etc.) accessible on all subdomains OR create per-subdomain auth
-- [ ] Update route names with `admin.` prefix where needed
+### Step 2.1: Route Restructuring ✅
+- [x] Wrap all existing authenticated routes in `Route::domain(config('domains.admin'))`
+- [x] Add `role:admin` middleware to admin route group
+- [x] Auth routes accessible on all subdomains (admin, agents)
+- [x] **Changed:** Update ALL route names with `admin.` prefix for consistency (more comprehensive than originally planned)
 
-**Files:**
+**Route Naming Changes:**
+| Original | New |
+|----------|-----|
+| `platforms.index` | `admin.platforms.index` |
+| `platforms.show` | `admin.platforms.show` |
+| `listings.index` | `admin.listings.index` |
+| `listings.show` | `admin.listings.show` |
+| `publishers.index` | `admin.publishers.index` |
+| `publishers.show` | `admin.publishers.show` |
+| `dedup.review` | `admin.dedup.review` |
+| `runs.show` | `admin.runs.show` |
+
+**Files Modified:**
 - `routes/web.php` (major refactor)
 
-### Step 2.2: Move Livewire Components to Admin Namespace
-- [ ] Create `app/Livewire/Admin/` directory
-- [ ] Move `Dashboard.php` → `Admin/Dashboard.php`
-- [ ] Move `Listings/` → `Admin/Listings/`
-- [ ] Move `Properties/` → `Admin/Properties/`
-- [ ] Move `Platforms/` → `Admin/Platforms/`
-- [ ] Move `Publishers/` → `Admin/Publishers/`
-- [ ] Move `ScrapeRuns/` → `Admin/ScrapeRuns/`
-- [ ] Move `Dedup/` → `Admin/Dedup/`
-- [ ] Update namespace declarations in all moved files
-- [ ] Update `#[Layout(...)]` attributes if needed
+### Step 2.2: Move Livewire Components to Admin Namespace ✅
+- [x] Create `app/Livewire/Admin/` directory
+- [x] Move all admin components to `Admin/` namespace
+- [x] Update namespace declarations in all moved files
+- [x] Update `#[Layout(...)]` attributes
 
-**Files:**
-- All files in `app/Livewire/` (move ~15 files)
+**Components Moved:**
+- `Dashboard.php` → `Admin/Dashboard.php`
+- `Listings/Index.php` → `Admin/Listings/Index.php`
+- `Listings/Show.php` → `Admin/Listings/Show.php`
+- `Properties/Index.php` → `Admin/Properties/Index.php`
+- `Properties/Show.php` → `Admin/Properties/Show.php`
+- `Platforms/Index.php` → `Admin/Platforms/Index.php`
+- `Platforms/Show.php` → `Admin/Platforms/Show.php`
+- `Publishers/Index.php` → `Admin/Publishers/Index.php`
+- `Publishers/Show.php` → `Admin/Publishers/Show.php`
+- `ScrapeRuns/Show.php` → `Admin/ScrapeRuns/Show.php`
+- `Dedup/ReviewCandidates.php` → `Admin/Dedup/ReviewCandidates.php`
 
-### Step 2.3: Update Views
-- [ ] Move Livewire views to match new structure
-  - `resources/views/livewire/` → `resources/views/livewire/admin/`
-- [ ] Update any hardcoded component references
-- [ ] Ensure layout still works for admin context
+### Step 2.3: Update Views ✅
+- [x] Move Livewire views to `resources/views/livewire/admin/`
+- [x] Update all hardcoded route references to use `admin.` prefix
+- [x] Ensure layout still works for admin context
 
-**Files:**
-- All files in `resources/views/livewire/` (move)
+### Step 2.4: Layout Updates ✅
+- [x] **Changed:** Single sidebar with conditional rendering (not separate files as originally planned)
+- [x] Admin users see: Dashboard, Platforms, Listings, Properties, Publishers
+- [x] Agent users see: Properties (only)
+- [x] Sidebar uses `$isAdmin` variable for conditional rendering
+- [x] Settings route in user menu uses role-appropriate route
+- [x] **Changed:** Settings layout uses `auth()->user()?->isAdmin()` instead of host sniffing
 
-### Step 2.4: Layout Updates
-- [ ] Update sidebar to work with admin subdomain context
-- [ ] Ensure navigation links use correct routes
-- [ ] Test responsive behavior
+**Design Decision:** Instead of creating a separate `agent-sidebar.blade.php` as originally planned, we use conditional rendering in the existing sidebar. This keeps styling consistent and reduces code duplication.
 
-**Files:**
-- `resources/views/components/layouts/app/sidebar.blade.php` (modify)
+**Files Modified:**
+- `resources/views/components/layouts/app/sidebar.blade.php`
+- `resources/views/components/settings/layout.blade.php`
 
-### Step 2.5: Verification Testing
-Test every page on `admin.propdata.test`:
+### Step 2.5: Verification Testing ✅
+Tested via Playwright browser automation:
 
-- [ ] **Auth flows:**
-  - [ ] Login page loads
-  - [ ] Login works, redirects to `/platforms`
-  - [ ] Logout works
-  - [ ] Register page loads (if enabled)
-  - [ ] Password reset flow works
+- [x] **Auth flows:** Login, logout, register all work correctly
+- [x] **Admin pages:** Dashboard, Platforms, Listings, Properties, Publishers all functional
+- [x] **Settings:** Profile settings load with correct navigation
+- [x] **Agent Subdomain:** Login redirects correctly, shows agent navigation
 
-- [ ] **Dashboard:**
-  - [ ] Dashboard loads at `/dashboard`
-  - [ ] Stats display correctly
-  - [ ] No console errors
-
-- [ ] **Platforms:**
-  - [ ] List page loads
-  - [ ] Detail page loads
-  - [ ] Start scrape action works
-  - [ ] Search queries display
-
-- [ ] **Listings:**
-  - [ ] List page loads with filters
-  - [ ] Pagination works
-  - [ ] Detail page loads
-  - [ ] Images display
-
-- [ ] **Properties:**
-  - [ ] List page loads with filters
-  - [ ] Sorting works
-  - [ ] Detail page loads
-  - [ ] All tabs/sections work
-
-- [ ] **Publishers:**
-  - [ ] List page loads
-  - [ ] Detail page loads
-
-- [ ] **Dedup Review:**
-  - [ ] Review page loads
-  - [ ] Approve/reject actions work
-
-- [ ] **Settings:**
-  - [ ] Profile settings load
-  - [ ] Password change works
-  - [ ] Appearance settings work
-
-- [ ] **Scrape Runs:**
-  - [ ] Run detail page loads
-  - [ ] Real-time updates work
-
-**Phase 2 Exit Criteria:**
-- [ ] ALL checkboxes above are checked
-- [ ] No functionality regression from before subdomain migration
-- [ ] Existing tests pass: `php artisan test`
-- [ ] Code formatted: `vendor/bin/pint --dirty`
-
-**If Phase 2 fails:** Document what broke, attempt fix. If unrecoverable, `git checkout` to revert and reassess approach.
+**Phase 2 Exit Criteria:** ✅
+- [x] All functionality verified
+- [x] No regression from before subdomain migration
+- [x] All 505 tests pass: `php artisan test`
+- [x] Code formatted: `vendor/bin/pint --dirty`
 
 ---
 
-## Phase 3: Collection Data Model
+## Phase 3: Agent UI Prototype (UI-First Approach) 🚧 IN PROGRESS
 
-**Goal:** Create the database structure for agent collections.
+**Goal:** Build experimental UI/UX for agent property search to understand what data and features are actually needed before committing to database schemas.
 
-**Prerequisite:** Phase 2 complete and verified.
+**Rationale:** By building the UI first with real property data, we can:
+- Discover what information agents actually need to see
+- Understand what collection features make sense
+- Iterate quickly on UX without migration concerns
+- Inform the final database schema design
 
-### Step 3.1: Collections Table
-- [ ] Create migration for `collections` table:
-  - `id`, `user_id`, `name`, `public_id` (UUID), `is_public`
-  - `client_name`, `client_phone`, `client_email`, `notes` (optional CRM fields)
-  - `timestamps`
-  - Index on `[user_id, created_at]`
-- [ ] Run migration
+**Change from Original Plan:** Originally Phase 3 was "Collection Data Model". We've restructured to build UI first, then create database models informed by UI learnings.
 
-**Files:**
-- `database/migrations/xxxx_create_collections_table.php` (new)
+**Prerequisite:** Phase 2 complete and verified. ✅
 
-### Step 3.2: Collection-Property Pivot Table
-- [ ] Create migration for `collection_property` table:
-  - `id`, `collection_id`, `property_id`
-  - `agent_notes` (why this property for this client)
-  - `sort_order` (for drag-to-reorder)
-  - `timestamps`
-  - Unique constraint on `[collection_id, property_id]`
-- [ ] Run migration
+**Status:** In Progress
 
-**Files:**
-- `database/migrations/xxxx_create_collection_property_table.php` (new)
-
-### Step 3.3: Collection Model
-- [ ] Create `Collection` model with:
-  - Fillable fields
-  - `is_public` cast to boolean
-  - Auto-generate `public_id` UUID on creation
-  - `user()` relationship (belongsTo)
-  - `properties()` relationship (belongsToMany with pivot)
-  - `getPublicUrlAttribute()` accessor
-- [ ] Create `CollectionFactory` for testing
-
-**Files:**
-- `app/Models/Collection.php` (new)
-- `database/factories/CollectionFactory.php` (new)
-
-### Step 3.4: Update Related Models
-- [ ] Add `collections()` relationship to `User` model
-
-**Files:**
-- `app/Models/User.php` (modify)
-
-### Step 3.5: Collection Model Tests
-- [ ] Write unit tests for Collection model:
-  - UUID auto-generation
-  - User relationship
-  - Properties relationship with pivot data
-  - Public URL generation
-
-**Files:**
-- `tests/Unit/Models/CollectionTest.php` (new)
-
-**Phase 3 Verification:**
-- [ ] Migrations run without error
-- [ ] `Collection::factory()->create()` works in tinker
-- [ ] Relationships work correctly
-- [ ] Unit tests pass
-
----
-
-## Phase 4: Agent UI Components
-
-**Goal:** Build the agent-facing application at `agents.propdata.test`.
-
-**Prerequisite:** Phase 3 complete.
-
-### Step 4.1: Agent Route Structure
-- [ ] Create agent subdomain route group in `routes/web.php`
-- [ ] Add placeholder routes:
-  - `GET /` → redirect to `/properties`
-  - `GET /properties` → Property search
-  - `GET /properties/{property}` → Property detail
-  - `GET /collections` → Collection list
-  - `GET /collections/{collection}` → Collection detail
-  - `POST /collections` → Create collection (Livewire action)
-- [ ] Add `role.agent` middleware
-
-**Files:**
-- `routes/web.php` (modify)
-
-### Step 4.2: Agent Layout
-- [ ] Create agent-specific sidebar with simpler navigation:
-  - Properties (search)
-  - Collections
-  - Settings
-- [ ] Update main layout to detect subdomain and show appropriate sidebar
-- [ ] Ensure consistent styling with admin (same Flux UI patterns)
-
-**Files:**
-- `resources/views/components/layouts/app/agent-sidebar.blade.php` (new)
-- `resources/views/components/layouts/app.blade.php` (modify)
-
-### Step 4.3: Property Search Component
-- [ ] Create `app/Livewire/Agents/Properties/Search.php`
+### Step 3.1: Property Search UI (Primary Focus)
+- [ ] Replace placeholder with full property search component
+- [ ] Use existing `Property` model data (93 properties available)
 - [ ] Implement filters:
   - Location (state, city, colonia)
-  - Price range (min/max)
-  - Operation type (rent/sale)
-  - Property type
+  - Price range (min/max) - via linked listings
+  - Operation type (rent/sale) - via linked listings
+  - Property type (apartment, house, commercial, office, warehouse, land)
   - Bedrooms, bathrooms, parking
   - Size range
-  - Amenities
-- [ ] Display results as card grid (mobile-first)
+- [ ] Display results as mobile-first card grid
 - [ ] Each card shows: image, price, location, key features
-- [ ] "Add to Collection" button on each card
-- [ ] Quick collection selector dropdown
-- [ ] Pagination
+- [ ] Pagination with Livewire
+
+**Data Available:**
+- 93 properties in database
+- Property types: apartments (34), commercial (19), houses (16), offices (11), warehouses (8), land (5)
+- Images stored in `listings.raw_data.images` (10-24 per listing)
+- Price/operation via `listings.operations` JSON
 
 **Files:**
-- `app/Livewire/Agents/Properties/Search.php` (new)
-- `resources/views/livewire/agents/properties/search.blade.php` (new)
+- `app/Livewire/Agents/Properties/Index.php` (replace placeholder)
+- `resources/views/livewire/agents/properties/index.blade.php` (new)
 
-### Step 4.4: Property Detail Component
-- [ ] Create `app/Livewire/Agents/Properties/Show.php`
+### Step 3.2: Property Detail View
+- [ ] Create property detail page for agents
 - [ ] Display:
   - Hero image with gallery (lightbox)
   - Price prominently displayed
   - Key stats (beds, baths, parking, size)
   - Full description
   - Amenities list
-  - Location with map (if coordinates available)
-  - Publisher info
-- [ ] Actions:
-  - "Add to Collection" button
-  - "Download PDF" button (wired up in Phase 5)
+  - Location info
+  - Publisher info (if available)
+- [ ] Mobile-responsive design
 
 **Files:**
 - `app/Livewire/Agents/Properties/Show.php` (new)
 - `resources/views/livewire/agents/properties/show.blade.php` (new)
 
-### Step 4.5: Collections Index Component
-- [ ] Create `app/Livewire/Agents/Collections/Index.php`
-- [ ] Display grid of agent's collections
-- [ ] Each card shows: name, property count, client name (if set), created date
-- [ ] Actions: view, share toggle, delete
-- [ ] "Create Collection" button → opens modal
+### Step 3.3: Collection UI Mockup (Disabled/Visual Only)
+- [ ] Add "Collections" link to agent sidebar (navigates to mockup)
+- [ ] Create collections index page with static/mock data
+- [ ] Create collection detail page with static/mock data
+- [ ] "Add to Collection" button on property cards (shows toast: "Coming soon")
+- [ ] Visual design exploration for:
+  - How collections are displayed
+  - What client info fields make sense
+  - How properties are organized within a collection
+  - Share/public link UI
+
+**Note:** These features are UI-only - no database operations. The goal is to iterate on what feels right before building the backend.
 
 **Files:**
-- `app/Livewire/Agents/Collections/Index.php` (new)
+- `app/Livewire/Agents/Collections/Index.php` (mock data)
+- `app/Livewire/Agents/Collections/Show.php` (mock data)
 - `resources/views/livewire/agents/collections/index.blade.php` (new)
-
-### Step 4.6: Collection Detail/Management Component
-- [ ] Create `app/Livewire/Agents/Collections/Show.php`
-- [ ] Editable fields: name, client info, notes
-- [ ] Property list with:
-  - Drag-to-reorder (sort_order)
-  - Per-property agent notes
-  - Remove from collection action
-- [ ] Share controls:
-  - Toggle public/private
-  - Copy public link button
-- [ ] "Download All PDFs" button (wired up in Phase 5)
-
-**Files:**
-- `app/Livewire/Agents/Collections/Show.php` (new)
 - `resources/views/livewire/agents/collections/show.blade.php` (new)
 
-### Step 4.7: Create Collection Modal
-- [ ] Create `app/Livewire/Agents/Collections/Create.php`
-- [ ] Form fields: name (required), client name/phone/email (optional), notes
-- [ ] Save action creates collection and redirects to it
+### Step 3.4: Navigation & Layout Polish
+- [ ] Update agent sidebar with Collections link
+- [ ] Ensure consistent navigation between pages
+- [ ] Mobile hamburger menu works correctly
 
 **Files:**
-- `app/Livewire/Agents/Collections/Create.php` (new)
-- `resources/views/livewire/agents/collections/create.blade.php` (new)
+- `resources/views/components/layouts/app/sidebar.blade.php` (modify)
 
-### Step 4.8: Public Collection View
-- [ ] Create `app/Livewire/Agents/Collections/PublicView.php`
-- [ ] Route: `GET /c/{collection:public_id}` on public subdomain
-- [ ] No authentication required
-- [ ] Display: collection name, property cards (read-only)
-- [ ] Platform branding
-- [ ] Optional CTA: "Find an agent" or "Sign up"
+**Phase 3 Verification:**
+- [ ] Agent can search and filter properties with real data
+- [ ] Property detail page shows all available information
+- [ ] Collection UI mockups are navigable (even if non-functional)
+- [ ] Mobile responsive design works
+- [ ] Feedback gathered on what's missing or needs adjustment
 
-**Files:**
-- `app/Livewire/Agents/Collections/PublicView.php` (new)
-- `resources/views/livewire/agents/collections/public-view.blade.php` (new)
+---
 
-### Step 4.9: Feature Tests
-- [ ] Test property search filters
-- [ ] Test collection CRUD operations
-- [ ] Test add/remove properties from collection
-- [ ] Test public collection access
-- [ ] Test role-based access (agent can't access admin routes)
+## Phase 4: Collection Data Model (Informed by UI Prototype)
 
-**Files:**
-- `tests/Feature/Agents/PropertySearchTest.php` (new)
-- `tests/Feature/Agents/CollectionsTest.php` (new)
-- `tests/Feature/Agents/PublicCollectionTest.php` (new)
+**Goal:** Create the database structure for agent collections based on learnings from Phase 3 UI prototype.
+
+**Prerequisite:** Phase 3 UI complete and feedback incorporated.
+
+**Status:** Pending (schema will be refined based on Phase 3 learnings)
+
+### Step 4.1: Collections Table
+- [ ] Create migration for `collections` table
+- [ ] Fields TBD based on UI prototype feedback
+
+### Step 4.2: Collection-Property Pivot Table
+- [ ] Create migration for `collection_property` table
+- [ ] Additional fields TBD based on UI prototype
+
+### Step 4.3: Collection Model & Factory
+- [ ] Create `Collection` model with relationships
+- [ ] Create `CollectionFactory` for testing
+
+### Step 4.4: Wire Up UI to Real Data
+- [ ] Replace mock data in collection components with real queries
+- [ ] Implement CRUD operations
+- [ ] Add/remove properties from collections
+- [ ] Write feature tests
 
 **Phase 4 Verification:**
-- [ ] Agent can log in and land on property search
-- [ ] Property search returns results with working filters
-- [ ] Property detail shows all information
 - [ ] Collections CRUD works completely
-- [ ] Public links work without authentication
-- [ ] All new tests pass
+- [ ] All UI features now backed by real data
+- [ ] Tests pass
 
 ---
 
@@ -425,80 +316,21 @@ Test every page on `admin.propdata.test`:
 
 ### Step 5.1: Install PDF Package
 - [ ] Run `composer require spatie/laravel-pdf`
-- [ ] Verify Chromium/Puppeteer dependencies (may need `npm install puppeteer`)
-
-**Files:**
-- `composer.json` (modify)
-- `composer.lock` (modify)
+- [ ] Verify Chromium/Puppeteer dependencies
 
 ### Step 5.2: PDF Template
 - [ ] Create property spec sheet Blade template
-- [ ] Layout:
-  ```
-  ┌─────────────────────────────────────┐
-  │ [Hero Image - full width]           │
-  ├─────────────────────────────────────┤
-  │ $65,000/mes                    RENT │
-  │ Casa en Valle Real, Zapopan         │
-  ├─────────────────────────────────────┤
-  │ 5 Beds │ 4 Baths │ 6 Parking │450m² │
-  ├─────────────────────────────────────┤
-  │ Description (first 500 chars)...    │
-  ├─────────────────────────────────────┤
-  │ Amenities: Pool, Gym, Security...   │
-  ├─────────────────────────────────────┤
-  │ Location: Calle..., Colonia..., ... │
-  ├─────────────────────────────────────┤
-  │ [Image Grid - 4-6 smaller images]   │
-  ├─────────────────────────────────────┤
-  │ Agent: Name │ Phone │ Platform Logo │
-  └─────────────────────────────────────┘
-  ```
-- [ ] Use inline Tailwind CSS (PDF generator compiles it)
+- [ ] Professional layout with images, stats, description
 
-**Files:**
-- `resources/views/pdf/property-spec-sheet.blade.php` (new)
-
-### Step 5.3: PDF Controller
+### Step 5.3: PDF Controller & Routes
 - [ ] Create `PropertyPdfController`
-- [ ] `single(Property $property)` - Generate single property PDF
-- [ ] `collection(Collection $collection)` - Generate multi-page PDF
-- [ ] Helper method to extract images from property listings
+- [ ] Add routes for PDF generation
 
-**Files:**
-- `app/Http/Controllers/PropertyPdfController.php` (new)
+### Step 5.4: Wire Up UI Buttons
+- [ ] Connect PDF download buttons in property/collection views
 
-### Step 5.4: PDF Routes
-- [ ] Add routes for PDF generation:
-  - `GET /pdf/property/{property}` → single PDF
-  - `GET /pdf/collection/{collection}` → collection PDF
-- [ ] Add to both admin and agents subdomain (or shared)
-
-**Files:**
-- `routes/web.php` (modify)
-
-### Step 5.5: Wire Up UI Buttons
-- [ ] Connect "Download PDF" button in property detail
-- [ ] Connect "Download All PDFs" button in collection detail
-- [ ] Add loading states during PDF generation
-
-**Files:**
-- `app/Livewire/Agents/Properties/Show.php` (modify)
-- `app/Livewire/Agents/Collections/Show.php` (modify)
-
-### Step 5.6: PDF Tests
-- [ ] Test single property PDF generation
-- [ ] Test collection PDF generation
-- [ ] Test PDF contains expected content
-
-**Files:**
-- `tests/Feature/Pdf/PropertyPdfTest.php` (new)
-
-**Phase 5 Verification:**
-- [ ] Single property PDF downloads correctly
-- [ ] PDF layout looks professional
-- [ ] Collection PDF contains all properties
-- [ ] Tests pass
+### Step 5.5: PDF Tests
+- [ ] Test PDF generation and content
 
 ---
 
@@ -510,139 +342,122 @@ Test every page on `admin.propdata.test`:
 - [ ] Create `docs/LOCAL_DEVELOPMENT.md`
 - [ ] Document Herd subdomain setup
 - [ ] Document seeder usage
-- [ ] Document testing approach
 
-**Files:**
-- `docs/LOCAL_DEVELOPMENT.md` (new)
-
-### Step 6.2: Run Full Test Suite
-- [ ] Run `php artisan test` - all tests pass
-- [ ] Run `vendor/bin/pint` - code formatted
-- [ ] Manual smoke test of all features
+### Step 6.2: Final Test Suite
+- [ ] All tests pass
+- [ ] Code formatted
+- [ ] Manual smoke test
 
 ### Step 6.3: Browser Tests (Optional)
-- [ ] Write Pest v4 browser tests for critical flows:
-  - Agent login → search → add to collection → share
-  - Public collection viewing
-
-**Files:**
-- `tests/Browser/AgentWorkflowTest.php` (new, optional)
-
-**Phase 6 Verification:**
-- [ ] All tests pass
-- [ ] Documentation complete
-- [ ] No console errors in browser
-- [ ] Mobile responsive
+- [ ] Pest v4 browser tests for critical flows
 
 ---
 
-## File Summary
+## Implementation Notes
 
-### New Files (~35 files)
+### Design Decisions Made During Implementation
+
+1. **Single Sidebar with Conditional Rendering**: Instead of creating separate `admin-sidebar.blade.php` and `agent-sidebar.blade.php` files, we use a single sidebar with `@if($isAdmin)` conditional blocks. This keeps styling consistent and reduces code duplication.
+
+2. **Centralized Redirect Logic**: The `User::homeUrl(bool $secure)` method centralizes all redirect URL logic. All auth responses (login, register, verify email) and the role middleware use this single source of truth.
+
+3. **All Admin Routes Use `admin.*` Prefix**: For consistency and to avoid conflicts with future agent routes, all admin routes now use the `admin.` prefix (e.g., `admin.platforms.index`, `admin.listings.show`).
+
+4. **Explicit Role in UserFactory**: The UserFactory now explicitly sets `role => UserRole::Agent` as the default, making test behavior predictable and matching the expected behavior for new user registrations.
+
+5. **Settings Layout Uses User Role**: The settings layout determines the route prefix based on `auth()->user()?->isAdmin()` instead of inspecting the host/subdomain. This is more reliable and explicit.
+
+6. **UI-First Approach for Collections**: Phase 3 was restructured to build UI prototypes first before creating database schemas. This allows us to iterate on UX and discover actual requirements before committing to migrations.
+
+### Files Created (Phase 1 & 2)
 
 **Configuration:**
-- `config/domains.php`
+- `config/domains.php` ✅
 
 **Enums:**
-- `app/Enums/UserRole.php`
+- `app/Enums/UserRole.php` ✅
 
 **Middleware:**
-- `app/Http/Middleware/EnsureUserRole.php`
+- `app/Http/Middleware/EnsureUserRole.php` ✅
 
 **Responses:**
-- `app/Http/Responses/LoginResponse.php`
-
-**Controllers:**
-- `app/Http/Controllers/PropertyPdfController.php`
-
-**Models:**
-- `app/Models/Collection.php`
+- `app/Http/Responses/LoginResponse.php` ✅
+- `app/Http/Responses/RegisterResponse.php` ✅
+- `app/Http/Responses/VerifyEmailResponse.php` ✅
 
 **Migrations:**
-- `database/migrations/xxxx_add_role_to_users_table.php`
-- `database/migrations/xxxx_create_collections_table.php`
-- `database/migrations/xxxx_create_collection_property_table.php`
-
-**Factories:**
-- `database/factories/CollectionFactory.php`
+- `database/migrations/2026_01_22_185333_add_role_to_users_table.php` ✅
 
 **Seeders:**
-- `database/seeders/UserSeeder.php`
-
-**Livewire Components (Agents):**
-- `app/Livewire/Agents/Properties/Search.php`
-- `app/Livewire/Agents/Properties/Show.php`
-- `app/Livewire/Agents/Collections/Index.php`
-- `app/Livewire/Agents/Collections/Show.php`
-- `app/Livewire/Agents/Collections/Create.php`
-- `app/Livewire/Agents/Collections/PublicView.php`
-
-**Views (Agents):**
-- `resources/views/livewire/agents/properties/search.blade.php`
-- `resources/views/livewire/agents/properties/show.blade.php`
-- `resources/views/livewire/agents/collections/index.blade.php`
-- `resources/views/livewire/agents/collections/show.blade.php`
-- `resources/views/livewire/agents/collections/create.blade.php`
-- `resources/views/livewire/agents/collections/public-view.blade.php`
-
-**Layouts:**
-- `resources/views/components/layouts/app/agent-sidebar.blade.php`
-
-**PDF:**
-- `resources/views/pdf/property-spec-sheet.blade.php`
+- `database/seeders/UserSeeder.php` ✅
 
 **Tests:**
-- `tests/Unit/Models/CollectionTest.php`
-- `tests/Unit/Enums/UserRoleTest.php`
-- `tests/Feature/Auth/RoleBasedRedirectTest.php`
-- `tests/Feature/Middleware/EnsureUserRoleTest.php`
-- `tests/Feature/Agents/PropertySearchTest.php`
-- `tests/Feature/Agents/CollectionsTest.php`
-- `tests/Feature/Agents/PublicCollectionTest.php`
-- `tests/Feature/Pdf/PropertyPdfTest.php`
+- `tests/Feature/Middleware/EnsureUserRoleTest.php` ✅
 
-**Documentation:**
-- `docs/LOCAL_DEVELOPMENT.md`
+### Files Modified (Phase 1 & 2)
 
-### Modified Files (~20 files)
-
-- `.env`
-- `.env.example`
-- `bootstrap/app.php`
-- `routes/web.php`
-- `app/Models/User.php`
-- `app/Providers/FortifyServiceProvider.php`
-- `database/seeders/DatabaseSeeder.php`
-- `resources/views/components/layouts/app.blade.php`
-- `resources/views/components/layouts/app/sidebar.blade.php`
-- All existing Livewire components (move to Admin/ namespace, ~10 files)
+- `.env` ✅
+- `.env.example` ✅
+- `bootstrap/app.php` ✅
+- `routes/web.php` ✅
+- `app/Models/User.php` ✅
+- `app/Providers/FortifyServiceProvider.php` ✅
+- `database/seeders/DatabaseSeeder.php` ✅
+- `database/factories/UserFactory.php` ✅
+- `resources/views/components/layouts/app/sidebar.blade.php` ✅
+- `resources/views/components/settings/layout.blade.php` ✅
+- All admin Livewire components (moved to `Admin/` namespace) ✅
+- All admin views (moved to `admin/` directory) ✅
+- `tests/Feature/Auth/RegistrationTest.php` ✅
+- `tests/Feature/Auth/EmailVerificationTest.php` ✅
 
 ---
 
 ## Risk Mitigation
 
 **Git Strategy:**
-- Commit after each completed step
-- Use descriptive commit messages
-- Create feature branch: `feature/agent-application`
-- If Phase 2 fails badly, `git checkout main` to revert
+- Do not Commit after each completed step, stage all changes and ask for review on the staged files, then commit ✅
+- Use descriptive commit messages ✅
+- Feature branches for each phase ✅
+- Merge to main after each phase completion ✅
 
-**Rollback Points:**
-- After Phase 1: Infrastructure in place, no breaking changes yet
-- After Phase 2: **Critical checkpoint** - existing functionality verified
-- After Phase 3: Data model exists, can proceed or pause
-- After Phase 4: Agent UI complete, PDF can be deferred
-- After Phase 5: Full feature complete
+**Branches Used:**
+- `feature/agent-application` - Phase 1 & 2 (merged to main)
+- `feature/agent-ui-prototype` - Phase 3 (current)
 
 ---
 
 ## Progress Log
 
-_Use this section to track progress and notes during implementation._
-
 | Date | Phase | Step | Status | Notes |
 |------|-------|------|--------|-------|
-| 2026-01-22 | 1 | All | Complete | All Phase 1 steps implemented and tested |
+| 2026-01-21 | - | - | Complete | Initial plan created and approved |
+| 2026-01-21 | 1 | 1.1-1.5 | Complete | Domain config, UserRole enum, middleware, LoginResponse |
+| 2026-01-21 | 2 | 2.1-2.3 | Complete | Routes restructured, components moved to Admin namespace |
+| 2026-01-22 | 2 | 2.4 | Complete | Sidebar updated with role-based navigation |
+| 2026-01-22 | 2 | 2.5 | Complete | All pages verified via Playwright browser testing |
+| 2026-01-22 | 1 | - | Complete | Added RegisterResponse, VerifyEmailResponse, User::homeUrl() |
+| 2026-01-22 | 2 | - | Complete | Fixed route naming consistency (admin.* prefix) |
+| 2026-01-22 | - | - | Complete | All 505 tests passing |
+| 2026-01-22 | - | - | Complete | Merged feature/agent-application to main |
+| 2026-01-22 | 3 | - | Started | New branch: feature/agent-ui-prototype |
+| 2026-01-22 | - | - | Changed | Restructured plan: UI-first approach before database models |
+
+---
+
+## Next Steps
+
+**Immediate (Phase 3 - UI Prototype):**
+1. Build agent property search UI with real property data
+2. Implement search filters (location, price, type, features)
+3. Build property detail view for agents
+4. Create collection UI mockups (visual only, no database)
+5. Iterate on UX based on how it feels to use
+
+**After Phase 3:**
+- Finalize collection data model based on UI learnings (Phase 4)
+- Wire up collection UI to real database
+- Build PDF generation (Phase 5)
 
 ---
 
@@ -652,3 +467,6 @@ _Use this section to track progress and notes during implementation._
 |---------|------|---------|
 | 1.0 | 2026-01-21 | Initial plan created |
 | 1.1 | 2026-01-21 | Plan approved, saved to project |
+| 2.0 | 2026-01-22 | Phase 1 & 2 marked complete with implementation notes |
+| 2.1 | 2026-01-22 | Documented design decisions that differed from original plan |
+| 2.2 | 2026-01-22 | Restructured to UI-first approach - Phase 3 is now UI prototype |

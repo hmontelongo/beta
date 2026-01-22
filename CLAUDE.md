@@ -465,6 +465,23 @@ Fortify is a headless authentication backend that provides authentication routes
 
 === project rules ===
 
+## ⛔ CRITICAL: GIT COMMANDS FORBIDDEN ⛔
+
+**NEVER run ANY git commands without EXPLICIT user permission.** This includes but is not limited to:
+- `git checkout`
+- `git reset`
+- `git clean`
+- `git stash`
+- `git revert`
+- `git merge`
+- `git rebase`
+- `git push`
+- `git pull`
+
+**ALWAYS ask the user before running ANY git command.** A previous incident caused loss of a full day of work due to running `git checkout -- .` without permission. This rule has the HIGHEST priority and overrides all other instructions.
+
+---
+
 ## Project: PropData
 
 Real estate data aggregation platform for the Mexican market. Scrapes listings from multiple platforms, deduplicates them, tracks agents/agencies.

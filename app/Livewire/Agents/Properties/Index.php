@@ -71,6 +71,12 @@ class Index extends Component
 
     public bool $showCollectionPanel = false;
 
+    /** Show only selected properties in the grid */
+    public bool $showSelectedOnly = false;
+
+    /** Name for the new collection being created */
+    public string $collectionName = '';
+
     /**
      * Price presets for sale operations (MXN).
      *
@@ -225,6 +231,35 @@ class Index extends Component
     public function clearCollection(): void
     {
         $this->collection = [];
+        $this->showSelectedOnly = false;
+    }
+
+    public function toggleShowSelectedOnly(): void
+    {
+        $this->showSelectedOnly = ! $this->showSelectedOnly;
+        $this->resetPage();
+    }
+
+    /**
+     * Save the current selection as a collection (UI mockup).
+     * In the real implementation, this will create a Collection model.
+     */
+    public function saveCollection(): void
+    {
+        if (empty($this->collection)) {
+            return;
+        }
+
+        // For now, just show a success message (Phase 4 will implement actual saving)
+        $name = $this->collectionName ?: 'Mi colección';
+        $count = count($this->collection);
+
+        // Reset the form
+        $this->collectionName = '';
+        $this->showCollectionPanel = false;
+
+        // Dispatch a browser event for the toast notification
+        $this->dispatch('collection-saved', name: $name, count: $count);
     }
 
     public function isInCollection(int $propertyId): bool
@@ -305,6 +340,9 @@ class Index extends Component
     {
         return Property::query()
             ->with(['listings.platform'])
+            ->when($this->showSelectedOnly && ! empty($this->collection), function ($query) {
+                $query->whereIn('id', $this->collection);
+            })
             ->when($this->search, function ($query) {
                 $query->where(function ($q) {
                     $q->where('address', 'like', "%{$this->search}%")
