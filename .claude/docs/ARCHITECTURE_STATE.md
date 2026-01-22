@@ -152,6 +152,7 @@ Tracks API usage and costs for Claude and ZenRows
 
 | Enum | Values |
 |------|--------|
+| `UserRole` | Admin, Agent |
 | `DedupStatus` | Pending, Processing, Grouped, Completed, Failed |
 | `ListingGroupStatus` | PendingReview, PendingAi, ProcessingAi, Completed, Rejected |
 | `ScrapeRunStatus` | Pending, Discovering, Scraping, Completed, Failed, Stopped |
@@ -160,19 +161,29 @@ Tracks API usage and costs for Claude and ZenRows
 
 ## Livewire Pages
 
+### Admin Subdomain (`admin.{domain}`)
+
 | Route | Component | Purpose |
 |-------|-----------|---------|
-| `/dashboard` | Dashboard | Cost stats, pipeline stats, recent activity |
-| `/platforms` | Platforms/Index | List platforms with search queries |
-| `/platforms/{id}` | Platforms/Show | Platform detail, start scrapes |
-| `/listings` | Listings/Index | Browse all listings |
-| `/listings/{id}` | Listings/Show | Listing detail with images |
-| `/properties` | Properties/Index | Browse unified properties |
-| `/properties/{id}` | Properties/Show | Property detail with linked listings |
-| `/publishers` | Publishers/Index | Browse agents/agencies |
-| `/publishers/{id}` | Publishers/Show | Publisher detail |
-| `/dedup/review` | Dedup/ReviewCandidates | Review uncertain dedup matches |
-| `/runs/{id}` | ScrapeRuns/Show | Real-time scrape progress |
+| `/dashboard` | Admin/Dashboard | Cost stats, pipeline stats, recent activity |
+| `/platforms` | Admin/Platforms/Index | List platforms with search queries |
+| `/platforms/{id}` | Admin/Platforms/Show | Platform detail, start scrapes |
+| `/listings` | Admin/Listings/Index | Browse all listings |
+| `/listings/{id}` | Admin/Listings/Show | Listing detail with images |
+| `/properties` | Admin/Properties/Index | Browse unified properties |
+| `/properties/{id}` | Admin/Properties/Show | Property detail with linked listings |
+| `/publishers` | Admin/Publishers/Index | Browse agents/agencies |
+| `/publishers/{id}` | Admin/Publishers/Show | Publisher detail |
+| `/dedup/review` | Admin/Dedup/ReviewCandidates | Review uncertain dedup matches |
+| `/runs/{id}` | Admin/ScrapeRuns/Show | Real-time scrape progress |
+| `/settings/*` | Settings/* | Profile, password, 2FA, appearance |
+
+### Agents Subdomain (`agents.{domain}`)
+
+| Route | Component | Purpose |
+|-------|-----------|---------|
+| `/properties` | (Placeholder) | Agent property search (Phase 4) |
+| `/settings/*` | Settings/* | Profile, password, 2FA, appearance |
 
 ## Scraper Contracts
 
@@ -193,8 +204,42 @@ Implementations: Inmuebles24, Vivanuncios, Propiedades.com (all complete)
 
 ---
 
+## Subdomain Architecture
+
+The application uses subdomain-based routing to separate concerns:
+
+| Subdomain | Purpose | Access |
+|-----------|---------|--------|
+| `admin.{domain}` | Internal admin (scraping, data management) | Admin users only |
+| `agents.{domain}` | Agent application (search, collections, sharing) | Agent users only |
+| `{domain}` (public) | Public pages (shared collections, marketing) | Unauthenticated |
+
+**Configuration:** `config/domains.php` defines subdomain values.
+
+**User Roles:**
+- `UserRole::Admin` - Access to admin subdomain only
+- `UserRole::Agent` - Access to agents subdomain only
+- New user registration defaults to `agent` role
+- Admins created via `UserSeeder` only
+
+**Key Files:**
+- `app/Enums/UserRole.php` - Role enum
+- `app/Http/Middleware/EnsureUserRole.php` - Role-based access control
+- `app/Http/Responses/LoginResponse.php` - Role-based login redirect
+- `app/Http/Responses/RegisterResponse.php` - Role-based register redirect
+- `app/Http/Responses/VerifyEmailResponse.php` - Role-based email verification redirect
+- `app/Models/User.php` - `homeUrl()` method for centralized redirect logic
+
+**Route Naming Convention:**
+- Admin routes: `admin.{resource}.{action}` (e.g., `admin.platforms.index`)
+- Agent routes: `agents.{resource}.{action}` (e.g., `agents.properties.index`)
+
+---
+
 ## Recent Changes
 
+- **Subdomain Routing**: Application now uses subdomain-based routing with role-based access control. Admin functionality moved to `admin.` subdomain, agent features at `agents.` subdomain.
+- **User Roles**: Added `UserRole` enum with `Admin` and `Agent` cases. Role-based middleware and auth responses implemented.
 - **Reverse Geocoding Fallback**: GeocodingService now automatically reverse geocodes when forward geocoding returns no colonia (common for route-level matches). Only fills in colonia and postal_code from reverse geocode, never alters street address.
 - **Propiedades.com Scraper**: Complete implementation with geo-restriction handling (`proxy_country=mx`).
 - **Single-Request Optimization**: Scraping reduced from 2 ZenRows calls to 1 by extracting scripts via CSS selector.
