@@ -20,7 +20,7 @@
         </div>
         <div class="flex gap-2">
             @if ($this->isActive)
-                <flux:button variant="danger" icon="stop" wire:click="stopRun" wire:confirm="{{ __('Stop this run?') }}" wire:loading.attr="disabled" wire:target="stopRun">
+                <flux:button variant="danger" icon="stop" x-on:click="$flux.modal('confirm-stop-run').show()" wire:loading.attr="disabled" wire:target="stopRun">
                     <span wire:loading.remove wire:target="stopRun">{{ __('Stop') }}</span>
                     <span wire:loading wire:target="stopRun">{{ __('Stopping...') }}</span>
                 </flux:button>
@@ -238,4 +238,16 @@
             @endif
         </flux:card>
     </div>
+
+    {{-- Stop Run Confirmation Modal --}}
+    <x-confirm-modal
+        name="confirm-stop-run"
+        title="{{ __('Stop this run?') }}"
+        message="{{ __('The scrape run will be stopped. Any pending jobs will not be processed.') }}"
+        cancelText="{{ __('Cancel') }}"
+    >
+        <flux:button variant="danger" wire:click="stopRun">
+            {{ __('Stop') }}
+        </flux:button>
+    </x-confirm-modal>
 </div>

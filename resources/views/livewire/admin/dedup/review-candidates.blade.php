@@ -230,9 +230,8 @@
                                     size="sm"
                                     variant="ghost"
                                     icon="x-mark"
-                                    wire:click="removeListingFromGroup({{ $listing->id }})"
+                                    x-on:click="$flux.modal('remove-listing-{{ $listing->id }}').show()"
                                     wire:loading.attr="disabled"
-                                    wire:confirm="{{ __('Remove this listing from the group? It will be re-processed separately.') }}"
                                     title="{{ __('Remove from group') }}"
                                 />
                             @endif
@@ -243,6 +242,18 @@
                                 :href="route('admin.listings.show', $listing)"
                                 target="_blank"
                             />
+
+                            {{-- Remove Listing Confirmation Modal --}}
+                            <x-confirm-modal
+                                name="remove-listing-{{ $listing->id }}"
+                                title="{{ __('Remove from group?') }}"
+                                message="{{ __('This listing will be removed from the group and re-processed separately.') }}"
+                                cancelText="{{ __('Cancel') }}"
+                            >
+                                <flux:button variant="danger" wire:click="removeListingFromGroup({{ $listing->id }})">
+                                    {{ __('Remove') }}
+                                </flux:button>
+                            </x-confirm-modal>
                         </div>
                     </div>
 

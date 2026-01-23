@@ -627,8 +627,7 @@
                 <div class="flex items-center gap-2">
                     @if($this->activeCollection && count($this->collectionPropertyIds) > 0)
                         <button
-                            wire:click="startNewCollection"
-                            wire:confirm="¿Empezar una nueva seleccion? La coleccion actual se conservara en tus colecciones."
+                            x-on:click="$flux.modal('confirm-new-collection').show()"
                             class="shrink-0 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
                         >
                             + Nueva
@@ -723,8 +722,7 @@
                             Ver mis colecciones
                         </a>
                         <button
-                            wire:click="clearCollection"
-                            wire:confirm="¿Vaciar la seleccion? Esta accion no se puede deshacer."
+                            x-on:click="$flux.modal('confirm-clear-collection').show()"
                             class="text-sm text-zinc-400 transition-colors hover:text-red-500"
                         >
                             Vaciar seleccion
@@ -861,4 +859,26 @@
             </div>
         </div>
     </flux:modal>
+
+    {{-- Confirm New Collection Modal --}}
+    <x-confirm-modal
+        name="confirm-new-collection"
+        title="¿Nueva seleccion?"
+        message="La coleccion actual se conservara en tus colecciones."
+    >
+        <flux:button variant="primary" wire:click="startNewCollection">
+            Crear nueva
+        </flux:button>
+    </x-confirm-modal>
+
+    {{-- Confirm Clear Collection Modal --}}
+    <x-confirm-modal
+        name="confirm-clear-collection"
+        title="¿Vaciar seleccion?"
+        message="Esta accion no se puede deshacer."
+    >
+        <flux:button variant="danger" wire:click="clearCollection">
+            Vaciar
+        </flux:button>
+    </x-confirm-modal>
 </div>

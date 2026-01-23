@@ -14,7 +14,7 @@
             </div>
         </div>
         <div class="flex gap-2">
-            <flux:button variant="ghost" icon="clock" wire:click="runScheduledNow" wire:confirm="{{ __('Run all enabled scheduled scrapes now?') }}" wire:loading.attr="disabled" wire:target="runScheduledNow">
+            <flux:button variant="ghost" icon="clock" x-on:click="$flux.modal('confirm-run-scheduled').show()" wire:loading.attr="disabled" wire:target="runScheduledNow">
                 <span wire:loading.remove wire:target="runScheduledNow">{{ __('Run Scheduled') }}</span>
                 <span wire:loading wire:target="runScheduledNow">{{ __('Running...') }}</span>
             </flux:button>
@@ -86,8 +86,20 @@
                                         wire:click="openScheduleModal({{ $query->id }})"
                                         aria-label="{{ __('Edit schedule') }}"
                                     />
-                                    <flux:button size="sm" variant="ghost" icon="trash" wire:click="deleteSearchQuery({{ $query->id }})" wire:confirm="{{ __('Are you sure?') }}" aria-label="{{ __('Delete search query') }}" />
+                                    <flux:button size="sm" variant="ghost" icon="trash" x-on:click="$flux.modal('delete-query-{{ $query->id }}').show()" aria-label="{{ __('Delete search query') }}" />
                                 </div>
+
+                            {{-- Delete Query Confirmation Modal --}}
+                            <x-confirm-modal
+                                name="delete-query-{{ $query->id }}"
+                                title="{{ __('Delete search query?') }}"
+                                message="{{ __('This will permanently delete this search query. This action cannot be undone.') }}"
+                                cancelText="{{ __('Cancel') }}"
+                            >
+                                <flux:button variant="danger" wire:click="deleteSearchQuery({{ $query->id }})">
+                                    {{ __('Delete') }}
+                                </flux:button>
+                            </x-confirm-modal>
                             </div>
 
                             {{-- Stats Row --}}
@@ -359,4 +371,16 @@
             </flux:button>
         </div>
     </flux:modal>
+
+    {{-- Run Scheduled Confirmation Modal --}}
+    <x-confirm-modal
+        name="confirm-run-scheduled"
+        title="{{ __('Run scheduled scrapes?') }}"
+        message="{{ __('This will start all enabled scheduled scrapes for this platform immediately.') }}"
+        cancelText="{{ __('Cancel') }}"
+    >
+        <flux:button variant="primary" wire:click="runScheduledNow">
+            {{ __('Run Now') }}
+        </flux:button>
+    </x-confirm-modal>
 </div>

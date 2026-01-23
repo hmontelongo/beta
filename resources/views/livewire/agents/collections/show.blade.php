@@ -44,8 +44,10 @@
                         Copiar
                     </flux:button>
                     <flux:button wire:click="shareViaWhatsApp" size="sm" class="!bg-green-600 !text-white hover:!bg-green-700 dark:!bg-green-600 dark:hover:!bg-green-700">
-                        <x-icons.whatsapp class="size-4" />
-                        WhatsApp
+                        <span class="flex items-center gap-1.5">
+                            <x-icons.whatsapp class="size-4" />
+                            WhatsApp
+                        </span>
                     </flux:button>
                 </div>
             </div>
@@ -60,6 +62,7 @@
                 <div class="flex items-center gap-2">
                     <span class="text-sm text-zinc-500">Cliente:</span>
                     <flux:select
+                        variant="listbox"
                         wire:model.live="clientId"
                         wire:key="client-select-{{ $clientId }}"
                         placeholder="Sin cliente"
@@ -129,16 +132,15 @@
                 </div>
                 <h3 class="mt-4 text-lg font-semibold text-zinc-900 dark:text-zinc-100">Sin propiedades</h3>
                 <p class="mt-1 text-sm text-zinc-500">Agrega propiedades desde la busqueda</p>
-                <a
-                    href="{{ route('agents.properties.index') }}"
-                    wire:navigate
+                <button
+                    wire:click="addProperties"
                     class="mt-4 inline-flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600"
                 >
                     <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                     </svg>
                     Buscar propiedades
-                </a>
+                </button>
             </div>
         @else
             {{-- Property Count --}}
@@ -274,31 +276,40 @@
 
         {{-- Footer Actions --}}
         <div class="mt-6 flex items-center justify-between">
-            <a
-                href="{{ route('agents.properties.index') }}"
-                wire:navigate
+            <button
+                wire:click="addProperties"
                 class="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400"
             >
                 <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                 </svg>
                 Agregar propiedades
-            </a>
+            </button>
 
             {{-- Overflow Menu with Delete --}}
             <flux:dropdown position="bottom-end">
                 <flux:button variant="ghost" icon="ellipsis-vertical" size="sm" />
                 <flux:menu>
                     <flux:menu.item
-                        wire:click="deleteCollection"
-                        wire:confirm="¿Eliminar esta coleccion? Esta accion no se puede deshacer."
+                        x-on:click="$flux.modal('delete-collection').show()"
                         icon="trash"
-                        class="!text-red-500"
+                        variant="danger"
                     >
                         Eliminar coleccion
                     </flux:menu.item>
                 </flux:menu>
             </flux:dropdown>
+
+            {{-- Delete Collection Confirmation Modal --}}
+            <x-confirm-modal
+                name="delete-collection"
+                title="¿Eliminar coleccion?"
+                message="Esta accion no se puede deshacer."
+            >
+                <flux:button variant="danger" wire:click="deleteCollection">
+                    Eliminar
+                </flux:button>
+            </x-confirm-modal>
         </div>
     </div>
 

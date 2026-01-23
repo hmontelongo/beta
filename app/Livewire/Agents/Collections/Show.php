@@ -202,6 +202,17 @@ class Show extends Component
         $this->redirectRoute('agents.collections.index', navigate: true);
     }
 
+    /**
+     * Set this collection as active and navigate to properties search.
+     */
+    public function addProperties(): void
+    {
+        // Set this collection as active in session so the search page will use it
+        session(['active_collection_id' => $this->collection->id]);
+
+        $this->redirectRoute('agents.properties.index', navigate: true);
+    }
+
     public function render(): View
     {
         return view('livewire.agents.collections.show');

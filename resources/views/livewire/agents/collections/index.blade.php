@@ -180,8 +180,7 @@
                                 <flux:button variant="ghost" icon="ellipsis-vertical" size="sm" class="!px-1.5" />
                                 <flux:menu>
                                     <flux:menu.item
-                                        wire:click="deleteCollection({{ $collection->id }})"
-                                        wire:confirm="¿Eliminar esta coleccion? Esta accion no se puede deshacer."
+                                        x-on:click="$flux.modal('delete-collection-{{ $collection->id }}').show()"
                                         variant="danger"
                                         icon="trash"
                                     >
@@ -189,6 +188,17 @@
                                     </flux:menu.item>
                                 </flux:menu>
                             </flux:dropdown>
+
+                            {{-- Delete Confirmation Modal --}}
+                            <x-confirm-modal
+                                name="delete-collection-{{ $collection->id }}"
+                                title="¿Eliminar coleccion?"
+                                message="Esta accion no se puede deshacer."
+                            >
+                                <flux:button variant="danger" wire:click="deleteCollection({{ $collection->id }})">
+                                    Eliminar
+                                </flux:button>
+                            </x-confirm-modal>
                         </div>
                     </div>
                 @endforeach

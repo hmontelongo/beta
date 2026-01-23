@@ -737,6 +737,19 @@ describe('Collection Detail View', function () {
         $collection->refresh();
         expect($collection->shared_at)->not->toBeNull();
     });
+
+    it('addProperties sets session and redirects to search', function () {
+        $this->actingAs($this->agent);
+
+        $collection = Collection::factory()->for($this->agent)->create();
+
+        Livewire::test(CollectionShowPage::class, ['collection' => $collection])
+            ->call('addProperties')
+            ->assertRedirect(route('agents.properties.index'));
+
+        // Verify the session was set
+        expect(session('active_collection_id'))->toBe($collection->id);
+    });
 });
 
 describe('Active Collection Session Persistence', function () {
