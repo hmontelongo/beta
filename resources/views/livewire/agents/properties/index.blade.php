@@ -1,79 +1,28 @@
-<div
-    x-data="{ showToast: false, toastMessage: '' }"
-    @collection-saved.window="toastMessage = 'Colección guardada: ' + $event.detail.name + ' (' + $event.detail.count + ' propiedades)'; showToast = true; setTimeout(() => { showToast = false }, 4000)"
->
-    {{-- Toast Notification --}}
-    <div
-        x-show="showToast"
-        x-transition:enter="transition ease-out duration-300"
-        x-transition:enter-start="opacity-0 translate-y-2"
-        x-transition:enter-end="opacity-100 translate-y-0"
-        x-transition:leave="transition ease-in duration-200"
-        x-transition:leave-start="opacity-100 translate-y-0"
-        x-transition:leave-end="opacity-0 translate-y-2"
-        class="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 transform"
-        style="display: none;"
-    >
-        <div class="flex items-center gap-3 rounded-xl bg-gradient-to-r from-emerald-500 to-green-500 px-4 py-3 text-white shadow-lg shadow-emerald-500/25">
-            <div class="flex size-8 items-center justify-center rounded-full bg-white/20">
-                <svg class="size-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-                </svg>
-            </div>
-            <span class="text-sm font-medium" x-text="toastMessage"></span>
-            <button @click="showToast = false" class="ml-2 rounded-full p-1 hover:bg-white/20">
-                <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-                </svg>
-            </button>
-        </div>
-    </div>
-
-    {{-- Floating Collection Button (FAB) --}}
-    @if(count($collection) > 0)
-        <button
-            wire:click="$toggle('showCollectionPanel')"
-            class="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-full bg-gradient-to-r from-amber-500 to-orange-500 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-amber-500/30 transition-all hover:from-amber-600 hover:to-orange-600 hover:shadow-xl hover:shadow-amber-500/40"
-        >
-            <svg class="size-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" />
-            </svg>
-            <span>Mi coleccion</span>
-            <span class="flex size-6 items-center justify-center rounded-full bg-white/20 text-xs font-bold">
-                {{ count($collection) }}
-            </span>
-        </button>
-    @endif
-
+<div>
     {{-- Compact Sticky Filter Bar --}}
     <div class="sticky top-14 z-40 border-b border-zinc-200/80 bg-white dark:border-zinc-800 dark:bg-zinc-900">
         <div class="mx-auto max-w-screen-2xl px-3 sm:px-6 lg:px-8">
-            {{-- Single Row Filters (Mobile Optimized) --}}
-            <div class="flex items-center gap-2 py-2 sm:gap-4 sm:py-3">
-                {{-- Operation Type Pills (Compact on mobile) --}}
-                <div class="flex items-center gap-0.5 rounded-lg bg-zinc-100 p-0.5 dark:bg-zinc-800 sm:gap-1 sm:p-1">
-                    <button
-                        wire:click="$set('operationType', '')"
-                        class="rounded-md px-2 py-1 text-xs font-semibold transition-all sm:px-3 sm:py-1.5 sm:text-sm {{ $operationType === '' ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-zinc-100' : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100' }}"
-                    >
-                        Todas
-                    </button>
-                    <button
-                        wire:click="$set('operationType', 'sale')"
-                        class="rounded-md px-2 py-1 text-xs font-semibold transition-all sm:px-3 sm:py-1.5 sm:text-sm {{ $operationType === 'sale' ? 'bg-emerald-500 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100' }}"
-                    >
-                        Venta
-                    </button>
-                    <button
-                        wire:click="$set('operationType', 'rent')"
-                        class="rounded-md px-2 py-1 text-xs font-semibold transition-all sm:px-3 sm:py-1.5 sm:text-sm {{ $operationType === 'rent' ? 'bg-blue-500 text-white shadow-sm' : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100' }}"
-                    >
-                        Renta
-                    </button>
+            {{-- Single Row Filters --}}
+            <div class="flex items-center gap-2 py-2.5 sm:gap-3">
+                {{-- Operation Type Pills --}}
+                <div class="flex items-center rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800">
+                    @foreach(['' => 'Todas', 'sale' => 'Venta', 'rent' => 'Renta'] as $value => $label)
+                        <button
+                            wire:click="$set('operationType', '{{ $value }}')"
+                            @class([
+                                'rounded-md px-3 py-1.5 text-xs font-semibold transition-all',
+                                'bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-zinc-100' => $operationType === $value && $value === '',
+                                'bg-blue-500 text-white shadow-sm' => $operationType === $value && $value !== '',
+                                'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100' => $operationType !== $value,
+                            ])
+                        >
+                            {{ $label }}
+                        </button>
+                    @endforeach
                 </div>
 
-                {{-- Zone Picker (Searchable - replaces search bar) --}}
-                <div class="min-w-[120px] max-w-[200px] flex-1 sm:min-w-[160px] sm:max-w-[240px] sm:flex-none">
+                {{-- Zone Picker --}}
+                <div class="w-44 sm:w-52">
                     <flux:select
                         variant="listbox"
                         multiple
@@ -90,19 +39,16 @@
                     </flux:select>
                 </div>
 
-                {{-- Property Type (Hidden on mobile, show in More Filters) --}}
-                <div class="hidden items-center gap-0.5 rounded-lg bg-zinc-100 p-0.5 dark:bg-zinc-800 lg:flex">
-                    {{-- "Todas" button - shows when any type is selected --}}
-                    <button
-                        wire:click="$set('propertyType', '')"
-                        class="rounded-md px-2.5 py-1 text-xs font-medium transition-all {{ $propertyType === '' ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-zinc-100' : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100' }}"
-                    >
-                        Todas
-                    </button>
-                    @foreach(['house' => 'Casa', 'apartment' => 'Depto', 'land' => 'Terreno', 'commercial' => 'Local'] as $value => $label)
+                {{-- Property Type (Hidden on mobile) --}}
+                <div class="hidden items-center rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800 lg:flex">
+                    @foreach(['' => 'Todas', 'house' => 'Casa', 'apartment' => 'Depto', 'land' => 'Terreno', 'commercial' => 'Local'] as $value => $label)
                         <button
                             wire:click="$set('propertyType', '{{ $value }}')"
-                            class="rounded-md px-2.5 py-1 text-xs font-medium transition-all {{ $propertyType === $value ? 'bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-zinc-100' : 'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100' }}"
+                            @class([
+                                'rounded-md px-3 py-1.5 text-xs font-semibold transition-all',
+                                'bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-zinc-100' => $propertyType === $value,
+                                'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100' => $propertyType !== $value,
+                            ])
                         >
                             {{ $label }}
                         </button>
@@ -110,36 +56,37 @@
                 </div>
 
                 {{-- Spacer --}}
-                <div class="hidden flex-1 sm:block"></div>
+                <div class="flex-1"></div>
 
                 {{-- More Filters Button --}}
+                @php
+                    $hasActiveFilters = $this->activeFilterCount > 0 || $propertyType !== '' || $pricePreset !== '' || $bedrooms !== '';
+                    $totalFilters = $this->activeFilterCount + ($propertyType !== '' ? 1 : 0) + ($pricePreset !== '' ? 1 : 0) + ($bedrooms !== '' ? 1 : 0);
+                @endphp
                 <button
                     wire:click="$set('showFiltersModal', true)"
-                    class="flex items-center gap-1 rounded-lg px-2 py-1.5 text-xs font-semibold transition-all sm:gap-1.5 sm:px-3 {{ ($this->activeFilterCount > 0 || $propertyType !== '' || $pricePreset !== '' || $bedrooms !== '') ? 'bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400 dark:hover:bg-blue-900/50' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700' }}"
+                    @class([
+                        'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all',
+                        'bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400' => $hasActiveFilters,
+                        'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400' => !$hasActiveFilters,
+                    ])
                 >
-                    <svg class="size-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75" />
                     </svg>
-                    <span class="hidden xs:inline">Filtros</span>
-                    @if($this->activeFilterCount > 0 || $propertyType !== '' || $pricePreset !== '' || $bedrooms !== '')
-                        @php
-                            $totalFilters = $this->activeFilterCount + ($propertyType !== '' ? 1 : 0) + ($pricePreset !== '' ? 1 : 0) + ($bedrooms !== '' ? 1 : 0);
-                        @endphp
-                        <span class="flex size-4 items-center justify-center rounded-full bg-blue-500 text-[10px] font-bold text-white">
-                            {{ $totalFilters }}
-                        </span>
+                    @if($hasActiveFilters)
+                        <span class="flex size-5 items-center justify-center rounded-full bg-blue-500 text-[10px] font-bold text-white">{{ $totalFilters }}</span>
                     @endif
                 </button>
 
-                {{-- Sort (Icon only on mobile) --}}
+                {{-- Sort --}}
                 <flux:dropdown>
-                    <flux:button variant="ghost" size="sm" class="!px-2 sm:gap-2 sm:!px-3">
+                    <flux:button variant="ghost" size="sm" class="!px-2.5">
                         <svg class="size-4 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M3 7.5 7.5 3m0 0L12 7.5M7.5 3v13.5m13.5 0L16.5 21m0 0L12 16.5m4.5 4.5V7.5" />
                         </svg>
                         <span class="hidden text-zinc-700 dark:text-zinc-300 sm:inline">Ordenar</span>
                     </flux:button>
-
                     <flux:menu>
                         <flux:menu.item wire:click="$set('sortBy', 'newest')" :active="$sortBy === 'newest'">Mas recientes</flux:menu.item>
                         <flux:menu.item wire:click="$set('sortBy', 'oldest')" :active="$sortBy === 'oldest'">Mas antiguos</flux:menu.item>
@@ -148,30 +95,56 @@
                         <flux:menu.item wire:click="$set('sortBy', 'size')" :active="$sortBy === 'size'">Mayor tamano</flux:menu.item>
                     </flux:menu>
                 </flux:dropdown>
+
+                {{-- Collection Button --}}
+                <button
+                    wire:click="$toggle('showCollectionPanel')"
+                    @class([
+                        'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all',
+                        'bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400' => count($collection) > 0,
+                        'text-zinc-500 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800' => count($collection) === 0,
+                    ])
+                >
+                    <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" />
+                    </svg>
+                    <span class="hidden sm:inline">Coleccion</span>
+                    @if(count($collection) > 0)
+                        <span class="flex size-5 items-center justify-center rounded-full bg-blue-500 text-[10px] font-bold text-white">{{ count($collection) }}</span>
+                    @endif
+                </button>
             </div>
 
-            {{-- Quick Filters Row (Hidden on mobile - moved to modal) --}}
-            <div class="hidden flex-wrap items-center gap-2 border-t border-zinc-100 py-2 dark:border-zinc-800 sm:flex sm:gap-4 sm:py-2.5">
+            {{-- Quick Filters Row (Desktop only) --}}
+            <div class="hidden items-center gap-4 border-t border-zinc-100 py-2 dark:border-zinc-800 sm:flex">
                 {{-- Price Preset Pills --}}
-                <div class="flex flex-wrap items-center gap-1.5">
-                    <span class="mr-0.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-400 sm:text-xs">Precio</span>
+                <div class="flex items-center gap-1.5">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-zinc-400">Precio</span>
                     @foreach($this->pricePresets as $key => $preset)
                         <button
                             wire:click="$set('pricePreset', '{{ $pricePreset === $key ? '' : $key }}')"
-                            class="rounded-md px-2 py-0.5 text-[10px] font-semibold transition-all sm:px-2.5 sm:py-1 sm:text-xs {{ $pricePreset === $key ? 'bg-emerald-500 text-white shadow-sm' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700' }}"
+                            @class([
+                                'rounded-md px-2.5 py-1 text-xs font-semibold transition-all',
+                                'bg-blue-500 text-white' => $pricePreset === $key,
+                                'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400' => $pricePreset !== $key,
+                            ])
                         >
                             {{ $preset['label'] }}
                         </button>
                     @endforeach
                 </div>
 
-                {{-- Bedrooms Pills --}}
-                <div class="flex flex-wrap items-center gap-1.5">
-                    <span class="mr-0.5 text-[10px] font-semibold uppercase tracking-wider text-zinc-400 sm:text-xs">Rec</span>
+                {{-- Bedrooms Pills (click to toggle, like price) --}}
+                <div class="flex items-center gap-1.5">
+                    <span class="text-xs font-semibold uppercase tracking-wider text-zinc-400">Rec</span>
                     @foreach(['1', '2', '3', '4'] as $bed)
                         <button
                             wire:click="$set('bedrooms', '{{ $bedrooms === $bed ? '' : $bed }}')"
-                            class="flex size-6 items-center justify-center rounded-md text-[10px] font-semibold transition-all sm:size-7 sm:text-xs {{ $bedrooms === $bed ? 'bg-blue-500 text-white shadow-sm' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700' }}"
+                            @class([
+                                'flex size-7 items-center justify-center rounded-md text-xs font-semibold transition-all',
+                                'bg-blue-500 text-white' => $bedrooms === $bed,
+                                'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400' => $bedrooms !== $bed,
+                            ])
                         >
                             {{ $bed }}{{ $bed === '4' ? '+' : '' }}
                         </button>
@@ -180,10 +153,7 @@
 
                 {{-- Clear Filters --}}
                 @if($operationType !== '' || $propertyType !== '' || !empty($zones) || $pricePreset !== '' || $bedrooms !== '' || $this->activeFilterCount > 0)
-                    <button
-                        wire:click="clearFilters"
-                        class="ml-auto text-[10px] font-semibold text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300 sm:text-xs"
-                    >
+                    <button wire:click="clearFilters" class="ml-auto text-xs font-semibold text-red-500 hover:text-red-600">
                         Limpiar
                     </button>
                 @endif
@@ -260,9 +230,9 @@
                     @endif
 
                     @foreach($amenities as $amenity)
-                        <span class="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 sm:text-xs">
+                        <span class="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 sm:text-xs">
                             {{ $availableAmenities[$amenity] ?? $amenity }}
-                            <button wire:click="$set('amenities', {{ json_encode(array_values(array_filter($amenities, fn($a) => $a !== $amenity))) }})" class="hover:text-amber-900 dark:hover:text-amber-200">
+                            <button wire:click="$set('amenities', {{ json_encode(array_values(array_filter($amenities, fn($a) => $a !== $amenity))) }})" class="hover:text-blue-900 dark:hover:text-blue-200">
                                 <svg class="size-2.5 sm:size-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
                                 </svg>
@@ -295,34 +265,36 @@
                 </span>
             </h2>
 
-            {{-- Show Selected Only Toggle --}}
-            @if(count($collection) > 0)
-                <button
-                    wire:click="toggleShowSelectedOnly"
-                    class="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all sm:text-sm {{ $showSelectedOnly ? 'bg-amber-100 text-amber-700 ring-1 ring-amber-300 dark:bg-amber-900/30 dark:text-amber-400 dark:ring-amber-700' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700' }}"
-                >
-                    @if($showSelectedOnly)
-                        <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-                        </svg>
-                        <span>Ver seleccionadas</span>
-                    @else
-                        <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                        </svg>
-                        <span class="hidden sm:inline">Ver</span>
-                        <span class="flex size-5 items-center justify-center rounded-full bg-amber-500 text-[10px] font-bold text-white">
-                            {{ count($collection) }}
-                        </span>
-                        <span class="hidden sm:inline">seleccionadas</span>
-                    @endif
-                </button>
-            @endif
+            {{-- Show Selected Only Toggle (fixed width container to prevent layout shift) --}}
+            <div class="min-w-[140px] text-right sm:min-w-[180px]">
+                @if(count($collection) > 0)
+                    <button
+                        wire:click="toggleShowSelectedOnly"
+                        class="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all sm:text-sm {{ $showSelectedOnly ? 'bg-blue-100 text-blue-700 ring-1 ring-blue-300 dark:bg-blue-900/30 dark:text-blue-400 dark:ring-blue-700' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700' }}"
+                    >
+                        @if($showSelectedOnly)
+                            <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                            </svg>
+                            <span>Ver seleccionadas</span>
+                        @else
+                            <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                            </svg>
+                            <span class="hidden sm:inline">Ver</span>
+                            <span class="flex size-5 items-center justify-center rounded-full bg-blue-500 text-[10px] font-bold text-white">
+                                {{ count($collection) }}
+                            </span>
+                            <span class="hidden sm:inline">seleccionadas</span>
+                        @endif
+                    </button>
+                @endif
+            </div>
         </div>
 
         {{-- Property Grid --}}
-        <div class="grid gap-3 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4" wire:loading.class="opacity-60" wire:target="operationType,propertyType,zones,pricePreset,bedrooms,bathrooms,sortBy,search">
+        <div wire:key="grid-{{ $this->gridKey }}" class="animate-stagger grid gap-3 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4" wire:loading.class="opacity-60" wire:target="operationType,propertyType,zones,pricePreset,bedrooms,bathrooms,sortBy,search">
             @forelse($properties as $property)
                 @php
                     $listing = $property->listings->first();
@@ -332,11 +304,11 @@
                     $price = $operations[0]['price'] ?? null;
                     $opType = $operations[0]['type'] ?? null;
                 @endphp
-                <article wire:key="property-{{ $property->id }}" class="group relative">
+                <article wire:key="property-{{ $property->id }}" class="animate-card-enter group relative">
                     {{-- Add to Collection Button (outside link, positioned over image) --}}
                     <button
                         wire:click="toggleCollection({{ $property->id }})"
-                        class="absolute right-2 top-[calc(75%-theme(spacing.2)-theme(spacing.8))] z-10 flex size-8 items-center justify-center rounded-full transition-all duration-150 sm:right-3 sm:top-[calc(75%-theme(spacing.3)-theme(spacing.9))] sm:size-9 {{ $this->isInCollection($property->id) ? 'bg-amber-500 text-white shadow-lg' : 'bg-white/90 text-zinc-600 shadow-md hover:bg-white hover:text-zinc-900' }}"
+                        class="absolute right-2 top-[calc(75%-theme(spacing.2)-theme(spacing.8))] z-10 flex size-8 items-center justify-center rounded-full transition-all duration-150 sm:right-3 sm:top-[calc(75%-theme(spacing.3)-theme(spacing.9))] sm:size-9 {{ $this->isInCollection($property->id) ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/30' : 'bg-white/90 text-zinc-600 shadow-md hover:bg-white hover:text-zinc-900' }}"
                         title="{{ $this->isInCollection($property->id) ? 'Quitar de coleccion' : 'Agregar a coleccion' }}"
                     >
                         @if($this->isInCollection($property->id))
@@ -350,7 +322,7 @@
                         @endif
                     </button>
 
-                    <a href="{{ route('agents.properties.show', $property) }}" wire:navigate class="block overflow-hidden rounded-xl bg-white shadow-sm transition-all duration-200 hover:shadow-lg dark:bg-zinc-900 {{ $this->isInCollection($property->id) ? 'ring-2 ring-amber-400 shadow-amber-100 dark:ring-amber-500 dark:shadow-amber-900/20' : 'ring-1 ring-zinc-200/80 hover:ring-zinc-300 dark:ring-zinc-800 dark:hover:ring-zinc-700' }}">
+                    <a href="{{ route('agents.properties.show', $property) }}" wire:navigate class="block overflow-hidden rounded-xl bg-white shadow-sm ring-1 ring-zinc-200/80 transition-all duration-200 hover:shadow-lg hover:ring-zinc-300 dark:bg-zinc-900 dark:ring-zinc-800 dark:hover:ring-zinc-700">
                         {{-- Image Container --}}
                         <div class="relative aspect-[4/3] overflow-hidden bg-zinc-100 dark:bg-zinc-800">
                             @if($heroImage)
@@ -370,7 +342,7 @@
 
                             {{-- Operation Badge --}}
                             @if($opType)
-                                <span class="absolute left-2 top-2 rounded-md px-1.5 py-0.5 text-[10px] font-semibold sm:left-3 sm:top-3 sm:px-2 sm:text-xs {{ $opType === 'rent' ? 'bg-blue-500 text-white' : 'bg-emerald-500 text-white' }}">
+                                <span class="absolute left-2 top-2 rounded-md px-1.5 py-0.5 text-[10px] font-semibold sm:left-3 sm:top-3 sm:px-2 sm:text-xs {{ $opType === 'rent' ? 'bg-blue-500 text-white' : 'bg-zinc-800 text-white' }}">
                                     {{ $opType === 'rent' ? 'Renta' : 'Venta' }}
                                 </span>
                             @endif
@@ -472,22 +444,28 @@
         @endif
     </div>
 
-    {{-- All Filters Modal (includes mobile-only filters) --}}
-    <flux:modal wire:model="showFiltersModal" class="max-w-md">
+    {{-- All Filters Modal --}}
+    <flux:modal wire:model="showFiltersModal" class="max-w-lg">
         <div class="space-y-5">
+            {{-- Header --}}
             <div>
                 <h3 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Filtros</h3>
                 <p class="mt-1 text-sm text-zinc-500">Ajusta los filtros para refinar tu busqueda.</p>
             </div>
 
-            {{-- Property Type (shown in modal for mobile) --}}
+            {{-- Property Type - equal width buttons --}}
             <div>
                 <label class="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Tipo de propiedad</label>
-                <div class="flex flex-wrap gap-1.5">
+                <div class="grid grid-cols-5 gap-1.5">
                     @foreach(['' => 'Todas', 'house' => 'Casa', 'apartment' => 'Depto', 'land' => 'Terreno', 'commercial' => 'Local'] as $value => $label)
                         <button
+                            wire:key="proptype-{{ $value }}-{{ $propertyType }}"
                             wire:click="$set('propertyType', '{{ $value }}')"
-                            class="rounded-lg px-3.5 py-2 text-sm font-semibold transition-all {{ $propertyType === $value ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25 ring-2 ring-blue-600 ring-offset-1 dark:ring-offset-zinc-900' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700' }}"
+                            @class([
+                                'rounded-lg py-2 text-center text-sm font-medium transition-all',
+                                'bg-blue-500 text-white' => $propertyType === $value,
+                                'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700' => $propertyType !== $value,
+                            ])
                         >
                             {{ $label }}
                         </button>
@@ -495,22 +473,32 @@
                 </div>
             </div>
 
-            {{-- Price Presets --}}
+            {{-- Price - grid of equal buttons --}}
             <div>
                 <label class="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
                     Precio {{ $operationType === 'rent' ? '(mensual)' : '' }}
                 </label>
-                <div class="flex flex-wrap gap-1.5">
+                <div class="grid grid-cols-3 gap-1.5">
                     <button
+                        wire:key="price-all-{{ $pricePreset }}"
                         wire:click="$set('pricePreset', '')"
-                        class="rounded-lg px-3 py-2 text-sm font-semibold transition-all {{ $pricePreset === '' ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/25 ring-2 ring-emerald-600 ring-offset-1 dark:ring-offset-zinc-900' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700' }}"
+                        @class([
+                            'rounded-lg py-2 text-center text-sm font-medium transition-all',
+                            'bg-blue-500 text-white' => $pricePreset === '',
+                            'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700' => $pricePreset !== '',
+                        ])
                     >
                         Todos
                     </button>
                     @foreach($this->pricePresets as $key => $preset)
                         <button
+                            wire:key="price-{{ $key }}-{{ $pricePreset }}"
                             wire:click="$set('pricePreset', '{{ $key }}')"
-                            class="rounded-lg px-3 py-2 text-sm font-semibold transition-all {{ $pricePreset === $key ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/25 ring-2 ring-emerald-600 ring-offset-1 dark:ring-offset-zinc-900' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700' }}"
+                            @class([
+                                'rounded-lg py-2 text-center text-sm font-medium transition-all',
+                                'bg-blue-500 text-white' => $pricePreset === $key,
+                                'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700' => $pricePreset !== $key,
+                            ])
                         >
                             {{ $preset['label'] }}
                         </button>
@@ -518,85 +506,104 @@
                 </div>
             </div>
 
-            {{-- Bedrooms --}}
-            <div>
-                <label class="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Recamaras</label>
-                <div class="flex gap-1.5">
-                    @foreach(['' => 'Todas', '1' => '1+', '2' => '2+', '3' => '3+', '4' => '4+'] as $value => $label)
-                        <button
-                            wire:click="$set('bedrooms', '{{ $value }}')"
-                            class="flex-1 rounded-lg px-3 py-2.5 text-sm font-semibold transition-all {{ $bedrooms === $value ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25 ring-2 ring-blue-600 ring-offset-1 dark:ring-offset-zinc-900' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700' }}"
-                        >
-                            {{ $label }}
-                        </button>
-                    @endforeach
+            {{-- Bedrooms & Bathrooms - matching grids --}}
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Recamaras</label>
+                    <div class="grid grid-cols-4 gap-1" wire:key="bedrooms-group-{{ $bedrooms }}">
+                        @foreach(['1' => '1+', '2' => '2+', '3' => '3+', '4' => '4+'] as $value => $label)
+                            <button
+                                wire:click="$set('bedrooms', '{{ (string) $bedrooms === (string) $value ? '' : $value }}')"
+                                @class([
+                                    'rounded-md py-1.5 text-center text-sm font-medium transition-all',
+                                    'bg-blue-500 text-white' => (string) $bedrooms === (string) $value,
+                                    'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700' => (string) $bedrooms !== (string) $value,
+                                ])
+                            >
+                                {{ $label }}
+                            </button>
+                        @endforeach
+                    </div>
+                </div>
+                <div>
+                    <label class="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Banos</label>
+                    <div class="grid grid-cols-4 gap-1" wire:key="bathrooms-group-{{ $bathrooms }}">
+                        @foreach(['1' => '1+', '2' => '2+', '3' => '3+', '4' => '4+'] as $value => $label)
+                            <button
+                                wire:click="$set('bathrooms', '{{ (string) $bathrooms === (string) $value ? '' : $value }}')"
+                                @class([
+                                    'rounded-md py-1.5 text-center text-sm font-medium transition-all',
+                                    'bg-blue-500 text-white' => (string) $bathrooms === (string) $value,
+                                    'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700' => (string) $bathrooms !== (string) $value,
+                                ])
+                            >
+                                {{ $label }}
+                            </button>
+                        @endforeach
+                    </div>
                 </div>
             </div>
 
-            {{-- Bathrooms --}}
-            <div>
-                <label class="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Banos</label>
-                <div class="flex gap-1.5">
-                    @foreach(['' => 'Todos', '1' => '1+', '2' => '2+', '3' => '3+', '4' => '4+'] as $value => $label)
-                        <button
-                            wire:click="$set('bathrooms', '{{ $value }}')"
-                            class="flex-1 rounded-lg px-3 py-2.5 text-sm font-semibold transition-all {{ $bathrooms === $value ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25 ring-2 ring-blue-600 ring-offset-1 dark:ring-offset-zinc-900' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700' }}"
-                        >
-                            {{ $label }}
-                        </button>
-                    @endforeach
+            {{-- Size & Parking - matching layout --}}
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Tamano (m²)</label>
+                    <div class="flex items-center gap-2">
+                        <flux:input type="number" wire:model.live.debounce.500ms="minSize" placeholder="Min" size="sm" />
+                        <span class="text-zinc-400">—</span>
+                        <flux:input type="number" wire:model.live.debounce.500ms="maxSize" placeholder="Max" size="sm" />
+                    </div>
+                </div>
+                <div>
+                    <label class="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Estacionamiento</label>
+                    <div class="grid grid-cols-4 gap-1" wire:key="parking-group-{{ $parking }}">
+                        @foreach(['1' => '1+', '2' => '2+', '3' => '3+', '4' => '4+'] as $value => $label)
+                            <button
+                                wire:click="$set('parking', '{{ (string) $parking === (string) $value ? '' : $value }}')"
+                                @class([
+                                    'rounded-md py-1.5 text-center text-sm font-medium transition-all',
+                                    'bg-blue-500 text-white' => (string) $parking === (string) $value,
+                                    'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700' => (string) $parking !== (string) $value,
+                                ])
+                            >
+                                {{ $label }}
+                            </button>
+                        @endforeach
+                    </div>
                 </div>
             </div>
 
-            {{-- Size Range --}}
+            {{-- Amenities (Airbnb-style with icons) --}}
             <div>
-                <label class="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Tamano (m²)</label>
-                <div class="flex items-center gap-2">
-                    <flux:input
-                        type="number"
-                        wire:model.live.debounce.500ms="minSize"
-                        placeholder="Min"
-                        size="sm"
-                    />
-                    <span class="text-zinc-400">—</span>
-                    <flux:input
-                        type="number"
-                        wire:model.live.debounce.500ms="maxSize"
-                        placeholder="Max"
-                        size="sm"
-                    />
-                    <span class="text-xs text-zinc-400">m²</span>
-                </div>
-            </div>
-
-            {{-- Parking --}}
-            <div>
-                <label class="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Estacionamiento</label>
-                <div class="flex gap-1.5">
-                    @foreach(['' => 'Todos', '1' => '1+', '2' => '2+', '3' => '3+'] as $value => $label)
-                        <button
-                            wire:click="$set('parking', '{{ $value }}')"
-                            class="flex-1 rounded-lg px-3 py-2.5 text-sm font-semibold transition-all {{ $parking === $value ? 'bg-blue-600 text-white shadow-md shadow-blue-600/25 ring-2 ring-blue-600 ring-offset-1 dark:ring-offset-zinc-900' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700' }}"
-                        >
-                            {{ $label }}
-                        </button>
-                    @endforeach
-                </div>
-            </div>
-
-            {{-- Amenities --}}
-            <div>
-                <label class="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Amenidades</label>
-                <div class="grid grid-cols-2 gap-2">
+                <label class="mb-2.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Amenidades</label>
+                @php
+                    $amenityIcons = [
+                        'swimming_pool' => '<path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" /><circle cx="12" cy="12" r="3" />',
+                        '24_hour_security' => '<path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />',
+                        'gated_community' => '<path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 1 0-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-6.75a2.25 2.25 0 0 0-2.25-2.25H6.75a2.25 2.25 0 0 0-2.25 2.25v6.75a2.25 2.25 0 0 0 2.25 2.25Z" />',
+                        'covered_parking' => '<path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 0 1-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 0 0-3.213-9.193 2.056 2.056 0 0 0-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 0 0-10.026 0 1.106 1.106 0 0 0-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12" />',
+                        'roof_garden' => '<path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />',
+                        'terrace' => '<path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />',
+                        'furnished' => '<path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />',
+                        'pet_friendly' => '<path stroke-linecap="round" stroke-linejoin="round" d="M6.633 10.25c.806 0 1.533-.446 2.031-1.08a9.041 9.041 0 0 1 2.861-2.4c.723-.384 1.35-.956 1.653-1.715a4.498 4.498 0 0 0 .322-1.672V3a.75.75 0 0 1 .75-.75 2.25 2.25 0 0 1 2.25 2.25c0 1.152-.26 2.243-.723 3.218-.266.558.107 1.282.725 1.282m0 0h3.126c1.026 0 1.945.694 2.054 1.715.045.422.068.85.068 1.285a11.95 11.95 0 0 1-2.649 7.521c-.388.482-.987.729-1.605.729H13.48c-.483 0-.964-.078-1.423-.23l-3.114-1.04a4.501 4.501 0 0 0-1.423-.23H5.904m10.598-9.75H14.25M5.904 18.5c.083.205.173.405.27.602.197.4-.078.898-.523.898h-.908c-.889 0-1.713-.518-1.972-1.368a12 12 0 0 1-.521-3.507c0-1.553.295-3.036.831-4.398C3.387 9.953 4.167 9.5 5 9.5h1.053c.472 0 .745.556.5.96a8.958 8.958 0 0 0-1.302 4.665c0 1.194.232 2.333.654 3.375Z" />',
+                        'gym' => '<path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" />',
+                        'elevator' => '<path stroke-linecap="round" stroke-linejoin="round" d="M3 7.5 7.5 3m0 0L12 7.5M7.5 3v13.5m13.5 0L16.5 21m0 0L12 16.5m4.5 4.5V7.5" />',
+                    ];
+                @endphp
+                <div class="grid grid-cols-3 gap-2">
                     @foreach($availableAmenities as $key => $label)
-                        <label class="flex cursor-pointer items-center gap-2.5 rounded-lg border-2 px-3 py-2.5 transition-all {{ in_array($key, $amenities) ? 'border-amber-500 bg-amber-50 dark:border-amber-500 dark:bg-amber-900/20' : 'border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:border-zinc-600 dark:hover:bg-zinc-800' }}">
-                            <input
-                                type="checkbox"
-                                wire:model.live="amenities"
-                                value="{{ $key }}"
-                                class="size-4 rounded border-zinc-300 text-amber-500 focus:ring-amber-500 dark:border-zinc-600 dark:bg-zinc-800"
-                            />
-                            <span class="text-sm font-medium {{ in_array($key, $amenities) ? 'text-amber-700 dark:text-amber-400' : 'text-zinc-700 dark:text-zinc-300' }}">{{ $label }}</span>
+                        <label
+                            @class([
+                                'flex cursor-pointer flex-col items-center gap-2 rounded-xl border-2 p-3 text-center transition-all',
+                                'border-blue-500 bg-blue-50 dark:bg-blue-900/20' => in_array($key, $amenities),
+                                'border-zinc-200 hover:border-zinc-300 hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800' => !in_array($key, $amenities),
+                            ])
+                        >
+                            <input type="checkbox" wire:model.live="amenities" value="{{ $key }}" class="sr-only" />
+                            <svg class="size-6 {{ in_array($key, $amenities) ? 'text-blue-600' : 'text-zinc-500' }}" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                {!! $amenityIcons[$key] ?? '<path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 003 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 005.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 009.568 3z" />' !!}
+                            </svg>
+                            <span class="text-xs font-medium {{ in_array($key, $amenities) ? 'text-blue-700 dark:text-blue-400' : 'text-zinc-600 dark:text-zinc-400' }}">{{ $label }}</span>
                         </label>
                     @endforeach
                 </div>
@@ -604,15 +611,12 @@
 
             {{-- Actions --}}
             <div class="flex items-center justify-between border-t border-zinc-200 pt-4 dark:border-zinc-700">
-                <button
-                    wire:click="clearFilters"
-                    class="text-sm font-semibold text-red-500 hover:text-red-600 dark:text-red-400 dark:hover:text-red-300"
-                >
+                <button wire:click="clearFilters" class="text-sm font-semibold text-red-500 hover:text-red-600">
                     Limpiar todo
                 </button>
                 <button
                     wire:click="applyFilters"
-                    class="rounded-lg bg-gradient-to-r from-blue-600 to-blue-500 px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-blue-600/25 transition-all hover:from-blue-700 hover:to-blue-600 hover:shadow-lg"
+                    class="rounded-lg bg-blue-500 px-6 py-2.5 text-sm font-semibold text-white transition-all hover:bg-blue-600"
                 >
                     Aplicar filtros
                 </button>
@@ -623,86 +627,64 @@
     {{-- Collection Panel --}}
     <flux:modal wire:model="showCollectionPanel" position="right" class="w-full max-w-md">
         <div class="flex h-full flex-col">
-            <div class="-mx-6 -mt-6 mb-4 flex items-center justify-between bg-gradient-to-r from-amber-50 to-orange-50 px-6 pb-4 pt-6 dark:from-amber-900/20 dark:to-orange-900/20">
-                <div>
+            <div class="-mx-6 -mt-6 mb-4 bg-gradient-to-r from-blue-50 to-indigo-50 pb-4 pt-6 dark:from-blue-900/20 dark:to-indigo-900/20">
+                <div class="pl-6 pr-6">
                     <h3 class="text-lg font-bold text-zinc-900 dark:text-zinc-100">Mi coleccion</h3>
-                    <p class="text-sm font-medium text-amber-600 dark:text-amber-400">{{ count($collection) }} {{ count($collection) === 1 ? 'propiedad' : 'propiedades' }}</p>
+                    <p class="text-sm font-medium text-blue-600 dark:text-blue-400">{{ count($collection) }} {{ count($collection) === 1 ? 'propiedad' : 'propiedades' }}</p>
                 </div>
-                @if(count($collection) > 0)
-                    <button
-                        wire:click="clearCollection"
-                        class="rounded-md px-2 py-1 text-sm font-semibold text-red-500 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
-                    >
-                        Vaciar
-                    </button>
-                @endif
             </div>
 
             @if(count($collection) > 0)
-                <div class="flex-1 space-y-2 overflow-y-auto">
-                    @foreach($this->collectionProperties as $property)
-                        @php
-                            $listing = $property->listings->first();
-                            $images = $listing?->raw_data['images'] ?? [];
-                            $heroImage = $images[0] ?? null;
-                            $operations = $listing?->operations ?? [];
-                            $price = $operations[0]['price'] ?? null;
-                            $opType = $operations[0]['type'] ?? null;
-                        @endphp
-                        <div wire:key="collection-{{ $property->id }}" class="group flex gap-3 rounded-xl border-l-4 border-amber-400 bg-zinc-50 p-3 transition-colors hover:bg-zinc-100 dark:bg-zinc-800/50 dark:hover:bg-zinc-800">
-                            <a href="{{ route('agents.properties.show', $property) }}" wire:navigate class="size-16 flex-shrink-0 overflow-hidden rounded-lg bg-zinc-200 dark:bg-zinc-700">
-                                @if($heroImage)
-                                    <img src="{{ $heroImage }}" alt="" class="h-full w-full object-cover" />
-                                @else
-                                    <div class="flex h-full w-full items-center justify-center">
-                                        <svg class="size-6 text-zinc-400 dark:text-zinc-500" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
-                                        </svg>
+                <div class="flex-1 overflow-y-auto">
+                    <div class="grid grid-cols-2 gap-2">
+                        @foreach($this->collectionProperties as $property)
+                            @php
+                                $listing = $property->listings->first();
+                                $images = $listing?->raw_data['images'] ?? [];
+                                $heroImage = $images[0] ?? null;
+                                $operations = $listing?->operations ?? [];
+                                $price = $operations[0]['price'] ?? null;
+                                $opType = $operations[0]['type'] ?? null;
+                            @endphp
+                            <div wire:key="collection-{{ $property->id }}" class="group relative overflow-hidden rounded-lg bg-zinc-100 dark:bg-zinc-800">
+                                <a href="{{ route('agents.properties.show', $property) }}" wire:navigate class="block">
+                                    <div class="aspect-[4/3] bg-zinc-200 dark:bg-zinc-700">
+                                        @if($heroImage)
+                                            <img src="{{ $heroImage }}" alt="" class="h-full w-full object-cover" />
+                                        @else
+                                            <div class="flex h-full w-full items-center justify-center">
+                                                <svg class="size-6 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+                                                </svg>
+                                            </div>
+                                        @endif
                                     </div>
-                                @endif
-                            </a>
-
-                            <div class="min-w-0 flex-1">
-                                <p class="font-bold text-zinc-900 dark:text-zinc-100">
-                                    @if($price)
-                                        ${{ number_format($price) }}<span class="text-sm font-normal text-zinc-500">{{ $opType === 'rent' ? '/mes' : '' }}</span>
-                                    @else
-                                        <span class="text-zinc-400">Sin precio</span>
-                                    @endif
-                                </p>
-                                <p class="truncate text-sm font-medium text-zinc-600 dark:text-zinc-400">
-                                    {{ $property->colonia }}{{ $property->city ? ', ' . $property->city : '' }}
-                                </p>
-                                <div class="mt-1 flex items-center gap-2 text-xs text-zinc-500">
-                                    @if($property->bedrooms)
-                                        <span class="flex items-center gap-0.5">
-                                            <svg class="size-3" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" /></svg>
-                                            {{ $property->bedrooms }}
-                                        </span>
-                                    @endif
-                                    @if($property->bathrooms)
-                                        <span>{{ $property->bathrooms }} ban</span>
-                                    @endif
-                                    @if($property->built_size_m2)
-                                        <span>{{ number_format($property->built_size_m2) }} m²</span>
-                                    @endif
-                                </div>
+                                    <div class="p-2">
+                                        <p class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                                            @if($price)
+                                                ${{ number_format($price) }}<span class="text-xs font-normal text-zinc-500">{{ $opType === 'rent' ? '/mes' : '' }}</span>
+                                            @else
+                                                <span class="text-zinc-400">Sin precio</span>
+                                            @endif
+                                        </p>
+                                        <p class="truncate text-xs text-zinc-500">{{ $property->colonia }}</p>
+                                    </div>
+                                </a>
+                                <button
+                                    wire:click="removeFromCollection({{ $property->id }})"
+                                    class="absolute right-1 top-1 rounded-full bg-black/50 p-1 text-white opacity-0 transition-all hover:bg-red-500 group-hover:opacity-100"
+                                >
+                                    <svg class="size-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
+                                    </svg>
+                                </button>
                             </div>
-
-                            <button
-                                wire:click="removeFromCollection({{ $property->id }})"
-                                class="flex-shrink-0 self-center rounded-full p-1.5 text-zinc-400 opacity-0 transition-all hover:bg-red-50 hover:text-red-500 group-hover:opacity-100 dark:hover:bg-red-900/20"
-                            >
-                                <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-                                </svg>
-                            </button>
-                        </div>
-                    @endforeach
+                        @endforeach
+                    </div>
                 </div>
 
                 {{-- Save Collection Section --}}
-                <div class="space-y-3 border-t border-zinc-200 pt-4 dark:border-zinc-700">
+                <div class="mt-4 space-y-3 border-t border-zinc-200 pt-4 dark:border-zinc-700">
                     <div>
                         <label for="collectionName" class="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
                             Nombre de la coleccion
@@ -717,7 +699,7 @@
 
                     <button
                         wire:click="saveCollection"
-                        class="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-amber-500/25 transition-all hover:from-amber-600 hover:to-orange-600 hover:shadow-lg"
+                        class="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-blue-500/25 transition-all hover:from-blue-600 hover:to-blue-700 hover:shadow-lg"
                     >
                         <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" />
@@ -754,24 +736,33 @@
                             <span class="hidden xs:inline">PDFs</span>
                         </button>
                     </div>
+
+                    <div class="pt-2 text-center">
+                        <button
+                            wire:click="clearCollection"
+                            class="text-sm text-zinc-400 transition-colors hover:text-red-500"
+                        >
+                            Vaciar coleccion
+                        </button>
+                    </div>
                 </div>
             @else
                 <div class="flex flex-1 flex-col items-center justify-center py-12 text-center">
                     <div class="relative mb-4">
-                        <div class="flex size-20 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-100 to-orange-100 dark:from-amber-900/30 dark:to-orange-900/30">
-                            <svg class="size-10 text-amber-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <div class="flex size-20 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30">
+                            <svg class="size-10 text-blue-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" />
                             </svg>
                         </div>
                         <div class="absolute -right-1 -top-1 flex size-7 items-center justify-center rounded-full bg-white shadow-md dark:bg-zinc-800">
-                            <svg class="size-4 text-amber-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <svg class="size-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
                             </svg>
                         </div>
                     </div>
                     <h4 class="font-bold text-zinc-900 dark:text-zinc-100">Tu coleccion esta vacia</h4>
                     <p class="mt-2 max-w-[220px] text-sm text-zinc-500">
-                        Toca el boton <span class="inline-flex size-5 items-center justify-center rounded-full bg-amber-100 text-amber-600">+</span> en las propiedades para agregarlas.
+                        Toca el boton <span class="inline-flex size-5 items-center justify-center rounded-full bg-blue-100 text-blue-600">+</span> en las propiedades para agregarlas.
                     </p>
                 </div>
             @endif

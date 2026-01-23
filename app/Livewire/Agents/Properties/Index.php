@@ -4,6 +4,7 @@ namespace App\Livewire\Agents\Properties;
 
 use App\Enums\PropertyType;
 use App\Models\Property;
+use Flux\Flux;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\View\View;
@@ -258,8 +259,11 @@ class Index extends Component
         $this->collectionName = '';
         $this->showCollectionPanel = false;
 
-        // Dispatch a browser event for the toast notification
-        $this->dispatch('collection-saved', name: $name, count: $count);
+        Flux::toast(
+            heading: 'Colección guardada',
+            text: "{$name} ({$count} propiedades)",
+            variant: 'success',
+        );
     }
 
     public function isInCollection(int $propertyId): bool
@@ -312,6 +316,31 @@ class Index extends Component
         $count += count($this->amenities);
 
         return $count;
+    }
+
+    /**
+     * Generate a unique key for the property grid based on current filter state.
+     * This forces a full re-render of the grid when filters change, enabling animations.
+     */
+    #[Computed]
+    public function gridKey(): string
+    {
+        return md5(serialize([
+            $this->operationType,
+            $this->propertyType,
+            $this->zones,
+            $this->minPrice,
+            $this->maxPrice,
+            $this->bedrooms,
+            $this->bathrooms,
+            $this->minSize,
+            $this->maxSize,
+            $this->parking,
+            $this->amenities,
+            $this->sortBy,
+            $this->search,
+            $this->showSelectedOnly,
+        ]));
     }
 
     /**
