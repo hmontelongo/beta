@@ -101,3 +101,32 @@ select:focus[data-flux-control] {
 .animate-stagger > *:nth-child(10) { animation-delay: 20ms; }
 .animate-stagger > *:nth-child(11) { animation-delay: 0ms; }
 .animate-stagger > *:nth-child(12) { animation-delay: 20ms; }
+
+/* Landing page animations */
+@keyframes fade-in {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes fade-in-up {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.animate-fade-in {
+    animation: fade-in 600ms ease-out both;
+}
+
+.animate-fade-in-up {
+    animation: fade-in-up 600ms ease-out both;
+}
