@@ -33,6 +33,10 @@
 
                             <flux:menu.separator />
 
+                            <flux:menu.item :href="route('agents.collections.index')" icon="folder" wire:navigate>
+                                Mis Colecciones
+                            </flux:menu.item>
+
                             <flux:menu.item :href="route('agents.profile.edit')" icon="cog-6-tooth" wire:navigate>
                                 Configuracion
                             </flux:menu.item>

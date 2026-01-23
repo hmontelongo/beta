@@ -3,10 +3,11 @@
 namespace App\Livewire\Agents\Properties;
 
 use App\Enums\PropertyType;
+use App\Models\Collection;
 use App\Models\Property;
 use Flux\Flux;
 use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Support\Collection;
+use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\View\View;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
@@ -67,8 +68,8 @@ class Index extends Component
 
     public bool $showFiltersModal = false;
 
-    /** @var array<int> Collection of property IDs (UI mockup state) */
-    public array $collection = [];
+    /** Active collection ID (persisted in database) */
+    public ?int $activeCollectionId = null;
 
     public bool $showCollectionPanel = false;
 
@@ -77,6 +78,18 @@ class Index extends Component
 
     /** Name for the new collection being created */
     public string $collectionName = '';
+
+    /** Client name for the collection */
+    public string $clientName = '';
+
+    /** Client WhatsApp number for instant sharing */
+    public string $clientWhatsapp = '';
+
+    /** Whether to save collection as public (shareable) */
+    public bool $saveAsPublic = true;
+
+    /** Track if editing an existing saved collection */
+    public bool $isEditingCollection = false;
 
     /**
      * Price presets for sale operations (MXN).
@@ -209,29 +222,102 @@ class Index extends Component
         $this->resetPage();
     }
 
+    /**
+     * Get the active collection model.
+     */
+    #[Computed]
+    public function activeCollection(): ?Collection
+    {
+        if (! $this->activeCollectionId) {
+            return null;
+        }
+
+        return Collection::find($this->activeCollectionId);
+    }
+
+    /**
+     * Ensure an active collection exists, creating one if needed.
+     */
+    protected function ensureActiveCollection(): Collection
+    {
+        if ($this->activeCollectionId) {
+            $collection = Collection::find($this->activeCollectionId);
+            if ($collection) {
+                return $collection;
+            }
+        }
+
+        $collection = auth()->user()->collections()->create([
+            'name' => Collection::DRAFT_NAME,
+        ]);
+
+        $this->activeCollectionId = $collection->id;
+
+        return $collection;
+    }
+
+    /**
+     * Clear all collection-related computed property caches.
+     */
+    protected function clearCollectionCaches(): void
+    {
+        unset($this->collectionPropertyIds);
+        unset($this->collectionProperties);
+        unset($this->activeCollection);
+        unset($this->userCollections);
+        unset($this->hasMoreCollections);
+    }
+
+    /**
+     * Get property IDs in the current collection (for backward compatibility).
+     *
+     * @return array<int>
+     */
+    #[Computed]
+    public function collectionPropertyIds(): array
+    {
+        $collection = $this->activeCollection;
+
+        if (! $collection) {
+            return [];
+        }
+
+        return $collection->properties()->pluck('properties.id')->toArray();
+    }
+
     public function toggleCollection(int $propertyId): void
     {
-        if (in_array($propertyId, $this->collection)) {
-            $this->collection = array_values(array_filter(
-                $this->collection,
-                fn ($id) => $id !== $propertyId
-            ));
+        $collection = $this->ensureActiveCollection();
+
+        if ($collection->properties()->where('property_id', $propertyId)->exists()) {
+            $collection->properties()->detach($propertyId);
         } else {
-            $this->collection[] = $propertyId;
+            $maxPosition = $collection->properties()->max('position') ?? 0;
+            $collection->properties()->attach($propertyId, ['position' => $maxPosition + 1]);
         }
+
+        $this->clearCollectionCaches();
     }
 
     public function removeFromCollection(int $propertyId): void
     {
-        $this->collection = array_values(array_filter(
-            $this->collection,
-            fn ($id) => $id !== $propertyId
-        ));
+        $collection = $this->activeCollection;
+
+        if ($collection) {
+            $collection->properties()->detach($propertyId);
+            $this->clearCollectionCaches();
+        }
     }
 
     public function clearCollection(): void
     {
-        $this->collection = [];
+        $collection = $this->activeCollection;
+
+        if ($collection) {
+            $collection->properties()->detach();
+            $this->clearCollectionCaches();
+        }
+
         $this->showSelectedOnly = false;
     }
 
@@ -242,42 +328,162 @@ class Index extends Component
     }
 
     /**
-     * Save the current selection as a collection (UI mockup).
-     * In the real implementation, this will create a Collection model.
+     * Save the current collection with a name and optional client info.
      */
     public function saveCollection(): void
     {
-        if (empty($this->collection)) {
+        $collection = $this->activeCollection;
+
+        if (! $collection || $collection->properties()->count() === 0) {
             return;
         }
 
-        // For now, just show a success message (Phase 4 will implement actual saving)
-        $name = $this->collectionName ?: 'Mi colección';
-        $count = count($this->collection);
+        $this->validate([
+            'collectionName' => 'required|string|max:255',
+            'clientName' => 'nullable|string|max:255',
+            'clientWhatsapp' => 'nullable|string|max:20',
+        ]);
 
-        // Reset the form
-        $this->collectionName = '';
-        $this->showCollectionPanel = false;
+        $collection->update([
+            'name' => $this->collectionName,
+            'is_public' => $this->saveAsPublic,
+            'client_name' => $this->clientName ?: null,
+            'client_whatsapp' => $this->clientWhatsapp ?: null,
+        ]);
+
+        $count = $collection->properties()->count();
 
         Flux::toast(
-            heading: 'Colección guardada',
-            text: "{$name} ({$count} propiedades)",
+            heading: 'Coleccion guardada',
+            text: "{$this->collectionName} ({$count} propiedades)",
             variant: 'success',
         );
+
+        // Mark as editing existing collection (don't reset activeCollectionId)
+        $this->isEditingCollection = true;
+        $this->showCollectionPanel = false;
+
+        $this->clearCollectionCaches();
+    }
+
+    /**
+     * Share collection via WhatsApp.
+     */
+    public function shareViaWhatsApp(): void
+    {
+        $collection = $this->activeCollection;
+
+        if (! $collection || $collection->properties()->count() === 0) {
+            Flux::toast(
+                heading: 'Sin propiedades',
+                text: 'Agrega propiedades a la coleccion primero',
+                variant: 'warning',
+            );
+
+            return;
+        }
+
+        // Auto-save if not saved yet
+        if ($collection->isDraft()) {
+            if (! $this->collectionName) {
+                Flux::toast(
+                    heading: 'Nombre requerido',
+                    text: 'Ingresa un nombre para la coleccion',
+                    variant: 'warning',
+                );
+
+                return;
+            }
+            $this->saveCollection();
+            $collection->refresh();
+        }
+
+        // Ensure collection is public before sharing
+        if (! $collection->is_public) {
+            $collection->update(['is_public' => true]);
+        }
+
+        $this->dispatch('open-url', url: $collection->getWhatsAppShareUrl());
+    }
+
+    /**
+     * Load an existing collection for editing.
+     */
+    public function loadCollection(int $collectionId): void
+    {
+        $collection = auth()->user()->collections()->findOrFail($collectionId);
+
+        $this->activeCollectionId = $collection->id;
+        $this->collectionName = $collection->name;
+        $this->clientName = $collection->client_name ?? '';
+        $this->clientWhatsapp = $collection->client_whatsapp ?? '';
+        $this->saveAsPublic = $collection->is_public;
+        $this->isEditingCollection = true;
+
+        $this->clearCollectionCaches();
+
+        Flux::toast("Coleccion '{$collection->name}' cargada");
+    }
+
+    /**
+     * Start a new collection (clear current state).
+     */
+    public function startNewCollection(): void
+    {
+        $this->activeCollectionId = null;
+        $this->collectionName = '';
+        $this->clientName = '';
+        $this->clientWhatsapp = '';
+        $this->saveAsPublic = true;
+        $this->isEditingCollection = false;
+        $this->showSelectedOnly = false;
+
+        $this->clearCollectionCaches();
+
+        Flux::toast('Nueva coleccion iniciada');
+    }
+
+    /**
+     * Get user's saved collections for the selector dropdown.
+     *
+     * @return \Illuminate\Database\Eloquent\Collection<int, Collection>
+     */
+    #[Computed]
+    public function userCollections(): \Illuminate\Database\Eloquent\Collection
+    {
+        return auth()->user()
+            ->collections()
+            ->where('name', '!=', Collection::DRAFT_NAME)
+            ->withCount('properties')
+            ->orderByDesc('updated_at')
+            ->limit(10)
+            ->get();
+    }
+
+    /**
+     * Check if user has more collections than displayed in dropdown.
+     */
+    #[Computed]
+    public function hasMoreCollections(): bool
+    {
+        return auth()->user()
+            ->collections()
+            ->where('name', '!=', Collection::DRAFT_NAME)
+            ->count() > 10;
     }
 
     public function isInCollection(int $propertyId): bool
     {
-        return in_array($propertyId, $this->collection);
+        return in_array($propertyId, $this->collectionPropertyIds);
     }
 
     /**
      * Get zones grouped by city for the multi-select dropdown.
      *
-     * @return Collection<string, Collection<int, string>>
+     * @return SupportCollection<string, SupportCollection<int, string>>
      */
     #[Computed]
-    public function zonesGroupedByCity(): Collection
+    public function zonesGroupedByCity(): SupportCollection
     {
         return Property::query()
             ->select('city', 'colonia')
@@ -340,26 +546,25 @@ class Index extends Component
             $this->sortBy,
             $this->search,
             $this->showSelectedOnly,
+            $this->activeCollectionId,
         ]));
     }
 
     /**
      * Get collection properties for the panel.
      *
-     * @return Collection<int, Property>
+     * @return SupportCollection<int, Property>
      */
     #[Computed]
-    public function collectionProperties(): Collection
+    public function collectionProperties(): SupportCollection
     {
-        if (empty($this->collection)) {
+        $collection = $this->activeCollection;
+
+        if (! $collection) {
             return collect();
         }
 
-        return Property::query()
-            ->whereIn('id', $this->collection)
-            ->with(['listings'])
-            ->get()
-            ->sortBy(fn ($property) => array_search($property->id, $this->collection));
+        return $collection->properties()->with(['listings'])->get();
     }
 
     /**
@@ -367,10 +572,12 @@ class Index extends Component
      */
     protected function buildQuery(): Builder
     {
+        $collectionPropertyIds = $this->collectionPropertyIds;
+
         return Property::query()
             ->with(['listings.platform'])
-            ->when($this->showSelectedOnly && ! empty($this->collection), function ($query) {
-                $query->whereIn('id', $this->collection);
+            ->when($this->showSelectedOnly && ! empty($collectionPropertyIds), function ($query) use ($collectionPropertyIds) {
+                $query->whereIn('id', $collectionPropertyIds);
             })
             ->when($this->search, function ($query) {
                 $query->where(function ($q) {

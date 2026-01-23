@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Agents\Properties;
 
+use App\Models\Collection as CollectionModel;
 use App\Models\Listing;
 use App\Models\Property;
 use Illuminate\Support\Collection;
@@ -15,8 +16,8 @@ class Show extends Component
 {
     public Property $property;
 
-    /** @var array<int> Collection of property IDs (UI mockup state) */
-    public array $collection = [];
+    /** Active collection ID (persisted in database) */
+    public ?int $activeCollectionId = null;
 
     public function mount(Property $property): void
     {
@@ -25,6 +26,50 @@ class Show extends Component
             'listings.publisher',
             'publishers',
         ]);
+
+        // Load existing active collection if user has one with this property
+        $existingCollection = auth()->user()
+            ?->collections()
+            ->whereHas('properties', fn ($q) => $q->where('property_id', $property->id))
+            ->first();
+
+        if ($existingCollection) {
+            $this->activeCollectionId = $existingCollection->id;
+        }
+    }
+
+    /**
+     * Get the active collection model.
+     */
+    #[Computed]
+    public function activeCollection(): ?CollectionModel
+    {
+        if (! $this->activeCollectionId) {
+            return null;
+        }
+
+        return CollectionModel::find($this->activeCollectionId);
+    }
+
+    /**
+     * Ensure an active collection exists, creating one if needed.
+     */
+    protected function ensureActiveCollection(): CollectionModel
+    {
+        if ($this->activeCollectionId) {
+            $collection = CollectionModel::find($this->activeCollectionId);
+            if ($collection) {
+                return $collection;
+            }
+        }
+
+        $collection = auth()->user()->collections()->create([
+            'name' => CollectionModel::DRAFT_NAME,
+        ]);
+
+        $this->activeCollectionId = $collection->id;
+
+        return $collection;
     }
 
     /**
@@ -387,19 +432,28 @@ class Show extends Component
 
     public function toggleCollection(): void
     {
-        if (in_array($this->property->id, $this->collection)) {
-            $this->collection = array_values(array_filter(
-                $this->collection,
-                fn ($id) => $id !== $this->property->id
-            ));
+        $collection = $this->ensureActiveCollection();
+
+        if ($collection->properties()->where('property_id', $this->property->id)->exists()) {
+            $collection->properties()->detach($this->property->id);
         } else {
-            $this->collection[] = $this->property->id;
+            $maxPosition = $collection->properties()->max('position') ?? 0;
+            $collection->properties()->attach($this->property->id, ['position' => $maxPosition + 1]);
         }
+
+        // Clear computed property cache
+        unset($this->activeCollection);
     }
 
     public function isInCollection(): bool
     {
-        return in_array($this->property->id, $this->collection);
+        $collection = $this->activeCollection;
+
+        if (! $collection) {
+            return false;
+        }
+
+        return $collection->properties()->where('property_id', $this->property->id)->exists();
     }
 
     public function render(): View

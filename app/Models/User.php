@@ -5,6 +5,7 @@ namespace App\Models;
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use App\Enums\UserRole;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Support\Str;
@@ -73,6 +74,14 @@ class User extends Authenticatable
     public function isAgent(): bool
     {
         return $this->role === UserRole::Agent;
+    }
+
+    /**
+     * @return HasMany<Collection>
+     */
+    public function collections(): HasMany
+    {
+        return $this->hasMany(Collection::class);
     }
 
     /**

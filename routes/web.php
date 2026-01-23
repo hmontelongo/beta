@@ -11,8 +11,11 @@ use App\Livewire\Admin\Properties\Show as PropertiesShow;
 use App\Livewire\Admin\Publishers\Index as PublishersIndex;
 use App\Livewire\Admin\Publishers\Show as PublishersShow;
 use App\Livewire\Admin\ScrapeRuns\Show as ScrapeRunsShow;
+use App\Livewire\Agents\Collections\Index as AgentCollectionsIndex;
 use App\Livewire\Agents\Properties\Index as AgentPropertiesIndex;
 use App\Livewire\Agents\Properties\Show as AgentPropertiesShow;
+use App\Livewire\Landing;
+use App\Livewire\Public\Collections\Show as PublicCollectionShow;
 use App\Livewire\Settings\Appearance;
 use App\Livewire\Settings\Password;
 use App\Livewire\Settings\Profile;
@@ -25,9 +28,9 @@ use Laravel\Fortify\Features;
 | Public Routes (beta.test)
 |--------------------------------------------------------------------------
 */
-Route::get('/', function () {
-    return view('welcome');
-})->name('home');
+Route::livewire('/', Landing::class)->name('home');
+
+Route::livewire('c/{collection:share_token}', PublicCollectionShow::class)->name('collections.public.show');
 
 /*
 |--------------------------------------------------------------------------
@@ -88,6 +91,7 @@ Route::domain(config('domains.agents'))->group(function () {
 
         Route::livewire('properties', AgentPropertiesIndex::class)->name('agents.properties.index');
         Route::livewire('properties/{property}', AgentPropertiesShow::class)->name('agents.properties.show');
+        Route::livewire('collections', AgentCollectionsIndex::class)->name('agents.collections.index');
     });
 
     // Settings routes on agents subdomain
