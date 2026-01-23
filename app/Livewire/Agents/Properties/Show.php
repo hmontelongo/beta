@@ -220,6 +220,26 @@ class Show extends Component
     }
 
     /**
+     * Check if rental terms have meaningful data to display.
+     */
+    #[Computed]
+    public function hasRentalTermsData(): bool
+    {
+        $terms = $this->rentalTerms;
+
+        if (! $terms) {
+            return false;
+        }
+
+        return ! empty($terms['deposit_months'])
+            || ! empty($terms['advance_months'])
+            || ! empty($terms['income_proof_months'])
+            || isset($terms['guarantor_required'])
+            || isset($terms['pets_allowed'])
+            || ! empty($terms['max_occupants']);
+    }
+
+    /**
      * Get building/location info from AI extraction.
      *
      * @return array{building_name?: string, building_type?: string, nearby_landmarks?: array}|null
@@ -294,78 +314,10 @@ class Show extends Component
      */
     public function humanizeAmenity(string $amenity): string
     {
-        $translations = [
-            // Unit amenities
-            'integrated_kitchen' => 'Cocina integral',
-            'terrace' => 'Terraza',
-            'laundry_room' => 'Cuarto de lavado',
-            'balcony' => 'Balcón',
-            'closet' => 'Clóset',
-            'walk_in_closet' => 'Vestidor',
-            'air_conditioning' => 'Aire acondicionado',
-            'ac' => 'Aire acondicionado',
-            'heating' => 'Calefacción',
-            'washer' => 'Lavadora',
-            'dryer' => 'Secadora',
-            'dishwasher' => 'Lavavajillas',
-            'furnished' => 'Amueblado',
-            'semi_furnished' => 'Semi-amueblado',
-            'unfurnished' => 'Sin amueblar',
-            'granite_countertops' => 'Cubiertas de granito',
-            'natural_gas' => 'Gas natural',
+        $key = 'amenities.'.strtolower($amenity);
+        $translation = __($key);
 
-            // Building amenities
-            'rooftop' => 'Roof top',
-            'jacuzzi' => 'Jacuzzi',
-            'elevator' => 'Elevador',
-            'security_booth' => 'Caseta de vigilancia',
-            'roof_garden' => 'Roof garden',
-            'swimming_pool' => 'Alberca',
-            'pool' => 'Alberca',
-            'gym' => 'Gimnasio',
-            'playground' => 'Área de juegos',
-            'party_room' => 'Salón de fiestas',
-            'business_center' => 'Business center',
-            'coworking' => 'Coworking',
-            'pet_area' => 'Área de mascotas',
-            'garden' => 'Jardín',
-            'common_area' => 'Área común',
-            'bbq_area' => 'Área de asador',
-            'grill' => 'Asador',
-            'multipurpose_room' => 'Salón de usos múltiples',
-            'meeting_room' => 'Sala de juntas',
-            'fountain' => 'Fuente',
-            'bike_parking' => 'Biciestacionamiento',
-            'accessibility_features' => 'Accesibilidad',
-            'convenience_store' => 'Tienda de conveniencia',
-            'restaurant' => 'Restaurante',
-
-            // Services
-            'security' => 'Seguridad 24h',
-            'security_24h' => 'Seguridad 24h',
-            '24_hour_security' => 'Seguridad 24h',
-            'guard_house' => 'Caseta de guardia',
-            'concierge' => 'Concierge',
-            'maintenance' => 'Mantenimiento',
-            'cleaning' => 'Limpieza',
-            'valet_parking' => 'Valet parking',
-            'covered_parking' => 'Estacionamiento techado',
-            'visitor_parking' => 'Estacionamiento visitantes',
-            'storage' => 'Bodega',
-            'gated_community' => 'Coto cerrado',
-            'disabled_access' => 'Acceso para discapacitados',
-            'wheelchair_access' => 'Acceso para silla de ruedas',
-            'package_reception' => 'Recepción de paquetes',
-            'security_cameras' => 'Cámaras de seguridad',
-
-            // Extras
-            'pet_friendly' => 'Mascotas permitidas',
-            'solar_panels' => 'Paneles solares',
-            'water_tank' => 'Cisterna',
-            'generator' => 'Planta de luz',
-        ];
-
-        return $translations[strtolower($amenity)] ?? ucfirst(str_replace('_', ' ', $amenity));
+        return $translation !== $key ? $translation : ucfirst(str_replace('_', ' ', $amenity));
     }
 
     /**
@@ -401,18 +353,13 @@ class Show extends Component
             $audience = [$audience];
         }
 
-        $labels = [
-            'young_professionals' => 'Profesionales',
-            'couples' => 'Parejas',
-            'families' => 'Familias',
-            'students' => 'Estudiantes',
-            'singles' => 'Solteros',
-            'retirees' => 'Jubilados',
-            'executives' => 'Ejecutivos',
-        ];
-
         return collect($audience)
-            ->map(fn ($a) => $labels[$a] ?? ucfirst(str_replace('_', ' ', $a)))
+            ->map(function ($a) {
+                $key = "properties.target_audience.{$a}";
+                $translation = __($key);
+
+                return $translation !== $key ? $translation : ucfirst(str_replace('_', ' ', $a));
+            })
             ->join(', ');
     }
 
@@ -421,16 +368,21 @@ class Show extends Component
      */
     public function formatOccupancyType(string $occupancyType): string
     {
-        $labels = [
-            'single_person_or_couple' => 'Individual/Pareja',
-            'single_person' => 'Individual',
-            'couple' => 'Pareja',
-            'family' => 'Familia',
-            'roommates' => 'Roomies',
-            'students' => 'Estudiantes',
-        ];
+        $key = "properties.occupancy_type.{$occupancyType}";
+        $translation = __($key);
 
-        return $labels[$occupancyType] ?? ucfirst(str_replace('_', ' ', $occupancyType));
+        return $translation !== $key ? $translation : ucfirst(str_replace('_', ' ', $occupancyType));
+    }
+
+    /**
+     * Format property condition for display.
+     */
+    public function formatPropertyCondition(string $condition): string
+    {
+        $key = "properties.property_condition.{$condition}";
+        $translation = __($key);
+
+        return $translation !== $key ? $translation : ucfirst(str_replace('_', ' ', $condition));
     }
 
     public function toggleCollection(): void
