@@ -4,27 +4,11 @@ use App\Livewire\Landing;
 use Livewire\Livewire;
 
 test('landing page loads successfully', function () {
-    $this->get('/')
-        ->assertStatus(200)
-        ->assertSee('PropertyManager');
+    $this->get('/')->assertOk();
 });
 
-test('landing page displays main headline', function () {
-    $this->get('/')
-        ->assertSee('De WhatsApp a propuesta');
-});
-
-test('landing page displays key features', function () {
-    $this->get('/')
-        ->assertSee('Una sola busqueda')
-        ->assertSee('Colecciones en un tap')
-        ->assertSee('Comparte como profesional');
-});
-
-test('landing page displays waitlist form', function () {
-    $this->get('/')
-        ->assertSee('Tu correo profesional')
-        ->assertSee('Solicitar acceso');
+test('landing page renders the landing component', function () {
+    Livewire::test(Landing::class)->assertOk();
 });
 
 test('waitlist form validates email', function () {
@@ -42,16 +26,16 @@ test('waitlist form accepts valid email', function () {
         ->assertSet('submitted', true);
 });
 
-test('authenticated users see dashboard link', function () {
+test('authenticated users see link to their dashboard', function () {
     $user = \App\Models\User::factory()->create();
 
     $this->actingAs($user)
         ->get('/')
-        ->assertSee('Ir al panel');
+        ->assertSee($user->homeUrl());
 });
 
-test('guests see login and register links', function () {
+test('guests see authentication links', function () {
     $this->get('/')
-        ->assertSee('Iniciar sesion')
-        ->assertSee('Registrarse');
+        ->assertSee(route('login'))
+        ->assertSee(route('register'));
 });

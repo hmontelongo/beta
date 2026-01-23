@@ -45,6 +45,11 @@
                 Proximamente en Guadalajara
             </div>
 
+            {{-- Audience Tag --}}
+            <p class="animate-fade-in mb-4 text-sm font-medium uppercase tracking-wider text-zinc-500" style="animation-delay: 50ms">
+                Para agentes inmobiliarios
+            </p>
+
             {{-- Main Headline - Linear style gradient text --}}
             <h1 class="animate-fade-in-up max-w-4xl text-balance text-4xl font-semibold tracking-tight text-white sm:text-5xl md:text-6xl lg:text-7xl" style="animation-delay: 100ms">
                 De WhatsApp a propuesta
@@ -55,7 +60,7 @@
 
             {{-- Subheadline --}}
             <p class="animate-fade-in-up mt-6 max-w-xl text-balance text-lg text-zinc-400" style="animation-delay: 200ms">
-                Busca propiedades, crea colecciones y comparte con tus clientes. Todo en un solo lugar.
+                La herramienta para agentes inmobiliarios que quieren responder mas rapido y cerrar mas ventas.
             </p>
 
             {{-- CTA Form --}}
@@ -188,7 +193,7 @@
                         </li>
                         <li class="flex gap-3">
                             <span class="mt-0.5 text-zinc-600">02</span>
-                            <span>Abres 3 portales diferentes a buscar</span>
+                            <span>Abres Inmuebles24, Vivanuncios, WhatsApp...</span>
                         </li>
                         <li class="flex gap-3">
                             <span class="mt-0.5 text-zinc-600">03</span>
@@ -204,7 +209,7 @@
                         </li>
                     </ul>
                     <p class="mt-6 border-t border-white/5 pt-6 text-sm text-zinc-500">
-                        Y mientras tanto, la competencia ya le mando opciones...
+                        Y mientras tanto, otro agente ya le mando una propuesta profesional.
                     </p>
                 </div>
 
@@ -244,8 +249,26 @@
         </div>
     </section>
 
-    {{-- Features Section --}}
+    {{-- Market Context Section --}}
     <section class="relative border-t border-white/5 bg-zinc-950 py-24 lg:py-32">
+        <div class="mx-auto max-w-3xl px-6 text-center">
+            <h2 class="text-balance text-3xl font-semibold tracking-tight text-white sm:text-4xl">
+                El mercado no necesita otro portal
+            </h2>
+            <p class="mt-8 text-lg text-zinc-400">
+                Mexico tiene mas de 100 plataformas inmobiliarias. Todas estan hechas para publicar.
+            </p>
+            <p class="mt-4 text-lg text-zinc-400">
+                Ninguna esta diseñada para como trabajas tu.
+            </p>
+            <p class="mt-8 text-xl font-medium text-white">
+                PropertyManager no es un portal. Es tu herramienta de trabajo.
+            </p>
+        </div>
+    </section>
+
+    {{-- Features Section --}}
+    <section class="relative border-t border-white/5 bg-[#08090a] py-24 lg:py-32">
         <div class="mx-auto max-w-5xl px-6">
             <div class="mx-auto max-w-2xl text-center">
                 <h2 class="text-balance text-3xl font-semibold tracking-tight text-white sm:text-4xl">
@@ -266,7 +289,7 @@
                     </div>
                     <h3 class="text-lg font-medium text-white">Una sola busqueda</h3>
                     <p class="mt-2 text-zinc-400">
-                        Filtra por zona, precio, recamaras. Resultados de multiples portales en segundos.
+                        Resultados de Inmuebles24, Vivanuncios y mas — en una sola busqueda. Filtra por zona, precio, recamaras.
                     </p>
                 </div>
 
@@ -277,9 +300,9 @@
                             <flux:icon.folder-plus class="size-5 text-violet-400" />
                         </div>
                     </div>
-                    <h3 class="text-lg font-medium text-white">Colecciones en un tap</h3>
+                    <h3 class="text-lg font-medium text-white">Colecciones para cada cliente</h3>
                     <p class="mt-2 text-zinc-400">
-                        Arma propuestas personalizadas para cada cliente en segundos.
+                        Cada cliente busca algo diferente. Crea una coleccion, agrega propiedades con un tap, comparte con un link. Sin screenshots. Sin mensajes perdidos.
                     </p>
                 </div>
 
@@ -292,7 +315,7 @@
                     </div>
                     <h3 class="text-lg font-medium text-white">Comparte como profesional</h3>
                     <p class="mt-2 text-zinc-400">
-                        Links elegantes y PDFs que impresionan. Nada de screenshots.
+                        Links elegantes para WhatsApp. PDFs con tu marca para imprimir o enviar por correo. Tus clientes reciben una presentacion profesional.
                     </p>
                 </div>
 
@@ -387,6 +410,9 @@
                     <p class="mt-4 text-lg text-zinc-400">
                         Mientras otros siguen tomando screenshots, tu ya cerraste la venta.
                     </p>
+                    <p class="mt-2 text-sm text-zinc-500">
+                        Construido con feedback de agentes reales en Guadalajara.
+                    </p>
                     <ul class="mt-8 space-y-4">
                         <li class="flex items-center gap-3 text-zinc-300">
                             <flux:icon.check class="size-5 text-emerald-400" />
@@ -442,7 +468,7 @@
                 Listo para responder mas rapido?
             </h2>
             <p class="mt-4 text-lg text-zinc-400">
-                Unete a la lista y se de los primeros en probarlo.
+                Unete a los primeros agentes en Guadalajara que estan cambiando como trabajan.
             </p>
 
             <div class="mx-auto mt-10 max-w-md">
