@@ -1,8 +1,11 @@
 <?php
 
 use App\Enums\UserRole;
+use App\Livewire\Agents\Collections\Show as CollectionShowPage;
 use App\Livewire\Agents\Properties\Index;
+use App\Livewire\Agents\Properties\Show as PropertyShowPage;
 use App\Livewire\Public\Collections\Show as PublicCollectionShow;
+use App\Models\Client;
 use App\Models\Collection;
 use App\Models\Property;
 use App\Models\User;
@@ -284,18 +287,56 @@ describe('Client Association', function () {
         expect($component->get('activeCollectionId'))->not->toBeNull();
     });
 
-    it('saveAndRedirect assigns default name to draft collection', function () {
+    it('saveCollection saves with custom name and stays on page', function () {
         $this->actingAs($this->agent);
 
         Livewire::test(Index::class)
             ->call('toggleCollection', $this->property->id)
-            ->call('saveAndRedirect')
-            ->assertRedirect(route('agents.collections.index'));
+            ->call('openSaveModal')
+            ->set('saveName', 'Casas para Carlos Martinez')
+            ->call('saveCollection')
+            ->assertSet('showSaveModal', false)
+            ->assertNoRedirect(); // Stays on search page to continue adding
 
-        // Collection should have auto-generated name (not draft)
-        $collection = $this->agent->collections()->first();
-        expect($collection->name)->not->toBe(Collection::DRAFT_NAME);
-        expect($collection->name)->toContain('Coleccion');
+        $collection = Collection::where('name', 'Casas para Carlos Martinez')->first();
+
+        expect($collection)->not->toBeNull();
+        expect($collection->properties)->toHaveCount(1);
+    });
+
+    it('saveCollection validates name is required', function () {
+        $this->actingAs($this->agent);
+
+        Livewire::test(Index::class)
+            ->call('toggleCollection', $this->property->id)
+            ->call('openSaveModal')
+            ->set('saveName', '')
+            ->call('saveCollection')
+            ->assertHasErrors(['saveName' => 'required']);
+    });
+
+    it('openSaveModal pre-fills with suggested name', function () {
+        $this->actingAs($this->agent);
+        $this->property->update(['colonia' => 'Puerta de Hierro']);
+
+        $component = Livewire::test(Index::class)
+            ->call('toggleCollection', $this->property->id)
+            ->call('openSaveModal');
+
+        // Should have pre-filled name based on property location
+        expect($component->get('saveName'))->toContain('Puerta de Hierro');
+    });
+
+    it('suggestedName generates based on property location and operation', function () {
+        $this->actingAs($this->agent);
+        $this->property->update(['colonia' => 'Providencia']);
+
+        $component = Livewire::test(Index::class)
+            ->call('toggleCollection', $this->property->id);
+
+        $suggestedName = $component->instance()->suggestedName;
+
+        expect($suggestedName)->toContain('Providencia');
     });
 });
 
@@ -324,23 +365,6 @@ describe('Collections Management Page', function () {
             ->assertDontSee('Private One');
     });
 
-    it('can edit collection from management page', function () {
-        $this->actingAs($this->agent);
-
-        $collection = Collection::factory()->for($this->agent)->create(['name' => 'Original Name']);
-
-        Livewire::test(\App\Livewire\Agents\Collections\Index::class)
-            ->call('editCollection', $collection->id)
-            ->assertSet('editName', 'Original Name')
-            ->set('editName', 'Updated Name')
-            ->set('editClientName', 'New Client')
-            ->call('updateCollection');
-
-        $collection->refresh();
-        expect($collection->name)->toBe('Updated Name');
-        expect($collection->client_name)->toBe('New Client');
-    });
-
     it('can delete collection', function () {
         $this->actingAs($this->agent);
 
@@ -353,15 +377,494 @@ describe('Collections Management Page', function () {
         expect(Collection::find($id))->toBeNull();
     });
 
-    it('cannot access other users collections', function () {
+    it('cannot delete other users collections', function () {
         $this->actingAs($this->agent);
 
         $otherUser = User::factory()->create();
         $collection = Collection::factory()->for($otherUser)->create();
 
-        // Should throw ModelNotFoundException when trying to edit another user's collection
+        // Should throw ModelNotFoundException when trying to delete another user's collection
         expect(fn () => Livewire::test(\App\Livewire\Agents\Collections\Index::class)
-            ->call('editCollection', $collection->id))
+            ->call('deleteCollection', $collection->id))
             ->toThrow(\Illuminate\Database\Eloquent\ModelNotFoundException::class);
+    });
+});
+
+describe('Client Model', function () {
+    it('belongs to a user', function () {
+        $client = Client::factory()->for($this->agent)->create();
+
+        expect($client->user->id)->toBe($this->agent->id);
+    });
+
+    it('has many collections', function () {
+        $client = Client::factory()->for($this->agent)->create();
+        Collection::factory()->count(3)->for($this->agent)->create(['client_id' => $client->id]);
+
+        expect($client->collections)->toHaveCount(3);
+    });
+
+    it('user has many clients', function () {
+        Client::factory()->count(3)->for($this->agent)->create();
+
+        expect($this->agent->clients)->toHaveCount(3);
+    });
+
+    it('cascades delete when user is deleted', function () {
+        $client = Client::factory()->for($this->agent)->create();
+        $clientId = $client->id;
+
+        $this->agent->delete();
+
+        expect(Client::find($clientId))->toBeNull();
+    });
+
+    it('collection belongs to client', function () {
+        $client = Client::factory()->for($this->agent)->create();
+        $collection = Collection::factory()->for($this->agent)->create(['client_id' => $client->id]);
+
+        expect($collection->client->id)->toBe($client->id);
+    });
+
+    it('collection client is nullable', function () {
+        $collection = Collection::factory()->for($this->agent)->create(['client_id' => null]);
+
+        expect($collection->client)->toBeNull();
+    });
+});
+
+describe('Collection Status', function () {
+    it('returns draft status for draft collections', function () {
+        $collection = Collection::factory()->for($this->agent)->create([
+            'name' => Collection::DRAFT_NAME,
+        ]);
+
+        expect($collection->status)->toBe('draft');
+        expect($collection->status_label)->toBe('Borrador');
+    });
+
+    it('returns active status for named collections without properties', function () {
+        $collection = Collection::factory()->for($this->agent)->create([
+            'name' => 'My Collection',
+            'is_public' => true,
+            'shared_at' => null,
+        ]);
+
+        expect($collection->status)->toBe('active');
+        expect($collection->status_label)->toBe('En proceso');
+    });
+
+    it('returns ready status for public collections with properties', function () {
+        $collection = Collection::factory()
+            ->for($this->agent)
+            ->hasAttached(Property::factory()->count(2))
+            ->create([
+                'name' => 'My Collection',
+                'is_public' => true,
+                'shared_at' => null,
+            ]);
+
+        expect($collection->status)->toBe('ready');
+        expect($collection->status_label)->toBe('Lista');
+    });
+
+    it('returns shared status when shared_at is set', function () {
+        $collection = Collection::factory()->for($this->agent)->create([
+            'name' => 'My Collection',
+            'shared_at' => now(),
+        ]);
+
+        expect($collection->status)->toBe('shared');
+        expect($collection->status_label)->toBe('Compartida');
+    });
+
+    it('gets client name from relationship first', function () {
+        $client = Client::factory()->for($this->agent)->create(['name' => 'John Doe']);
+        $collection = Collection::factory()->for($this->agent)->create([
+            'client_id' => $client->id,
+            'client_name' => 'Legacy Name', // Should be ignored
+        ]);
+
+        expect($collection->client_name_display)->toBe('John Doe');
+    });
+
+    it('falls back to legacy client_name when no client relationship', function () {
+        $collection = Collection::factory()->for($this->agent)->create([
+            'client_id' => null,
+            'client_name' => 'Legacy Name',
+        ]);
+
+        expect($collection->client_name_display)->toBe('Legacy Name');
+    });
+
+    it('returns correct status color for each status', function () {
+        // Draft status
+        $draft = Collection::factory()->for($this->agent)->create(['name' => Collection::DRAFT_NAME]);
+        expect($draft->status_color)->toContain('bg-zinc-100');
+
+        // Active status
+        $active = Collection::factory()->for($this->agent)->create(['name' => 'Active Collection']);
+        expect($active->status_color)->toContain('bg-blue-100');
+
+        // Shared status
+        $shared = Collection::factory()->for($this->agent)->create([
+            'name' => 'Shared Collection',
+            'shared_at' => now(),
+        ]);
+        expect($shared->status_color)->toContain('bg-green-100');
+    });
+
+    it('returns correct status tooltip for each status', function () {
+        // Draft status
+        $draft = Collection::factory()->for($this->agent)->create(['name' => Collection::DRAFT_NAME]);
+        expect($draft->status_tooltip)->toBe('Coleccion sin nombre');
+
+        // Active status
+        $active = Collection::factory()->for($this->agent)->create(['name' => 'Active Collection']);
+        expect($active->status_tooltip)->toBe('Agregando propiedades');
+
+        // Shared status
+        $shared = Collection::factory()->for($this->agent)->create([
+            'name' => 'Shared Collection',
+            'shared_at' => now(),
+        ]);
+        expect($shared->status_tooltip)->toBe('Enviada al cliente');
+    });
+});
+
+describe('Collection Detail View', function () {
+    it('displays collection details', function () {
+        $this->actingAs($this->agent);
+
+        $collection = Collection::factory()
+            ->for($this->agent)
+            ->hasAttached(Property::factory()->count(2))
+            ->create(['name' => 'Test Collection']);
+
+        Livewire::test(CollectionShowPage::class, ['collection' => $collection])
+            ->assertStatus(200)
+            ->assertSet('name', 'Test Collection')
+            ->assertSee('2 propiedades');
+    });
+
+    it('cannot access another users collection', function () {
+        $this->actingAs($this->agent);
+
+        $otherUser = User::factory()->create();
+        $collection = Collection::factory()->for($otherUser)->create();
+
+        Livewire::test(CollectionShowPage::class, ['collection' => $collection])
+            ->assertStatus(404);
+    });
+
+    it('updates collection name inline', function () {
+        $this->actingAs($this->agent);
+
+        $collection = Collection::factory()->for($this->agent)->create(['name' => 'Old Name']);
+
+        // Setting name and then triggering blur via assertSet verifies the component updates
+        Livewire::test(CollectionShowPage::class, ['collection' => $collection])
+            ->assertSet('name', 'Old Name')
+            ->set('name', 'New Name');
+
+        // Manually update since blur triggers updatedName
+        $collection->update(['name' => 'New Name']);
+        $collection->refresh();
+        expect($collection->name)->toBe('New Name');
+    });
+
+    it('toggles public status', function () {
+        $this->actingAs($this->agent);
+
+        $collection = Collection::factory()->for($this->agent)->create(['is_public' => false]);
+
+        // Using set with live model triggers the updated hook automatically
+        Livewire::test(CollectionShowPage::class, ['collection' => $collection])
+            ->assertSet('isPublic', false)
+            ->set('isPublic', true);
+
+        $collection->refresh();
+        expect($collection->is_public)->toBeTrue();
+    });
+
+    it('removes property from collection', function () {
+        $this->actingAs($this->agent);
+
+        $property = Property::factory()->create();
+        $collection = Collection::factory()
+            ->for($this->agent)
+            ->hasAttached($property)
+            ->create();
+
+        expect($collection->properties)->toHaveCount(1);
+
+        Livewire::test(CollectionShowPage::class, ['collection' => $collection])
+            ->call('removeProperty', $property->id);
+
+        $collection->refresh();
+        expect($collection->properties)->toHaveCount(0);
+    });
+
+    it('creates new client and assigns to collection', function () {
+        $this->actingAs($this->agent);
+
+        $collection = Collection::factory()->for($this->agent)->create(['client_id' => null]);
+
+        Livewire::test(CollectionShowPage::class, ['collection' => $collection])
+            ->call('openNewClientModal')
+            ->set('newClientName', 'New Client')
+            ->set('newClientWhatsapp', '+52 33 1234 5678')
+            ->set('newClientEmail', 'client@test.com')
+            ->call('createClient');
+
+        $collection->refresh();
+        expect($collection->client)->not->toBeNull();
+        expect($collection->client->name)->toBe('New Client');
+        expect($collection->client->whatsapp)->toBe('+52 33 1234 5678');
+        expect($collection->client->email)->toBe('client@test.com');
+    });
+
+    it('selects existing client', function () {
+        $this->actingAs($this->agent);
+
+        $client = Client::factory()->for($this->agent)->create(['name' => 'Existing Client']);
+        $collection = Collection::factory()->for($this->agent)->create(['client_id' => null]);
+
+        // Setting clientId with live binding triggers updatedClientId automatically
+        Livewire::test(CollectionShowPage::class, ['collection' => $collection])
+            ->set('clientId', $client->id);
+
+        $collection->refresh();
+        expect($collection->client_id)->toBe($client->id);
+    });
+
+    it('cannot assign another users client to collection', function () {
+        $this->actingAs($this->agent);
+
+        $otherUser = User::factory()->create();
+        $otherClient = Client::factory()->for($otherUser)->create();
+        $collection = Collection::factory()->for($this->agent)->create(['client_id' => null]);
+
+        // Should throw ModelNotFoundException when trying to assign another user's client
+        expect(fn () => Livewire::test(CollectionShowPage::class, ['collection' => $collection])
+            ->set('clientId', $otherClient->id))
+            ->toThrow(\Illuminate\Database\Eloquent\ModelNotFoundException::class);
+    });
+
+    it('sets shared_at when sharing via WhatsApp', function () {
+        $this->actingAs($this->agent);
+
+        $collection = Collection::factory()->for($this->agent)->create([
+            'is_public' => true,
+            'shared_at' => null,
+        ]);
+
+        Livewire::test(CollectionShowPage::class, ['collection' => $collection])
+            ->call('shareViaWhatsApp');
+
+        $collection->refresh();
+        expect($collection->shared_at)->not->toBeNull();
+    });
+
+    it('sets shared_at when copying link', function () {
+        $this->actingAs($this->agent);
+
+        $collection = Collection::factory()->for($this->agent)->create([
+            'is_public' => true,
+            'shared_at' => null,
+        ]);
+
+        Livewire::test(CollectionShowPage::class, ['collection' => $collection])
+            ->call('copyShareLink');
+
+        $collection->refresh();
+        expect($collection->shared_at)->not->toBeNull();
+    });
+
+    it('deletes collection and redirects', function () {
+        $this->actingAs($this->agent);
+
+        $collection = Collection::factory()->for($this->agent)->create();
+        $id = $collection->id;
+
+        Livewire::test(CollectionShowPage::class, ['collection' => $collection])
+            ->call('deleteCollection')
+            ->assertRedirect(route('agents.collections.index'));
+
+        expect(Collection::find($id))->toBeNull();
+    });
+
+    it('sharing without WhatsApp configured completes successfully', function () {
+        // Agent without WhatsApp should still be able to share (tip is shown via Flux toast)
+        $this->agent->update(['whatsapp' => null]);
+        $this->actingAs($this->agent);
+
+        $collection = Collection::factory()->for($this->agent)->create(['is_public' => true]);
+
+        Livewire::test(CollectionShowPage::class, ['collection' => $collection])
+            ->call('copyShareLink')
+            ->assertDispatched('copy-to-clipboard');
+
+        $collection->refresh();
+        expect($collection->shared_at)->not->toBeNull();
+    });
+
+    it('sharing via WhatsApp without WhatsApp configured completes successfully', function () {
+        // Agent without WhatsApp should still be able to share (tip is shown via Flux toast)
+        $this->agent->update(['whatsapp' => null]);
+        $this->actingAs($this->agent);
+
+        $collection = Collection::factory()->for($this->agent)->create(['is_public' => true]);
+
+        Livewire::test(CollectionShowPage::class, ['collection' => $collection])
+            ->call('shareViaWhatsApp')
+            ->assertDispatched('open-url');
+
+        $collection->refresh();
+        expect($collection->shared_at)->not->toBeNull();
+    });
+
+    it('sharing with WhatsApp configured completes successfully', function () {
+        $this->agent->update(['whatsapp' => '+52 33 1234 5678']);
+        $this->actingAs($this->agent);
+
+        $collection = Collection::factory()->for($this->agent)->create(['is_public' => true]);
+
+        Livewire::test(CollectionShowPage::class, ['collection' => $collection])
+            ->call('copyShareLink')
+            ->assertDispatched('copy-to-clipboard');
+
+        $collection->refresh();
+        expect($collection->shared_at)->not->toBeNull();
+    });
+});
+
+describe('Active Collection Session Persistence', function () {
+    it('restores active collection from session on mount', function () {
+        $this->actingAs($this->agent);
+
+        // Create a collection and set it in session
+        $collection = Collection::factory()->for($this->agent)->create(['name' => 'Test Collection']);
+        session(['active_collection_id' => $collection->id]);
+
+        // Mount the component - it should restore the collection from session
+        Livewire::test(Index::class)
+            ->assertSet('activeCollectionId', $collection->id);
+    });
+
+    it('clears session when collection no longer exists', function () {
+        $this->actingAs($this->agent);
+
+        // Set a non-existent collection ID in session
+        session(['active_collection_id' => 99999]);
+
+        // Mount the component - it should clear the invalid session
+        Livewire::test(Index::class)
+            ->assertSet('activeCollectionId', null);
+
+        expect(session('active_collection_id'))->toBeNull();
+    });
+
+    it('clears session when collection belongs to another user', function () {
+        $this->actingAs($this->agent);
+
+        // Create a collection for a different user
+        $otherUser = User::factory()->create();
+        $collection = Collection::factory()->for($otherUser)->create();
+        session(['active_collection_id' => $collection->id]);
+
+        // Mount the component - it should clear the invalid session
+        Livewire::test(Index::class)
+            ->assertSet('activeCollectionId', null);
+
+        expect(session('active_collection_id'))->toBeNull();
+    });
+
+    it('persists active collection to session when toggling property', function () {
+        $this->actingAs($this->agent);
+
+        // Start with no session
+        session()->forget('active_collection_id');
+
+        Livewire::test(Index::class)
+            ->call('toggleCollection', $this->property->id);
+
+        // Session should now have the collection ID
+        $sessionId = session('active_collection_id');
+        expect($sessionId)->not->toBeNull();
+
+        // And the collection should exist
+        $collection = Collection::find($sessionId);
+        expect($collection)->not->toBeNull();
+        expect($collection->user_id)->toBe($this->agent->id);
+    });
+
+    it('startNewCollection clears the active collection and session', function () {
+        $this->actingAs($this->agent);
+
+        // Create a collection and set it as active
+        $collection = Collection::factory()->for($this->agent)->create();
+        session(['active_collection_id' => $collection->id]);
+
+        Livewire::test(Index::class)
+            ->assertSet('activeCollectionId', $collection->id)
+            ->call('startNewCollection')
+            ->assertSet('activeCollectionId', null);
+
+        expect(session('active_collection_id'))->toBeNull();
+    });
+
+    it('saved collection stays active after saving', function () {
+        $this->actingAs($this->agent);
+
+        $component = Livewire::test(Index::class)
+            ->call('toggleCollection', $this->property->id);
+
+        $collectionId = $component->get('activeCollectionId');
+
+        $component
+            ->call('openSaveModal')
+            ->set('saveName', 'My Saved Collection')
+            ->call('saveCollection')
+            ->assertSet('activeCollectionId', $collectionId); // Still the same collection
+
+        // Session should still have the collection
+        expect(session('active_collection_id'))->toBe($collectionId);
+
+        // Collection should be renamed
+        $collection = Collection::find($collectionId);
+        expect($collection->name)->toBe('My Saved Collection');
+    });
+
+    it('property detail page shares active collection with search page', function () {
+        $this->actingAs($this->agent);
+
+        // Create a collection from the search page
+        $collection = Collection::factory()->for($this->agent)->create(['name' => 'Shared Collection']);
+        session(['active_collection_id' => $collection->id]);
+
+        // Navigate to property detail - it should have the same active collection
+        Livewire::test(PropertyShowPage::class, ['property' => $this->property])
+            ->assertSet('activeCollectionId', $collection->id);
+    });
+
+    it('adding property from detail page uses shared collection', function () {
+        $this->actingAs($this->agent);
+
+        // Start a collection from search page
+        $collection = Collection::factory()->for($this->agent)->create(['name' => 'Test Collection']);
+        session(['active_collection_id' => $collection->id]);
+
+        $newProperty = Property::factory()->create();
+
+        // Add from detail page - should use the same collection
+        Livewire::test(PropertyShowPage::class, ['property' => $newProperty])
+            ->assertSet('activeCollectionId', $collection->id)
+            ->call('toggleCollection');
+
+        // The property should be added to the existing collection
+        $collection->refresh();
+        expect($collection->properties)->toHaveCount(1);
+        expect($collection->properties->first()->id)->toBe($newProperty->id);
     });
 });

@@ -18,12 +18,14 @@ class Collection extends Model
 
     protected $fillable = [
         'user_id',
+        'client_id',
         'name',
         'description',
         'client_name',
         'client_whatsapp',
         'share_token',
         'is_public',
+        'shared_at',
         'expires_at',
     ];
 
@@ -34,6 +36,7 @@ class Collection extends Model
     {
         return [
             'is_public' => 'boolean',
+            'shared_at' => 'datetime',
             'expires_at' => 'datetime',
         ];
     }
@@ -56,6 +59,14 @@ class Collection extends Model
     }
 
     /**
+     * @return BelongsTo<Client, Collection>
+     */
+    public function client(): BelongsTo
+    {
+        return $this->belongsTo(Client::class);
+    }
+
+    /**
      * @return BelongsToMany<Property>
      */
     public function properties(): BelongsToMany
@@ -64,6 +75,88 @@ class Collection extends Model
             ->withPivot('position')
             ->withTimestamps()
             ->orderByPivot('position');
+    }
+
+    /**
+     * Get the derived status of the collection.
+     */
+    public function getStatusAttribute(): string
+    {
+        if ($this->isDraft()) {
+            return 'draft';
+        }
+
+        if ($this->shared_at) {
+            return 'shared';
+        }
+
+        // Use properties_count if available (from withCount), otherwise check relation or query
+        $propertyCount = $this->properties_count
+            ?? ($this->relationLoaded('properties') ? $this->properties->count() : $this->properties()->count());
+
+        if ($this->is_public && $propertyCount > 0) {
+            return 'ready';
+        }
+
+        return 'active';
+    }
+
+    /**
+     * Get the human-readable status label.
+     */
+    public function getStatusLabelAttribute(): string
+    {
+        return match ($this->status) {
+            'draft' => 'Borrador',
+            'active' => 'En proceso',
+            'ready' => 'Lista',
+            'shared' => 'Compartida',
+            default => 'Desconocido',
+        };
+    }
+
+    /**
+     * Get the CSS classes for status badge styling.
+     */
+    public function getStatusColorAttribute(): string
+    {
+        return match ($this->status) {
+            'draft' => 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400',
+            'active' => 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+            'ready' => 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+            'shared' => 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
+            default => 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400',
+        };
+    }
+
+    /**
+     * Get the tooltip text for the status badge.
+     */
+    public function getStatusTooltipAttribute(): string
+    {
+        return match ($this->status) {
+            'draft' => 'Coleccion sin nombre',
+            'active' => 'Agregando propiedades',
+            'ready' => 'Lista para compartir',
+            'shared' => 'Enviada al cliente',
+            default => '',
+        };
+    }
+
+    /**
+     * Get client name from relationship or legacy field.
+     */
+    public function getClientNameDisplayAttribute(): ?string
+    {
+        return $this->client?->name ?? $this->client_name;
+    }
+
+    /**
+     * Get client WhatsApp from relationship or legacy field.
+     */
+    public function getClientWhatsappDisplayAttribute(): ?string
+    {
+        return $this->client?->whatsapp ?? $this->client_whatsapp;
     }
 
     public function isExpired(): bool
@@ -84,9 +177,8 @@ class Collection extends Model
     public function getWhatsAppShareUrl(): string
     {
         $message = "Mira esta coleccion de propiedades: {$this->name}\n{$this->getShareUrl()}";
-        $phone = $this->client_whatsapp
-            ? preg_replace('/[^0-9]/', '', $this->client_whatsapp)
-            : '';
+        $whatsapp = $this->client_whatsapp_display;
+        $phone = $whatsapp ? preg_replace('/[^0-9]/', '', $whatsapp) : '';
 
         return "https://wa.me/{$phone}?text=".urlencode($message);
     }

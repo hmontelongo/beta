@@ -21,19 +21,6 @@ class Index extends Component
 
     public string $filter = 'all'; // all, public, private
 
-    // Edit modal state
-    public bool $showEditModal = false;
-
-    public ?int $editingCollectionId = null;
-
-    public string $editName = '';
-
-    public string $editClientName = '';
-
-    public string $editClientWhatsapp = '';
-
-    public bool $editIsPublic = true;
-
     public function updatedSearch(): void
     {
         $this->resetPage();
@@ -53,52 +40,18 @@ class Index extends Component
     {
         return auth()->user()
             ->collections()
+            ->with(['client', 'properties.listings'])
             ->where('name', '!=', Collection::DRAFT_NAME)
             ->withCount('properties')
-            ->when($this->search, fn ($q) => $q->where('name', 'like', "%{$this->search}%")
-                ->orWhere('client_name', 'like', "%{$this->search}%"))
+            ->when($this->search, fn ($q) => $q->where(function ($query) {
+                $query->where('name', 'like', "%{$this->search}%")
+                    ->orWhere('client_name', 'like', "%{$this->search}%")
+                    ->orWhereHas('client', fn ($q) => $q->where('name', 'like', "%{$this->search}%"));
+            }))
             ->when($this->filter === 'public', fn ($q) => $q->where('is_public', true))
             ->when($this->filter === 'private', fn ($q) => $q->where('is_public', false))
             ->orderByDesc('updated_at')
             ->paginate(12);
-    }
-
-    public function editCollection(int $id): void
-    {
-        $collection = auth()->user()->collections()->findOrFail($id);
-
-        $this->editingCollectionId = $id;
-        $this->editName = $collection->name;
-        $this->editClientName = $collection->client_name ?? '';
-        $this->editClientWhatsapp = $collection->client_whatsapp ?? '';
-        $this->editIsPublic = $collection->is_public;
-        $this->showEditModal = true;
-    }
-
-    public function updateCollection(): void
-    {
-        $this->validate([
-            'editName' => 'required|string|max:255',
-            'editClientName' => 'nullable|string|max:255',
-            'editClientWhatsapp' => 'nullable|string|max:20',
-        ]);
-
-        $collection = auth()->user()->collections()->findOrFail($this->editingCollectionId);
-        $collection->update([
-            'name' => $this->editName,
-            'client_name' => $this->editClientName ?: null,
-            'client_whatsapp' => $this->editClientWhatsapp ?: null,
-            'is_public' => $this->editIsPublic,
-        ]);
-
-        $this->showEditModal = false;
-        $this->reset(['editingCollectionId', 'editName', 'editClientName', 'editClientWhatsapp', 'editIsPublic']);
-
-        Flux::toast(
-            heading: 'Coleccion actualizada',
-            text: $collection->name,
-            variant: 'success',
-        );
     }
 
     public function deleteCollection(int $id): void
@@ -118,9 +71,10 @@ class Index extends Component
     {
         $collection = auth()->user()->collections()->findOrFail($id);
 
-        if (! $collection->is_public) {
-            $collection->update(['is_public' => true]);
-        }
+        $collection->update([
+            'is_public' => true,
+            'shared_at' => now(),
+        ]);
 
         $this->dispatch('open-url', url: $collection->getWhatsAppShareUrl());
     }
@@ -129,9 +83,10 @@ class Index extends Component
     {
         $collection = auth()->user()->collections()->findOrFail($id);
 
-        if (! $collection->is_public) {
-            $collection->update(['is_public' => true]);
-        }
+        $collection->update([
+            'is_public' => true,
+            'shared_at' => now(),
+        ]);
 
         $this->dispatch('copy-to-clipboard', text: $collection->getShareUrl());
 

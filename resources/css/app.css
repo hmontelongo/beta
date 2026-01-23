@@ -130,3 +130,8 @@ select:focus[data-flux-control] {
 .animate-fade-in-up {
     animation: fade-in-up 600ms ease-out both;
 }
+
+/* Disable View Transition animations for wire:sort items */
+[wire\:sort\:item] {
+    view-transition-name: none;
+}

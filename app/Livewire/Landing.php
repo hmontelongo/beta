@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use Flux\Flux;
+use Illuminate\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
@@ -31,7 +32,7 @@ class Landing extends Component
         );
     }
 
-    public function render()
+    public function render(): View
     {
         return view('livewire.landing');
     }

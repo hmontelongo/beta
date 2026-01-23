@@ -12,6 +12,7 @@ use App\Livewire\Admin\Publishers\Index as PublishersIndex;
 use App\Livewire\Admin\Publishers\Show as PublishersShow;
 use App\Livewire\Admin\ScrapeRuns\Show as ScrapeRunsShow;
 use App\Livewire\Agents\Collections\Index as AgentCollectionsIndex;
+use App\Livewire\Agents\Collections\Show as AgentCollectionsShow;
 use App\Livewire\Agents\Properties\Index as AgentPropertiesIndex;
 use App\Livewire\Agents\Properties\Show as AgentPropertiesShow;
 use App\Livewire\Landing;
@@ -92,6 +93,7 @@ Route::domain(config('domains.agents'))->group(function () {
         Route::livewire('properties', AgentPropertiesIndex::class)->name('agents.properties.index');
         Route::livewire('properties/{property}', AgentPropertiesShow::class)->name('agents.properties.show');
         Route::livewire('collections', AgentCollectionsIndex::class)->name('agents.collections.index');
+        Route::livewire('collections/{collection}', AgentCollectionsShow::class)->name('agents.collections.show');
     });
 
     // Settings routes on agents subdomain

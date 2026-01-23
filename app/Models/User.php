@@ -26,6 +26,8 @@ class User extends Authenticatable
         'email',
         'password',
         'role',
+        'phone',
+        'whatsapp',
     ];
 
     /**
@@ -82,6 +84,14 @@ class User extends Authenticatable
     public function collections(): HasMany
     {
         return $this->hasMany(Collection::class);
+    }
+
+    /**
+     * @return HasMany<Client>
+     */
+    public function clients(): HasMany
+    {
+        return $this->hasMany(Client::class);
     }
 
     /**

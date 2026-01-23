@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Agents\Properties;
 
+use App\Livewire\Concerns\HasActiveCollection;
 use App\Models\Collection as CollectionModel;
 use App\Models\Listing;
 use App\Models\Property;
@@ -14,10 +15,9 @@ use Livewire\Component;
 #[Layout('components.layouts.agent')]
 class Show extends Component
 {
-    public Property $property;
+    use HasActiveCollection;
 
-    /** Active collection ID (persisted in database) */
-    public ?int $activeCollectionId = null;
+    public Property $property;
 
     public function mount(Property $property): void
     {
@@ -27,15 +27,8 @@ class Show extends Component
             'publishers',
         ]);
 
-        // Load existing active collection if user has one with this property
-        $existingCollection = auth()->user()
-            ?->collections()
-            ->whereHas('properties', fn ($q) => $q->where('property_id', $property->id))
-            ->first();
-
-        if ($existingCollection) {
-            $this->activeCollectionId = $existingCollection->id;
-        }
+        // Restore active collection from session (shared with search page)
+        $this->initializeActiveCollection();
     }
 
     /**
@@ -44,32 +37,15 @@ class Show extends Component
     #[Computed]
     public function activeCollection(): ?CollectionModel
     {
-        if (! $this->activeCollectionId) {
-            return null;
-        }
-
-        return CollectionModel::find($this->activeCollectionId);
+        return $this->getActiveCollectionModel();
     }
 
     /**
-     * Ensure an active collection exists, creating one if needed.
+     * Clear collection-related computed property caches.
      */
-    protected function ensureActiveCollection(): CollectionModel
+    protected function clearCollectionCaches(): void
     {
-        if ($this->activeCollectionId) {
-            $collection = CollectionModel::find($this->activeCollectionId);
-            if ($collection) {
-                return $collection;
-            }
-        }
-
-        $collection = auth()->user()->collections()->create([
-            'name' => CollectionModel::DRAFT_NAME,
-        ]);
-
-        $this->activeCollectionId = $collection->id;
-
-        return $collection;
+        unset($this->activeCollection);
     }
 
     /**

@@ -3,6 +3,8 @@
 namespace App\Livewire\Agents\Properties;
 
 use App\Enums\PropertyType;
+use App\Livewire\Concerns\HasActiveCollection;
+use App\Livewire\Concerns\ShowsWhatsAppTip;
 use App\Models\Collection;
 use App\Models\Property;
 use Flux\Flux;
@@ -13,6 +15,7 @@ use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
+use Livewire\Attributes\Validate;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -20,6 +23,8 @@ use Livewire\WithPagination;
 #[Title('Propiedades')]
 class Index extends Component
 {
+    use HasActiveCollection;
+    use ShowsWhatsAppTip;
     use WithPagination;
 
     #[Url]
@@ -68,23 +73,28 @@ class Index extends Component
 
     public bool $showFiltersModal = false;
 
-    /** Active collection ID (persisted in database) */
-    public ?int $activeCollectionId = null;
-
     public bool $showCollectionPanel = false;
 
     /** Show quick share modal */
     public bool $showShareModal = false;
 
     /** Collection name for quick share */
+    #[Validate('required|string|max:255')]
     public string $shareName = '';
+
+    /** Show save modal */
+    public bool $showSaveModal = false;
+
+    /** Collection name for save */
+    #[Validate('required|string|max:255')]
+    public string $saveName = '';
 
     /**
      * Price presets for sale operations (MXN).
      *
      * @var array<string, array{min: int|null, max: int|null, label: string}>
      */
-    public array $salePricePresets = [
+    protected const SALE_PRICE_PRESETS = [
         '2m' => ['min' => null, 'max' => 2000000, 'label' => '< $2M'],
         '2m-4m' => ['min' => 2000000, 'max' => 4000000, 'label' => '$2M - $4M'],
         '4m-8m' => ['min' => 4000000, 'max' => 8000000, 'label' => '$4M - $8M'],
@@ -97,7 +107,7 @@ class Index extends Component
      *
      * @var array<string, array{min: int|null, max: int|null, label: string}>
      */
-    public array $rentPricePresets = [
+    protected const RENT_PRICE_PRESETS = [
         '15k' => ['min' => null, 'max' => 15000, 'label' => '< $15k'],
         '15k-25k' => ['min' => 15000, 'max' => 25000, 'label' => '$15k - $25k'],
         '25k-40k' => ['min' => 25000, 'max' => 40000, 'label' => '$25k - $40k'],
@@ -113,7 +123,7 @@ class Index extends Component
     #[Computed]
     public function pricePresets(): array
     {
-        return $this->operationType === 'rent' ? $this->rentPricePresets : $this->salePricePresets;
+        return $this->operationType === 'rent' ? self::RENT_PRICE_PRESETS : self::SALE_PRICE_PRESETS;
     }
 
     /**
@@ -133,6 +143,11 @@ class Index extends Component
         'gym' => 'Gimnasio',
         'elevator' => 'Elevador',
     ];
+
+    public function mount(): void
+    {
+        $this->initializeActiveCollection();
+    }
 
     public function updatedSearch(): void
     {
@@ -216,32 +231,7 @@ class Index extends Component
     #[Computed]
     public function activeCollection(): ?Collection
     {
-        if (! $this->activeCollectionId) {
-            return null;
-        }
-
-        return Collection::find($this->activeCollectionId);
-    }
-
-    /**
-     * Ensure an active collection exists, creating one if needed.
-     */
-    protected function ensureActiveCollection(): Collection
-    {
-        if ($this->activeCollectionId) {
-            $collection = Collection::find($this->activeCollectionId);
-            if ($collection) {
-                return $collection;
-            }
-        }
-
-        $collection = auth()->user()->collections()->create([
-            'name' => Collection::DRAFT_NAME,
-        ]);
-
-        $this->activeCollectionId = $collection->id;
-
-        return $collection;
+        return $this->getActiveCollectionModel();
     }
 
     /**
@@ -252,6 +242,7 @@ class Index extends Component
         unset($this->collectionPropertyIds);
         unset($this->collectionProperties);
         unset($this->activeCollection);
+        unset($this->suggestedName);
     }
 
     /**
@@ -306,6 +297,60 @@ class Index extends Component
     }
 
     /**
+     * Open the save modal.
+     */
+    public function openSaveModal(): void
+    {
+        $collection = $this->activeCollection;
+
+        if (! $collection || $collection->properties()->count() === 0) {
+            Flux::toast(
+                heading: 'Sin propiedades',
+                text: 'Agrega propiedades a la coleccion primero',
+                variant: 'warning',
+            );
+
+            return;
+        }
+
+        // Pre-fill with existing name or suggested name
+        $this->saveName = $collection->isDraft() ? $this->suggestedName : $collection->name;
+        $this->showSaveModal = true;
+    }
+
+    /**
+     * Save collection with the provided name.
+     * Stays on the search page so agent can continue adding properties.
+     */
+    public function saveCollection(): void
+    {
+        $this->validateOnly('saveName');
+
+        $collection = $this->activeCollection;
+
+        if (! $collection) {
+            return;
+        }
+
+        $collection->update([
+            'name' => $this->saveName,
+        ]);
+
+        $this->showSaveModal = false;
+
+        // Clear caches so UI reflects the new name
+        $this->clearCollectionCaches();
+
+        Flux::toast(
+            heading: 'Coleccion guardada',
+            text: $this->saveName,
+            variant: 'success',
+        );
+
+        // Stay on page - agent can continue adding properties
+    }
+
+    /**
      * Open the quick share modal.
      */
     public function openShareModal(): void
@@ -322,8 +367,8 @@ class Index extends Component
             return;
         }
 
-        // Pre-fill name if collection already has one
-        $this->shareName = $collection->isDraft() ? '' : $collection->name;
+        // Pre-fill name if collection already has one, or use suggested
+        $this->shareName = $collection->isDraft() ? $this->suggestedName : $collection->name;
         $this->showShareModal = true;
     }
 
@@ -332,9 +377,7 @@ class Index extends Component
      */
     public function quickShareWhatsApp(): void
     {
-        $this->validate([
-            'shareName' => 'required|string|max:255',
-        ]);
+        $this->validateOnly('shareName');
 
         $collection = $this->activeCollection;
 
@@ -350,6 +393,8 @@ class Index extends Component
 
         $this->showShareModal = false;
         $this->dispatch('open-url', url: $collection->getWhatsAppShareUrl());
+
+        $this->showWhatsAppTipIfNeeded();
     }
 
     /**
@@ -357,9 +402,7 @@ class Index extends Component
      */
     public function quickShareCopyLink(): void
     {
-        $this->validate([
-            'shareName' => 'required|string|max:255',
-        ]);
+        $this->validateOnly('shareName');
 
         $collection = $this->activeCollection;
 
@@ -381,36 +424,8 @@ class Index extends Component
             text: 'El link ha sido copiado al portapapeles',
             variant: 'success',
         );
-    }
 
-    /**
-     * Save collection and redirect to Collections page for full management.
-     */
-    public function saveAndRedirect(): void
-    {
-        $collection = $this->activeCollection;
-
-        if (! $collection || $collection->properties()->count() === 0) {
-            Flux::toast(
-                heading: 'Sin propiedades',
-                text: 'Agrega propiedades a la coleccion primero',
-                variant: 'warning',
-            );
-
-            return;
-        }
-
-        // If still draft, give it a default name
-        if ($collection->isDraft()) {
-            $collection->update([
-                'name' => 'Coleccion '.now()->format('d/m H:i'),
-            ]);
-        }
-
-        $this->showCollectionPanel = false;
-
-        // Redirect to collections page
-        $this->redirect(route('agents.collections.index'), navigate: true);
+        $this->showWhatsAppTipIfNeeded();
     }
 
     public function isInCollection(int $propertyId): bool
@@ -505,6 +520,32 @@ class Index extends Component
         }
 
         return $collection->properties()->with(['listings'])->get();
+    }
+
+    /**
+     * Generate a smart suggested name based on collection properties.
+     */
+    #[Computed]
+    public function suggestedName(): string
+    {
+        $properties = $this->collectionProperties;
+
+        if ($properties->isEmpty()) {
+            return 'Mi seleccion';
+        }
+
+        // Get most common location (colonia)
+        $location = $properties->groupBy('colonia')
+            ->sortByDesc(fn ($group) => $group->count())
+            ->keys()
+            ->first();
+
+        // Get operation type from first property's listing
+        $listing = $properties->first()->listings->first();
+        $opType = $listing?->operations[0]['type'] ?? null;
+        $opLabel = $opType === 'rent' ? 'Rentas' : 'Ventas';
+
+        return $location ? "{$opLabel} en {$location}" : 'Mi seleccion';
     }
 
     /**
