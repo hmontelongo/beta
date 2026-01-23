@@ -128,13 +128,14 @@ describe('Agent Collection Management', function () {
         expect($this->agent->collections->first()->properties)->toHaveCount(0);
     });
 
-    it('saves collection with name and makes it public', function () {
+    it('saves collection with name via quick share', function () {
         $this->actingAs($this->agent);
 
         Livewire::test(Index::class)
             ->call('toggleCollection', $this->property->id)
-            ->set('collectionName', 'Mi coleccion de prueba')
-            ->call('saveCollection');
+            ->call('openShareModal')
+            ->set('shareName', 'Mi coleccion de prueba')
+            ->call('quickShareCopyLink');
 
         $collection = Collection::where('name', 'Mi coleccion de prueba')->first();
 
@@ -143,14 +144,15 @@ describe('Agent Collection Management', function () {
         expect($collection->properties)->toHaveCount(1);
     });
 
-    it('validates collection name is required when saving', function () {
+    it('validates collection name is required when sharing', function () {
         $this->actingAs($this->agent);
 
         Livewire::test(Index::class)
             ->call('toggleCollection', $this->property->id)
-            ->set('collectionName', '')
-            ->call('saveCollection')
-            ->assertHasErrors(['collectionName' => 'required']);
+            ->call('openShareModal')
+            ->set('shareName', '')
+            ->call('quickShareCopyLink')
+            ->assertHasErrors(['shareName' => 'required']);
     });
 
     it('isInCollection returns true for added properties', function () {
@@ -231,23 +233,6 @@ describe('User Collection Relationship', function () {
 });
 
 describe('Client Association', function () {
-    it('saves collection with client info', function () {
-        $this->actingAs($this->agent);
-
-        Livewire::test(Index::class)
-            ->call('toggleCollection', $this->property->id)
-            ->set('collectionName', 'Test Collection')
-            ->set('clientName', 'Juan Perez')
-            ->set('clientWhatsapp', '+52 33 1234 5678')
-            ->call('saveCollection');
-
-        $collection = Collection::where('name', 'Test Collection')->first();
-
-        expect($collection)->not->toBeNull();
-        expect($collection->client_name)->toBe('Juan Perez');
-        expect($collection->client_whatsapp)->toBe('+52 33 1234 5678');
-    });
-
     it('generates WhatsApp URL with client phone number', function () {
         $collection = Collection::factory()->create([
             'name' => 'Test',
@@ -272,68 +257,45 @@ describe('Client Association', function () {
         expect($url)->toContain('wa.me/?text=');
     });
 
-    it('can save collection as private', function () {
+    it('quick share makes collection public', function () {
+        $this->actingAs($this->agent);
+
+        $component = Livewire::test(Index::class)
+            ->call('toggleCollection', $this->property->id)
+            ->call('openShareModal')
+            ->set('shareName', 'Shared Collection')
+            ->call('quickShareCopyLink');
+
+        $collection = Collection::where('name', 'Shared Collection')->first();
+
+        expect($collection->is_public)->toBeTrue();
+    });
+
+    it('keeps collection active after sharing', function () {
+        $this->actingAs($this->agent);
+
+        $component = Livewire::test(Index::class)
+            ->call('toggleCollection', $this->property->id)
+            ->call('openShareModal')
+            ->set('shareName', 'Persistent Collection')
+            ->call('quickShareCopyLink');
+
+        // activeCollectionId should NOT be null after sharing
+        expect($component->get('activeCollectionId'))->not->toBeNull();
+    });
+
+    it('saveAndRedirect assigns default name to draft collection', function () {
         $this->actingAs($this->agent);
 
         Livewire::test(Index::class)
             ->call('toggleCollection', $this->property->id)
-            ->set('collectionName', 'Private Collection')
-            ->set('saveAsPublic', false)
-            ->call('saveCollection');
+            ->call('saveAndRedirect')
+            ->assertRedirect(route('agents.collections.index'));
 
-        $collection = Collection::where('name', 'Private Collection')->first();
-
-        expect($collection->is_public)->toBeFalse();
-    });
-
-    it('keeps collection active after saving', function () {
-        $this->actingAs($this->agent);
-
-        $component = Livewire::test(Index::class)
-            ->call('toggleCollection', $this->property->id)
-            ->set('collectionName', 'Persistent Collection')
-            ->call('saveCollection');
-
-        // activeCollectionId should NOT be null after saving
-        expect($component->get('activeCollectionId'))->not->toBeNull();
-        expect($component->get('isEditingCollection'))->toBeTrue();
-    });
-
-    it('can load existing collection', function () {
-        $this->actingAs($this->agent);
-
-        $collection = Collection::factory()
-            ->for($this->agent)
-            ->hasAttached(Property::factory()->count(2))
-            ->create([
-                'name' => 'Existing Collection',
-                'client_name' => 'Maria',
-                'client_whatsapp' => '+52 33 9999 9999',
-            ]);
-
-        $component = Livewire::test(Index::class)
-            ->call('loadCollection', $collection->id);
-
-        expect($component->get('activeCollectionId'))->toBe($collection->id);
-        expect($component->get('collectionName'))->toBe('Existing Collection');
-        expect($component->get('clientName'))->toBe('Maria');
-        expect($component->get('clientWhatsapp'))->toBe('+52 33 9999 9999');
-        expect($component->get('isEditingCollection'))->toBeTrue();
-    });
-
-    it('can start new collection after editing', function () {
-        $this->actingAs($this->agent);
-
-        $collection = Collection::factory()->for($this->agent)->create();
-
-        $component = Livewire::test(Index::class)
-            ->call('loadCollection', $collection->id)
-            ->call('startNewCollection');
-
-        expect($component->get('activeCollectionId'))->toBeNull();
-        expect($component->get('collectionName'))->toBe('');
-        expect($component->get('clientName'))->toBe('');
-        expect($component->get('isEditingCollection'))->toBeFalse();
+        // Collection should have auto-generated name (not draft)
+        $collection = $this->agent->collections()->first();
+        expect($collection->name)->not->toBe(Collection::DRAFT_NAME);
+        expect($collection->name)->toContain('Coleccion');
     });
 });
 

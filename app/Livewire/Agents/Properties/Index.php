@@ -73,23 +73,11 @@ class Index extends Component
 
     public bool $showCollectionPanel = false;
 
-    /** Show only selected properties in the grid */
-    public bool $showSelectedOnly = false;
+    /** Show quick share modal */
+    public bool $showShareModal = false;
 
-    /** Name for the new collection being created */
-    public string $collectionName = '';
-
-    /** Client name for the collection */
-    public string $clientName = '';
-
-    /** Client WhatsApp number for instant sharing */
-    public string $clientWhatsapp = '';
-
-    /** Whether to save collection as public (shareable) */
-    public bool $saveAsPublic = true;
-
-    /** Track if editing an existing saved collection */
-    public bool $isEditingCollection = false;
+    /** Collection name for quick share */
+    public string $shareName = '';
 
     /**
      * Price presets for sale operations (MXN).
@@ -264,8 +252,6 @@ class Index extends Component
         unset($this->collectionPropertyIds);
         unset($this->collectionProperties);
         unset($this->activeCollection);
-        unset($this->userCollections);
-        unset($this->hasMoreCollections);
     }
 
     /**
@@ -317,59 +303,12 @@ class Index extends Component
             $collection->properties()->detach();
             $this->clearCollectionCaches();
         }
-
-        $this->showSelectedOnly = false;
-    }
-
-    public function toggleShowSelectedOnly(): void
-    {
-        $this->showSelectedOnly = ! $this->showSelectedOnly;
-        $this->resetPage();
     }
 
     /**
-     * Save the current collection with a name and optional client info.
+     * Open the quick share modal.
      */
-    public function saveCollection(): void
-    {
-        $collection = $this->activeCollection;
-
-        if (! $collection || $collection->properties()->count() === 0) {
-            return;
-        }
-
-        $this->validate([
-            'collectionName' => 'required|string|max:255',
-            'clientName' => 'nullable|string|max:255',
-            'clientWhatsapp' => 'nullable|string|max:20',
-        ]);
-
-        $collection->update([
-            'name' => $this->collectionName,
-            'is_public' => $this->saveAsPublic,
-            'client_name' => $this->clientName ?: null,
-            'client_whatsapp' => $this->clientWhatsapp ?: null,
-        ]);
-
-        $count = $collection->properties()->count();
-
-        Flux::toast(
-            heading: 'Coleccion guardada',
-            text: "{$this->collectionName} ({$count} propiedades)",
-            variant: 'success',
-        );
-
-        // Mark as editing existing collection (don't reset activeCollectionId)
-        $this->isEditingCollection = true;
-        $this->showCollectionPanel = false;
-
-        $this->clearCollectionCaches();
-    }
-
-    /**
-     * Share collection via WhatsApp.
-     */
-    public function shareViaWhatsApp(): void
+    public function openShareModal(): void
     {
         $collection = $this->activeCollection;
 
@@ -383,93 +322,95 @@ class Index extends Component
             return;
         }
 
-        // Auto-save if not saved yet
-        if ($collection->isDraft()) {
-            if (! $this->collectionName) {
-                Flux::toast(
-                    heading: 'Nombre requerido',
-                    text: 'Ingresa un nombre para la coleccion',
-                    variant: 'warning',
-                );
+        // Pre-fill name if collection already has one
+        $this->shareName = $collection->isDraft() ? '' : $collection->name;
+        $this->showShareModal = true;
+    }
 
-                return;
-            }
-            $this->saveCollection();
-            $collection->refresh();
+    /**
+     * Quick share via WhatsApp from the modal.
+     */
+    public function quickShareWhatsApp(): void
+    {
+        $this->validate([
+            'shareName' => 'required|string|max:255',
+        ]);
+
+        $collection = $this->activeCollection;
+
+        if (! $collection) {
+            return;
         }
 
-        // Ensure collection is public before sharing
-        if (! $collection->is_public) {
-            $collection->update(['is_public' => true]);
-        }
+        // Save the name and make public
+        $collection->update([
+            'name' => $this->shareName,
+            'is_public' => true,
+        ]);
 
+        $this->showShareModal = false;
         $this->dispatch('open-url', url: $collection->getWhatsAppShareUrl());
     }
 
     /**
-     * Load an existing collection for editing.
+     * Quick share by copying link from the modal.
      */
-    public function loadCollection(int $collectionId): void
+    public function quickShareCopyLink(): void
     {
-        $collection = auth()->user()->collections()->findOrFail($collectionId);
+        $this->validate([
+            'shareName' => 'required|string|max:255',
+        ]);
 
-        $this->activeCollectionId = $collection->id;
-        $this->collectionName = $collection->name;
-        $this->clientName = $collection->client_name ?? '';
-        $this->clientWhatsapp = $collection->client_whatsapp ?? '';
-        $this->saveAsPublic = $collection->is_public;
-        $this->isEditingCollection = true;
+        $collection = $this->activeCollection;
 
-        $this->clearCollectionCaches();
+        if (! $collection) {
+            return;
+        }
 
-        Flux::toast("Coleccion '{$collection->name}' cargada");
+        // Save the name and make public
+        $collection->update([
+            'name' => $this->shareName,
+            'is_public' => true,
+        ]);
+
+        $this->showShareModal = false;
+        $this->dispatch('copy-to-clipboard', text: $collection->getShareUrl());
+
+        Flux::toast(
+            heading: 'Link copiado',
+            text: 'El link ha sido copiado al portapapeles',
+            variant: 'success',
+        );
     }
 
     /**
-     * Start a new collection (clear current state).
+     * Save collection and redirect to Collections page for full management.
      */
-    public function startNewCollection(): void
+    public function saveAndRedirect(): void
     {
-        $this->activeCollectionId = null;
-        $this->collectionName = '';
-        $this->clientName = '';
-        $this->clientWhatsapp = '';
-        $this->saveAsPublic = true;
-        $this->isEditingCollection = false;
-        $this->showSelectedOnly = false;
+        $collection = $this->activeCollection;
 
-        $this->clearCollectionCaches();
+        if (! $collection || $collection->properties()->count() === 0) {
+            Flux::toast(
+                heading: 'Sin propiedades',
+                text: 'Agrega propiedades a la coleccion primero',
+                variant: 'warning',
+            );
 
-        Flux::toast('Nueva coleccion iniciada');
-    }
+            return;
+        }
 
-    /**
-     * Get user's saved collections for the selector dropdown.
-     *
-     * @return \Illuminate\Database\Eloquent\Collection<int, Collection>
-     */
-    #[Computed]
-    public function userCollections(): \Illuminate\Database\Eloquent\Collection
-    {
-        return auth()->user()
-            ->collections()
-            ->where('name', '!=', Collection::DRAFT_NAME)
-            ->withCount('properties')
-            ->orderByDesc('updated_at')
-            ->limit(10)
-            ->get();
-    }
+        // If still draft, give it a default name
+        if ($collection->isDraft()) {
+            $collection->update([
+                'name' => 'Coleccion '.now()->format('d/m H:i'),
+            ]);
+        }
 
-    /**
-     * Check if user has more collections than displayed in dropdown.
-     */
-    #[Computed]
-    public function hasMoreCollections(): bool
-    {
-        return auth()->user()
-            ->collections()
-            ->where('name', '!=', Collection::DRAFT_NAME)
-            ->count() > 10;
+        $this->showCollectionPanel = false;
+
+        // Redirect to collections page
+        $this->redirect(route('agents.collections.index'), navigate: true);
     }
 
     public function isInCollection(int $propertyId): bool
@@ -545,7 +486,6 @@ class Index extends Component
             $this->amenities,
             $this->sortBy,
             $this->search,
-            $this->showSelectedOnly,
             $this->activeCollectionId,
         ]));
     }
@@ -572,13 +512,8 @@ class Index extends Component
      */
     protected function buildQuery(): Builder
     {
-        $collectionPropertyIds = $this->collectionPropertyIds;
-
         return Property::query()
             ->with(['listings.platform'])
-            ->when($this->showSelectedOnly && ! empty($collectionPropertyIds), function ($query) use ($collectionPropertyIds) {
-                $query->whereIn('id', $collectionPropertyIds);
-            })
             ->when($this->search, function ($query) {
                 $query->where(function ($q) {
                     $q->where('address', 'like', "%{$this->search}%")

@@ -249,14 +249,10 @@
         {{-- Results Header --}}
         <div class="mb-4 flex items-center justify-between gap-3 sm:mb-6">
             <h2 class="text-base font-semibold text-zinc-900 dark:text-zinc-100 sm:text-lg">
-                <span wire:loading.remove wire:target="operationType,propertyType,zones,pricePreset,bedrooms,bathrooms,sortBy,search,showSelectedOnly">
-                    @if($showSelectedOnly)
-                        {{ count($this->collectionPropertyIds) }} seleccionadas
-                    @else
-                        {{ number_format($properties->total()) }} propiedades
-                    @endif
+                <span wire:loading.remove wire:target="operationType,propertyType,zones,pricePreset,bedrooms,bathrooms,sortBy,search">
+                    {{ number_format($properties->total()) }} propiedades
                 </span>
-                <span wire:loading wire:target="operationType,propertyType,zones,pricePreset,bedrooms,bathrooms,sortBy,search,showSelectedOnly" class="inline-flex items-center gap-2">
+                <span wire:loading wire:target="operationType,propertyType,zones,pricePreset,bedrooms,bathrooms,sortBy,search" class="inline-flex items-center gap-2">
                     <svg class="size-4 animate-spin" fill="none" viewBox="0 0 24 24">
                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
                         <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
@@ -264,33 +260,6 @@
                     Buscando...
                 </span>
             </h2>
-
-            {{-- Show Selected Only Toggle (fixed width container to prevent layout shift) --}}
-            <div class="min-w-[140px] text-right sm:min-w-[180px]">
-                @if(count($this->collectionPropertyIds) > 0)
-                    <button
-                        wire:click="toggleShowSelectedOnly"
-                        class="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all sm:text-sm {{ $showSelectedOnly ? 'bg-blue-100 text-blue-700 ring-1 ring-blue-300 dark:bg-blue-900/30 dark:text-blue-400 dark:ring-blue-700' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700' }}"
-                    >
-                        @if($showSelectedOnly)
-                            <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-                            </svg>
-                            <span>Ver seleccionadas</span>
-                        @else
-                            <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                            </svg>
-                            <span class="hidden sm:inline">Ver</span>
-                            <span class="flex size-5 items-center justify-center rounded-full bg-blue-500 text-[10px] font-bold text-white">
-                                {{ count($this->collectionPropertyIds) }}
-                            </span>
-                            <span class="hidden sm:inline">seleccionadas</span>
-                        @endif
-                    </button>
-                @endif
-            </div>
         </div>
 
         {{-- Property Grid --}}
@@ -624,35 +593,25 @@
         </div>
     </flux:modal>
 
-    {{-- Collection Panel --}}
-    <flux:modal wire:model="showCollectionPanel" position="right" class="w-full max-w-md">
+    {{-- Collection Panel (Simplified) --}}
+    <flux:modal wire:model="showCollectionPanel" position="right" class="w-full max-w-3xl">
         <div class="flex h-full flex-col">
+            {{-- Header --}}
             <div class="-mx-6 -mt-6 mb-4 bg-gradient-to-r from-blue-50 to-indigo-50 pb-4 pt-6 dark:from-blue-900/20 dark:to-indigo-900/20">
-                <div class="flex items-start justify-between pl-6 pr-6">
+                <div class="flex items-center justify-between px-6">
                     <div>
-                        <h3 class="text-lg font-bold text-zinc-900 dark:text-zinc-100">
-                            @if($this->isEditingCollection && $this->activeCollection)
-                                {{ $this->activeCollection->name }}
-                            @else
-                                Nueva coleccion
-                            @endif
-                        </h3>
-                        <p class="text-sm font-medium text-blue-600 dark:text-blue-400">{{ count($this->collectionPropertyIds) }} {{ count($this->collectionPropertyIds) === 1 ? 'propiedad' : 'propiedades' }}</p>
+                        <h3 class="text-lg font-bold text-zinc-900 dark:text-zinc-100">Mi seleccion</h3>
+                        <p class="text-sm font-medium text-blue-600 dark:text-blue-400">
+                            {{ count($this->collectionPropertyIds) }} {{ count($this->collectionPropertyIds) === 1 ? 'propiedad' : 'propiedades' }}
+                        </p>
                     </div>
-                    @if($this->isEditingCollection)
-                        <button
-                            wire:click="startNewCollection"
-                            class="rounded-lg bg-white/80 px-2.5 py-1.5 text-xs font-medium text-blue-600 shadow-sm transition-all hover:bg-white dark:bg-zinc-800 dark:text-blue-400 dark:hover:bg-zinc-700"
-                        >
-                            + Nueva
-                        </button>
-                    @endif
                 </div>
             </div>
 
             @if(count($this->collectionPropertyIds) > 0)
+                {{-- Property Grid (3 columns) --}}
                 <div class="flex-1 overflow-y-auto">
-                    <div class="grid grid-cols-2 gap-2">
+                    <div class="grid grid-cols-3 gap-3">
                         @foreach($this->collectionProperties as $property)
                             @php
                                 $listing = $property->listings->first();
@@ -684,11 +643,18 @@
                                             @endif
                                         </p>
                                         <p class="truncate text-xs text-zinc-500">{{ $property->colonia }}</p>
+                                        @if($property->bedrooms || $property->bathrooms)
+                                            <p class="mt-0.5 text-xs text-zinc-400">
+                                                @if($property->bedrooms){{ $property->bedrooms }}rec @endif
+                                                @if($property->bathrooms){{ $property->bathrooms }}ban @endif
+                                            </p>
+                                        @endif
                                     </div>
                                 </a>
                                 <button
                                     wire:click="removeFromCollection({{ $property->id }})"
-                                    class="absolute right-1 top-1 rounded-full bg-black/50 p-1 text-white opacity-0 transition-all hover:bg-red-500 group-hover:opacity-100"
+                                    class="absolute right-1.5 top-1.5 flex size-6 items-center justify-center rounded-full bg-black/60 text-white transition-all hover:bg-red-500"
+                                    title="Quitar de seleccion"
                                 >
                                     <svg class="size-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
@@ -699,128 +665,40 @@
                     </div>
                 </div>
 
-                {{-- Save Collection Section --}}
+                {{-- Actions (Simplified) --}}
                 <div class="mt-4 space-y-3 border-t border-zinc-200 pt-4 dark:border-zinc-700">
-                    {{-- Collection Selector --}}
-                    @if($this->userCollections->isNotEmpty())
-                        <div class="rounded-lg bg-zinc-50 p-3 dark:bg-zinc-800/50">
-                            <label class="mb-1.5 block text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                                Cargar coleccion guardada
-                            </label>
-                            <select
-                                wire:change="loadCollection($event.target.value)"
-                                class="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
-                            >
-                                <option value="">Seleccionar...</option>
-                                @foreach($this->userCollections as $col)
-                                    <option value="{{ $col->id }}" @selected($col->id === $this->activeCollectionId)>
-                                        {{ $col->name }} ({{ $col->properties_count }})
-                                    </option>
-                                @endforeach
-                            </select>
-                            @if($this->hasMoreCollections)
-                                <a
-                                    href="{{ route('agents.collections.index') }}"
-                                    wire:navigate
-                                    class="mt-2 block text-center text-xs text-blue-600 hover:text-blue-700 dark:text-blue-400"
-                                >
-                                    Ver todas las colecciones →
-                                </a>
-                            @endif
-                        </div>
-                    @endif
-
-                    {{-- Collection Name --}}
-                    <div>
-                        <label for="collectionName" class="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                            Nombre de la coleccion
-                        </label>
-                        <flux:input
-                            wire:model="collectionName"
-                            id="collectionName"
-                            placeholder="Ej: Casa para familia Garcia"
-                            size="sm"
-                        />
-                    </div>
-
-                    {{-- Client Section --}}
-                    <div class="space-y-3 rounded-lg bg-zinc-50 p-3 dark:bg-zinc-800/50">
-                        <p class="text-xs font-medium text-zinc-500 dark:text-zinc-400">
-                            Cliente (opcional)
-                        </p>
-                        <flux:input
-                            wire:model="clientName"
-                            placeholder="Nombre del cliente"
-                            size="sm"
-                        />
-                        <flux:input
-                            wire:model="clientWhatsapp"
-                            placeholder="WhatsApp: +52 33 1234 5678"
-                            type="tel"
-                            size="sm"
-                        />
-                    </div>
-
-                    {{-- Public/Private Toggle --}}
-                    <div class="flex items-center justify-between rounded-lg bg-zinc-50 p-3 dark:bg-zinc-800/50">
-                        <div>
-                            <p class="text-sm font-medium text-zinc-700 dark:text-zinc-300">Coleccion publica</p>
-                            <p class="text-xs text-zinc-500">Compartible via link</p>
-                        </div>
-                        <flux:switch wire:model.live="saveAsPublic" />
-                    </div>
-
-                    {{-- Save Button --}}
-                    <button
-                        wire:click="saveCollection"
-                        class="flex w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-blue-500 to-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-blue-500/25 transition-all hover:from-blue-600 hover:to-blue-700 hover:shadow-lg"
-                    >
-                        <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" />
-                        </svg>
-                        {{ $this->isEditingCollection ? 'Actualizar coleccion' : 'Guardar coleccion' }}
-                    </button>
-
-                    <div class="relative">
-                        <div class="absolute inset-0 flex items-center">
-                            <div class="w-full border-t border-zinc-200 dark:border-zinc-700"></div>
-                        </div>
-                        <div class="relative flex justify-center text-xs">
-                            <span class="bg-white px-2 text-zinc-400 dark:bg-zinc-900">o compartir directamente</span>
-                        </div>
-                    </div>
-
-                    <div class="flex gap-2">
+                    <div class="flex gap-3">
                         <button
-                            wire:click="shareViaWhatsApp"
-                            class="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-green-600 px-3 py-2 text-sm font-medium text-white transition-all hover:bg-green-700"
+                            wire:click="saveAndRedirect"
+                            class="flex flex-1 items-center justify-center gap-2 rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
+                        >
+                            <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" />
+                            </svg>
+                            Guardar
+                        </button>
+                        <button
+                            wire:click="openShareModal"
+                            class="flex flex-1 items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-green-700"
                         >
                             <svg class="size-4" fill="currentColor" viewBox="0 0 24 24">
                                 <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
                             </svg>
-                            <span class="hidden xs:inline">WhatsApp</span>
-                        </button>
-                        <button
-                            disabled
-                            class="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-zinc-200 px-3 py-2 text-sm font-medium text-zinc-500 opacity-50 dark:border-zinc-700"
-                        >
-                            <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
-                            </svg>
-                            <span class="hidden xs:inline">PDF</span>
+                            Compartir
                         </button>
                     </div>
-
-                    <div class="pt-2 text-center">
+                    <div class="text-center">
                         <button
                             wire:click="clearCollection"
+                            wire:confirm="¿Vaciar la seleccion? Esta accion no se puede deshacer."
                             class="text-sm text-zinc-400 transition-colors hover:text-red-500"
                         >
-                            Vaciar coleccion
+                            Vaciar seleccion
                         </button>
                     </div>
                 </div>
             @else
+                {{-- Empty State --}}
                 <div class="flex flex-1 flex-col items-center justify-center py-12 text-center">
                     <div class="relative mb-4">
                         <div class="flex size-20 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30">
@@ -834,12 +712,67 @@
                             </svg>
                         </div>
                     </div>
-                    <h4 class="font-bold text-zinc-900 dark:text-zinc-100">Tu coleccion esta vacia</h4>
+                    <h4 class="font-bold text-zinc-900 dark:text-zinc-100">Tu seleccion esta vacia</h4>
                     <p class="mt-2 max-w-[220px] text-sm text-zinc-500">
                         Toca el boton <span class="inline-flex size-5 items-center justify-center rounded-full bg-blue-100 text-blue-600">+</span> en las propiedades para agregarlas.
                     </p>
                 </div>
             @endif
+        </div>
+    </flux:modal>
+
+    {{-- Quick Share Modal --}}
+    <flux:modal wire:model="showShareModal" class="max-w-sm">
+        <div class="space-y-4">
+            <div class="text-center">
+                <h3 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Compartir coleccion</h3>
+                <p class="mt-1 text-sm text-zinc-500">{{ count($this->collectionPropertyIds) }} propiedades seleccionadas</p>
+            </div>
+
+            <div>
+                <label for="shareName" class="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+                    Nombre de la coleccion *
+                </label>
+                <flux:input
+                    wire:model="shareName"
+                    id="shareName"
+                    placeholder="Ej: Casas para familia Martinez"
+                />
+                @error('shareName')
+                    <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
+                @enderror
+            </div>
+
+            <div class="flex gap-2">
+                <button
+                    wire:click="quickShareWhatsApp"
+                    class="flex flex-1 items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-green-700"
+                >
+                    <svg class="size-4" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                    </svg>
+                    WhatsApp
+                </button>
+                <button
+                    wire:click="quickShareCopyLink"
+                    class="flex flex-1 items-center justify-center gap-2 rounded-lg border border-zinc-200 px-4 py-2.5 text-sm font-semibold text-zinc-700 transition-all hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                >
+                    <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
+                    </svg>
+                    Copiar link
+                </button>
+            </div>
+
+            <div class="border-t border-zinc-200 pt-3 text-center dark:border-zinc-700">
+                <a
+                    href="{{ route('agents.collections.index') }}"
+                    wire:navigate
+                    class="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                >
+                    Mas opciones en Colecciones →
+                </a>
+            </div>
         </div>
     </flux:modal>
 </div>

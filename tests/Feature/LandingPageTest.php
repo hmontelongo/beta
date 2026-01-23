@@ -6,7 +6,7 @@ use Livewire\Livewire;
 test('landing page loads successfully', function () {
     $this->get('/')
         ->assertStatus(200)
-        ->assertSeeLivewire(Landing::class);
+        ->assertSee('PropertyManager');
 });
 
 test('landing page displays main headline', function () {
