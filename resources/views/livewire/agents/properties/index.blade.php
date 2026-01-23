@@ -3,9 +3,9 @@
     <div class="sticky top-14 z-40 border-b border-zinc-200/80 bg-white dark:border-zinc-800 dark:bg-zinc-900">
         <div class="mx-auto max-w-screen-2xl px-3 sm:px-6 lg:px-8">
             {{-- Single Row Filters --}}
-            <div class="flex items-center gap-2 py-2.5 sm:gap-3">
+            <div class="flex items-center gap-2 overflow-x-auto py-2.5 sm:gap-3">
                 {{-- Operation Type Pills --}}
-                <div class="flex items-center rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800">
+                <div class="flex shrink-0 items-center rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800">
                     @foreach(['' => 'Todas', 'sale' => 'Venta', 'rent' => 'Renta'] as $value => $label)
                         <button
                             wire:click="$set('operationType', '{{ $value }}')"
@@ -22,7 +22,7 @@
                 </div>
 
                 {{-- Zone Picker --}}
-                <div class="w-44 sm:w-52">
+                <div class="w-32 shrink-0 sm:w-52">
                     <flux:select
                         variant="listbox"
                         multiple
@@ -66,7 +66,7 @@
                 <button
                     wire:click="$set('showFiltersModal', true)"
                     @class([
-                        'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all',
+                        'flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all',
                         'bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400' => $hasActiveFilters,
                         'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400' => !$hasActiveFilters,
                     ])
@@ -80,7 +80,7 @@
                 </button>
 
                 {{-- Sort --}}
-                <flux:dropdown>
+                <flux:dropdown class="shrink-0">
                     <flux:button variant="ghost" size="sm" class="!px-2.5">
                         <svg class="size-4 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M3 7.5 7.5 3m0 0L12 7.5M7.5 3v13.5m13.5 0L16.5 21m0 0L12 16.5m4.5 4.5V7.5" />
@@ -100,7 +100,7 @@
                 <button
                     wire:click="$toggle('showCollectionPanel')"
                     @class([
-                        'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all',
+                        'flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition-all',
                         'bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/30 dark:text-blue-400' => count($collection) > 0,
                         'text-zinc-500 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800' => count($collection) === 0,
                     ])
