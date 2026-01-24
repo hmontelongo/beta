@@ -417,39 +417,3 @@ describe('icon methods', function () {
         expect($icon)->toContain('class="w-4 h-4"');
     });
 });
-
-// ═══════════════════════════════════════════════════════════════════════════
-// COMBINED (Icon + Value)
-// ═══════════════════════════════════════════════════════════════════════════
-
-describe('bedroomsWithIcon', function () {
-    it('returns array with icon, text, and value', function () {
-        $result = PropertyPresenter::bedroomsWithIcon(3);
-
-        expect($result)->toBeArray();
-        expect($result['icon'])->toBe('🛏️');
-        expect($result['text'])->toBe('3 recámaras');
-        expect($result['value'])->toBe(3);
-    });
-});
-
-describe('priceWithBadge', function () {
-    it('returns price and badge info', function () {
-        $price = ['type' => 'rent', 'price' => 25000];
-
-        $result = PropertyPresenter::priceWithBadge($price);
-
-        expect($result['price'])->toBe('$25,000');
-        expect($result['badge']['text'])->toBe('Renta');
-        expect($result['badge']['color'])->toBe('blue');
-    });
-
-    it('returns green badge for sale', function () {
-        $price = ['type' => 'sale', 'price' => 1500000];
-
-        $result = PropertyPresenter::priceWithBadge($price);
-
-        expect($result['badge']['text'])->toBe('Venta');
-        expect($result['badge']['color'])->toBe('green');
-    });
-});

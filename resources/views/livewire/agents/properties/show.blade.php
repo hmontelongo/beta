@@ -119,10 +119,16 @@
                                 <span class="font-medium">{{ PropertyPresenter::formatBathrooms($property->bathrooms, abbrev: true) }}</span>
                             </div>
                         @endif
-                        @if ($property->parking_spaces)
+                        @if ($property->half_bathrooms)
+                            <div class="flex items-center gap-2">
+                                {!! PropertyPresenter::bathroomIcon() !!}
+                                <span class="font-medium">{{ PropertyPresenter::formatHalfBathrooms($property->half_bathrooms) }}</span>
+                            </div>
+                        @endif
+                        @if ($property->parking_spots)
                             <div class="flex items-center gap-2">
                                 {!! PropertyPresenter::parkingIcon() !!}
-                                <span class="font-medium">{{ PropertyPresenter::formatParking($property->parking_spaces, abbrev: true) }}</span>
+                                <span class="font-medium">{{ PropertyPresenter::formatParking($property->parking_spots, abbrev: true) }}</span>
                             </div>
                         @endif
                         @if ($property->built_size_m2)

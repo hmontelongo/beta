@@ -1,5 +1,4 @@
 @php
-    use App\Services\CollectionPropertyPresenter;
     use App\Services\PropertyPresenter;
     use Illuminate\Support\Str;
 
@@ -60,7 +59,7 @@
                         {{ $prop['buildingInfo']['building_name'] }}
                         @if(!empty($prop['buildingInfo']['building_type']))
                             <span class="building-type">
-                                {{ CollectionPropertyPresenter::getBuildingTypeLabel($prop['buildingInfo']['building_type']) }}
+                                {{ PropertyPresenter::buildingTypeLabel($prop['buildingInfo']['building_type']) }}
                             </span>
                         @endif
                     </div>
@@ -72,7 +71,7 @@
                         <div class="landmarks-list">
                             @foreach(array_slice($prop['buildingInfo']['nearby_landmarks'], 0, 6) as $landmark)
                                 <div class="landmark-item">
-                                    <span class="landmark-icon">{{ CollectionPropertyPresenter::getLandmarkIcon($landmark['type'] ?? 'default') }}</span>
+                                    <span class="landmark-icon">{{ PropertyPresenter::getLandmarkIcon($landmark['type'] ?? 'default') }}</span>
                                     <span class="landmark-name">{{ $landmark['name'] }}</span>
                                     @if(!empty($landmark['distance']))
                                         <span class="landmark-distance">({{ $landmark['distance'] }})</span>
@@ -93,8 +92,8 @@
             <div class="amenities-grid full">
                 @foreach($unitAmenities as $amenity)
                     <span class="amenity-tag">
-                        <span class="amenity-icon">{{ CollectionPropertyPresenter::getAmenityIcon($amenity) }}</span>
-                        {{ CollectionPropertyPresenter::humanizeAmenity($amenity) }}
+                        <span class="amenity-icon">{{ PropertyPresenter::getAmenityIcon($amenity) }}</span>
+                        {{ PropertyPresenter::humanizeAmenity($amenity) }}
                     </span>
                 @endforeach
             </div>
@@ -108,8 +107,8 @@
             <div class="amenities-grid full">
                 @foreach($buildingAmenities as $amenity)
                     <span class="amenity-tag">
-                        <span class="amenity-icon">{{ CollectionPropertyPresenter::getAmenityIcon($amenity) }}</span>
-                        {{ CollectionPropertyPresenter::humanizeAmenity($amenity) }}
+                        <span class="amenity-icon">{{ PropertyPresenter::getAmenityIcon($amenity) }}</span>
+                        {{ PropertyPresenter::humanizeAmenity($amenity) }}
                     </span>
                 @endforeach
             </div>
@@ -123,8 +122,8 @@
             <div class="amenities-grid full">
                 @foreach($serviceAmenities as $amenity)
                     <span class="amenity-tag">
-                        <span class="amenity-icon">{{ CollectionPropertyPresenter::getAmenityIcon($amenity) }}</span>
-                        {{ CollectionPropertyPresenter::humanizeAmenity($amenity) }}
+                        <span class="amenity-icon">{{ PropertyPresenter::getAmenityIcon($amenity) }}</span>
+                        {{ PropertyPresenter::humanizeAmenity($amenity) }}
                     </span>
                 @endforeach
             </div>

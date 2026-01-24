@@ -116,8 +116,8 @@ class PropertyPresenter
     public static function operationTypeLabel(?string $type): string
     {
         return match ($type) {
-            'rent' => __('properties.operation_type.rent', [], self::LOCALE),
-            'sale' => __('properties.operation_type.sale', [], self::LOCALE),
+            'rent' => __('property.operation_type.rent', [], self::LOCALE),
+            'sale' => __('property.operation_type.sale', [], self::LOCALE),
             default => 'Consultar',
         };
     }
@@ -148,12 +148,12 @@ class PropertyPresenter
         }
 
         if ($abbrev) {
-            return $count.' '.__('properties.specs.bedroom_abbrev', [], self::LOCALE);
+            return $count.' '.__('property.specs.bedroom_abbrev', [], self::LOCALE);
         }
 
         $label = $count === 1
-            ? __('properties.specs.bedroom', [], self::LOCALE)
-            : __('properties.specs.bedrooms', [], self::LOCALE);
+            ? __('property.specs.bedroom', [], self::LOCALE)
+            : __('property.specs.bedrooms', [], self::LOCALE);
 
         return $count.' '.$label;
     }
@@ -169,15 +169,15 @@ class PropertyPresenter
 
         if ($abbrev) {
             $label = $count === 1
-                ? __('properties.specs.bathroom_abbrev', [], self::LOCALE)
-                : __('properties.specs.bathrooms_abbrev', [], self::LOCALE);
+                ? __('property.specs.bathroom_abbrev', [], self::LOCALE)
+                : __('property.specs.bathrooms_abbrev', [], self::LOCALE);
 
             return $count.' '.$label;
         }
 
         $label = $count === 1
-            ? __('properties.specs.bathroom', [], self::LOCALE)
-            : __('properties.specs.bathrooms', [], self::LOCALE);
+            ? __('property.specs.bathroom', [], self::LOCALE)
+            : __('property.specs.bathrooms', [], self::LOCALE);
 
         return $count.' '.$label;
     }
@@ -192,8 +192,8 @@ class PropertyPresenter
         }
 
         $label = $count === 1
-            ? __('properties.specs.half_bathroom', [], self::LOCALE)
-            : __('properties.specs.half_bathrooms', [], self::LOCALE);
+            ? __('property.specs.half_bathroom', [], self::LOCALE)
+            : __('property.specs.half_bathrooms', [], self::LOCALE);
 
         return $count.' '.$label;
     }
@@ -208,12 +208,12 @@ class PropertyPresenter
         }
 
         if ($abbrev) {
-            return $count.' '.__('properties.specs.parking_abbrev', [], self::LOCALE);
+            return $count.' '.__('property.specs.parking_abbrev', [], self::LOCALE);
         }
 
         $label = $count === 1
-            ? __('properties.specs.parking', [], self::LOCALE)
-            : __('properties.specs.parkings', [], self::LOCALE);
+            ? __('property.specs.parking', [], self::LOCALE)
+            : __('property.specs.parkings', [], self::LOCALE);
 
         return $count.' '.$label;
     }
@@ -239,7 +239,7 @@ class PropertyPresenter
             return '';
         }
 
-        return number_format($m2, 0).' m² '.__('properties.specs.lot', [], self::LOCALE);
+        return number_format($m2, 0).' m² '.__('property.specs.lot', [], self::LOCALE);
     }
 
     /**
@@ -252,12 +252,12 @@ class PropertyPresenter
         }
 
         if ($years === 0) {
-            return __('properties.specs.new_construction', [], self::LOCALE);
+            return __('property.specs.new_construction', [], self::LOCALE);
         }
 
         $label = $years === 1
-            ? __('properties.specs.year', [], self::LOCALE)
-            : __('properties.specs.years', [], self::LOCALE);
+            ? __('property.specs.year', [], self::LOCALE)
+            : __('property.specs.years', [], self::LOCALE);
 
         return $years.' '.$label;
     }
@@ -299,7 +299,7 @@ class PropertyPresenter
             return '';
         }
 
-        $key = "properties.property_condition.{$condition}";
+        $key = "property.property_condition.{$condition}";
         $translation = __($key, [], self::LOCALE);
 
         return $translation !== $key ? $translation : ucfirst(str_replace('_', ' ', $condition));
@@ -311,9 +311,9 @@ class PropertyPresenter
     public static function freshnessLabel(string $status): string
     {
         return match ($status) {
-            'fresh' => __('properties.freshness.fresh', [], self::LOCALE),
-            'recent' => __('properties.freshness.recent', [], self::LOCALE),
-            'stale' => __('properties.freshness.stale', [], self::LOCALE),
+            'fresh' => __('property.freshness.fresh', [], self::LOCALE),
+            'recent' => __('property.freshness.recent', [], self::LOCALE),
+            'stale' => __('property.freshness.stale', [], self::LOCALE),
             default => $status,
         };
     }
@@ -343,7 +343,7 @@ class PropertyPresenter
      */
     public static function targetAudienceLabel(string $audience): string
     {
-        $key = "properties.target_audience.{$audience}";
+        $key = "property.target_audience.{$audience}";
         $translation = __($key, [], self::LOCALE);
 
         return $translation !== $key ? $translation : ucfirst(str_replace('_', ' ', $audience));
@@ -378,7 +378,7 @@ class PropertyPresenter
             return '';
         }
 
-        $key = "properties.occupancy_type.{$occupancyType}";
+        $key = "property.occupancy_type.{$occupancyType}";
         $translation = __($key, [], self::LOCALE);
 
         return $translation !== $key ? $translation : ucfirst(str_replace('_', ' ', $occupancyType));
@@ -526,12 +526,13 @@ class PropertyPresenter
     }
 
     /**
-     * SVG icon for bathrooms.
+     * SVG icon for bathrooms (shower/water droplet).
      */
     public static function bathroomIcon(string $class = 'size-5'): string
     {
+        // Bathtub icon
         return '<svg class="'.$class.'" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 13h18v2a4 4 0 01-4 4H7a4 4 0 01-4-4v-2zM5 13V6a2 2 0 012-2h1a2 2 0 012 2v1m2-3v2m0 0a1 1 0 100 2 1 1 0 000-2z" />
         </svg>';
     }
 
@@ -564,82 +565,5 @@ class PropertyPresenter
             <path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
             <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
         </svg>';
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════════
-    // COMBINED: ICON + FORMATTED VALUE
-    // ═══════════════════════════════════════════════════════════════════════════
-
-    /**
-     * Get bedrooms with icon for display.
-     *
-     * @return array{icon: string, text: string, value: int|null}
-     */
-    public static function bedroomsWithIcon(?int $count, bool $abbrev = false): array
-    {
-        return [
-            'icon' => '🛏️',
-            'text' => self::formatBedrooms($count, $abbrev),
-            'value' => $count,
-        ];
-    }
-
-    /**
-     * Get bathrooms with icon for display.
-     *
-     * @return array{icon: string, text: string, value: int|null}
-     */
-    public static function bathroomsWithIcon(?int $count, bool $abbrev = false): array
-    {
-        return [
-            'icon' => '🚿',
-            'text' => self::formatBathrooms($count, $abbrev),
-            'value' => $count,
-        ];
-    }
-
-    /**
-     * Get parking with icon for display.
-     *
-     * @return array{icon: string, text: string, value: int|null}
-     */
-    public static function parkingWithIcon(?int $count, bool $abbrev = false): array
-    {
-        return [
-            'icon' => '🚗',
-            'text' => self::formatParking($count, $abbrev),
-            'value' => $count,
-        ];
-    }
-
-    /**
-     * Get size with icon for display.
-     *
-     * @return array{icon: string, text: string, value: float|null}
-     */
-    public static function sizeWithIcon(?float $m2): array
-    {
-        return [
-            'icon' => '📐',
-            'text' => self::formatBuiltSize($m2),
-            'value' => $m2,
-        ];
-    }
-
-    /**
-     * Get price with badge info for display.
-     *
-     * @param  array{type?: string, price?: float|int, currency?: string}|null  $price
-     * @return array{price: string, badge: array{text: string, color: string}}
-     */
-    public static function priceWithBadge(?array $price): array
-    {
-        return [
-            'price' => self::formatPrice($price, withPeriod: false),
-            'badge' => [
-                'text' => self::operationTypeLabel($price['type'] ?? null),
-                'color' => self::operationTypeBadgeColor($price['type'] ?? null),
-            ],
-        ];
     }
 }

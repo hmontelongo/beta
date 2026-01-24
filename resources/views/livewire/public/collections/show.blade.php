@@ -1,5 +1,4 @@
 @php
-    use App\Services\CollectionPropertyPresenter;
     use App\Services\PropertyPresenter;
     $agent = $collection->user;
     $brandColor = $agent->brand_color ?? '#3b82f6';
@@ -265,10 +264,10 @@
                                 <div class="flex flex-wrap items-start justify-between gap-4">
                                     <div>
                                         <h3 class="text-xl font-bold text-zinc-900 dark:text-white lg:text-2xl">
-                                            {{ CollectionPropertyPresenter::getPropertyTypeLabel($prop['propertyType']) }}
+                                            {{ PropertyPresenter::propertyTypeLabel($prop['propertyType']) }}
                                             @if($prop['propertyInsights'] && !empty($prop['propertyInsights']['property_condition']))
                                                 <span class="ml-2 rounded-full px-2.5 py-0.5 text-sm font-medium" style="background: {{ $brandColorLight }}; color: {{ $brandColor }};">
-                                                    {{ CollectionPropertyPresenter::getConditionLabel($prop['propertyInsights']['property_condition']) }}
+                                                    {{ PropertyPresenter::conditionLabel($prop['propertyInsights']['property_condition']) }}
                                                 </span>
                                             @endif
                                         </h3>
@@ -296,42 +295,42 @@
                                         <div class="flex flex-col items-center justify-center rounded-xl bg-zinc-50 p-4 dark:bg-zinc-800/50">
                                             <flux:icon name="home-modern" class="size-6 text-zinc-400" />
                                             <p class="mt-2 text-2xl font-bold text-zinc-900 dark:text-white">{{ $prop['bedrooms'] }}</p>
-                                            <p class="text-xs text-zinc-500">{{ __('properties.specs.bedrooms', [], 'es') }}</p>
+                                            <p class="text-xs text-zinc-500">{{ __('property.specs.bedrooms', [], 'es') }}</p>
                                         </div>
                                     @endif
                                     @if($prop['bathrooms'])
                                         <div class="flex flex-col items-center justify-center rounded-xl bg-zinc-50 p-4 dark:bg-zinc-800/50">
                                             <svg class="size-6 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /><rect x="4" y="10" width="16" height="8" rx="2" /></svg>
                                             <p class="mt-2 text-2xl font-bold text-zinc-900 dark:text-white">{{ $prop['bathrooms'] }}</p>
-                                            <p class="text-xs text-zinc-500">{{ __('properties.specs.bathrooms', [], 'es') }}</p>
+                                            <p class="text-xs text-zinc-500">{{ __('property.specs.bathrooms', [], 'es') }}</p>
                                         </div>
                                     @endif
                                     @if($prop['halfBathrooms'])
                                         <div class="flex flex-col items-center justify-center rounded-xl bg-zinc-50 p-4 dark:bg-zinc-800/50">
                                             <svg class="size-6 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><rect x="6" y="12" width="12" height="6" rx="1" /></svg>
                                             <p class="mt-2 text-2xl font-bold text-zinc-900 dark:text-white">{{ $prop['halfBathrooms'] }}</p>
-                                            <p class="text-xs text-zinc-500">{{ __('properties.specs.half_bathroom', [], 'es') }}</p>
+                                            <p class="text-xs text-zinc-500">{{ __('property.specs.half_bathroom', [], 'es') }}</p>
                                         </div>
                                     @endif
                                     @if($prop['parkingSpaces'])
                                         <div class="flex flex-col items-center justify-center rounded-xl bg-zinc-50 p-4 dark:bg-zinc-800/50">
                                             <flux:icon name="truck" class="size-6 text-zinc-400" />
                                             <p class="mt-2 text-2xl font-bold text-zinc-900 dark:text-white">{{ $prop['parkingSpaces'] }}</p>
-                                            <p class="text-xs text-zinc-500">{{ __('properties.specs.parkings', [], 'es') }}</p>
+                                            <p class="text-xs text-zinc-500">{{ __('property.specs.parkings', [], 'es') }}</p>
                                         </div>
                                     @endif
                                     @if($prop['builtSizeM2'])
                                         <div class="flex flex-col items-center justify-center rounded-xl bg-zinc-50 p-4 dark:bg-zinc-800/50">
                                             <flux:icon name="square-3-stack-3d" class="size-6 text-zinc-400" />
                                             <p class="mt-2 text-2xl font-bold text-zinc-900 dark:text-white">{{ number_format($prop['builtSizeM2']) }}</p>
-                                            <p class="text-xs text-zinc-500">m² {{ __('properties.specs.built', [], 'es') }}</p>
+                                            <p class="text-xs text-zinc-500">m² {{ __('property.specs.built', [], 'es') }}</p>
                                         </div>
                                     @endif
                                     @if($prop['lotSizeM2'])
                                         <div class="flex flex-col items-center justify-center rounded-xl bg-zinc-50 p-4 dark:bg-zinc-800/50">
                                             <flux:icon name="map" class="size-6 text-zinc-400" />
                                             <p class="mt-2 text-2xl font-bold text-zinc-900 dark:text-white">{{ number_format($prop['lotSizeM2']) }}</p>
-                                            <p class="text-xs text-zinc-500">m² {{ __('properties.specs.lot', [], 'es') }}</p>
+                                            <p class="text-xs text-zinc-500">m² {{ __('property.specs.lot', [], 'es') }}</p>
                                         </div>
                                     @endif
                                 </div>
@@ -343,7 +342,7 @@
                                         <div class="flex flex-wrap gap-2">
                                             @foreach($prop['propertyInsights']['target_audience'] as $audience)
                                                 <span class="inline-flex items-center rounded-full px-4 py-1.5 text-sm font-medium" style="background: {{ $brandColorMedium }}; color: {{ $brandColor }};">
-                                                    {{ CollectionPropertyPresenter::getTargetAudienceLabel($audience) }}
+                                                    {{ PropertyPresenter::targetAudienceLabel($audience) }}
                                                 </span>
                                             @endforeach
                                         </div>
@@ -376,7 +375,7 @@
                                                     {{ $prop['buildingInfo']['building_name'] }}
                                                     @if(!empty($prop['buildingInfo']['building_type']))
                                                         <span class="ml-2 text-sm font-normal text-zinc-500">
-                                                            · {{ CollectionPropertyPresenter::getBuildingTypeLabel($prop['buildingInfo']['building_type']) }}
+                                                            · {{ PropertyPresenter::buildingTypeLabel($prop['buildingInfo']['building_type']) }}
                                                         </span>
                                                     @endif
                                                 </p>
@@ -385,7 +384,7 @@
                                                 <div class="mt-4 flex flex-wrap gap-2">
                                                     @foreach($prop['buildingInfo']['nearby'] as $landmark)
                                                         <span class="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-sm text-zinc-600 ring-1 ring-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:ring-zinc-700">
-                                                            <span>{{ CollectionPropertyPresenter::getLandmarkIcon($landmark['type'] ?? '') }}</span>
+                                                            <span>{{ PropertyPresenter::getLandmarkIcon($landmark['type'] ?? '') }}</span>
                                                             {{ $landmark['name'] ?? '' }}
                                                             @if(!empty($landmark['distance']))
                                                                 <span class="text-zinc-400">· {{ $landmark['distance'] }}</span>
@@ -414,7 +413,7 @@
                                                             @foreach($prop['categorizedAmenities']['in_unit'] ?? $prop['categorizedAmenities']['unit'] ?? [] as $amenity)
                                                                 <span class="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-sm text-zinc-700 ring-1 ring-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:ring-zinc-700">
                                                                     <span style="color: {{ $brandColor }};">✓</span>
-                                                                    {{ CollectionPropertyPresenter::humanizeAmenity($amenity) }}
+                                                                    {{ PropertyPresenter::humanizeAmenity($amenity) }}
                                                                 </span>
                                                             @endforeach
                                                         </div>
@@ -427,7 +426,7 @@
                                                             @foreach($prop['categorizedAmenities']['building'] as $amenity)
                                                                 <span class="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-sm text-zinc-700 ring-1 ring-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:ring-zinc-700">
                                                                     <span style="color: {{ $brandColor }};">✓</span>
-                                                                    {{ CollectionPropertyPresenter::humanizeAmenity($amenity) }}
+                                                                    {{ PropertyPresenter::humanizeAmenity($amenity) }}
                                                                 </span>
                                                             @endforeach
                                                         </div>
@@ -440,7 +439,7 @@
                                                             @foreach($prop['categorizedAmenities']['services'] as $service)
                                                                 <span class="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-sm text-zinc-700 ring-1 ring-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:ring-zinc-700">
                                                                     <span style="color: {{ $brandColor }};">✓</span>
-                                                                    {{ CollectionPropertyPresenter::humanizeAmenity($service) }}
+                                                                    {{ PropertyPresenter::humanizeAmenity($service) }}
                                                                 </span>
                                                             @endforeach
                                                         </div>
@@ -452,7 +451,7 @@
                                                 @foreach($prop['flatAmenities'] as $amenity)
                                                     <span class="inline-flex items-center gap-1.5 rounded-full bg-zinc-50 px-3 py-1 text-sm text-zinc-700 ring-1 ring-zinc-200 dark:bg-zinc-800 dark:text-zinc-300 dark:ring-zinc-700">
                                                         <span style="color: {{ $brandColor }};">✓</span>
-                                                        {{ CollectionPropertyPresenter::humanizeAmenity($amenity) }}
+                                                        {{ PropertyPresenter::humanizeAmenity($amenity) }}
                                                     </span>
                                                 @endforeach
                                             </div>

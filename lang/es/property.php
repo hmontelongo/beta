@@ -68,6 +68,15 @@ return [
         'renovated' => 'Remodelado',
     ],
 
+    // Price related
+    'price' => [
+        'consult' => 'Consultar',
+        'per_month' => '/mes',
+        'per_year' => '/año',
+        'per_week' => '/semana',
+        'maintenance' => 'mantenimiento',
+    ],
+
     // Landmark types
     'landmark_type' => [
         'university' => 'Universidad',

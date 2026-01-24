@@ -1,3 +1,5 @@
+@use('App\Services\PropertyPresenter')
+
 <div class="space-y-6">
     {{-- Page Header --}}
     <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -81,7 +83,7 @@
         <flux:select wire:model.live="propertyType" class="w-36">
             <flux:select.option value="">{{ __('All Types') }}</flux:select.option>
             @foreach ($propertyTypes as $type)
-                <flux:select.option value="{{ $type->value }}">{{ ucfirst($type->value) }}</flux:select.option>
+                <flux:select.option value="{{ $type->value }}">{{ PropertyPresenter::propertyTypeLabel($type) }}</flux:select.option>
             @endforeach
         </flux:select>
         <flux:select wire:model.live="city" class="w-44">
@@ -170,7 +172,7 @@
                         </flux:table.cell>
                         <flux:table.cell>
                             @if ($property->property_type)
-                                <flux:badge size="sm">{{ ucfirst($property->property_type->value) }}</flux:badge>
+                                <flux:badge size="sm">{{ PropertyPresenter::propertyTypeLabel($property->property_type) }}</flux:badge>
                             @else
                                 <flux:text class="text-zinc-400">-</flux:text>
                             @endif
@@ -178,19 +180,19 @@
                         <flux:table.cell>
                             <div class="flex flex-wrap gap-1">
                                 @if ($property->bedrooms)
-                                    <flux:badge size="sm" color="zinc">{{ $property->bedrooms }} {{ __('bd') }}</flux:badge>
+                                    <flux:badge size="sm" color="zinc">{{ PropertyPresenter::formatBedrooms($property->bedrooms, abbrev: true) }}</flux:badge>
                                 @endif
                                 @if ($property->bathrooms)
-                                    <flux:badge size="sm" color="zinc">{{ $property->bathrooms }} {{ __('ba') }}</flux:badge>
+                                    <flux:badge size="sm" color="zinc">{{ PropertyPresenter::formatBathrooms($property->bathrooms, abbrev: true) }}</flux:badge>
                                 @endif
                                 @if ($property->parking_spots)
-                                    <flux:badge size="sm" color="zinc">{{ $property->parking_spots }} {{ __('pk') }}</flux:badge>
+                                    <flux:badge size="sm" color="zinc">{{ PropertyPresenter::formatParking($property->parking_spots, abbrev: true) }}</flux:badge>
                                 @endif
                             </div>
                         </flux:table.cell>
                         <flux:table.cell>
                             @if ($property->built_size_m2)
-                                <flux:text size="sm">{{ number_format($property->built_size_m2) }} m²</flux:text>
+                                <flux:text size="sm">{{ PropertyPresenter::formatBuiltSize($property->built_size_m2) }}</flux:text>
                             @else
                                 <flux:text class="text-zinc-400">-</flux:text>
                             @endif

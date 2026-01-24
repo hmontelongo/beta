@@ -1,5 +1,4 @@
 @php
-    use App\Services\CollectionPropertyPresenter;
     use App\Services\PropertyPresenter;
 @endphp
 
@@ -60,11 +59,11 @@
         <div class="property-title-row">
             <div>
                 <span class="property-type">
-                    {{ CollectionPropertyPresenter::getPropertyTypeLabel($prop['propertyType']) }}
+                    {{ PropertyPresenter::propertyTypeLabel($prop['propertyType']) }}
                 </span>
                 @if($prop['propertyInsights'] && !empty($prop['propertyInsights']['property_condition']))
                     <span class="property-condition">
-                        {{ CollectionPropertyPresenter::getConditionLabel($prop['propertyInsights']['property_condition']) }}
+                        {{ PropertyPresenter::conditionLabel($prop['propertyInsights']['property_condition']) }}
                     </span>
                 @endif
             </div>
@@ -87,37 +86,37 @@
             @if($prop['bedrooms'])
                 <div class="spec-item">
                     <div class="spec-value">{{ $prop['bedrooms'] }}</div>
-                    <div class="spec-label">{{ __('properties.specs.bedrooms', [], 'es') }}</div>
+                    <div class="spec-label">{{ __('property.specs.bedrooms', [], 'es') }}</div>
                 </div>
             @endif
             @if($prop['bathrooms'])
                 <div class="spec-item">
                     <div class="spec-value">{{ $prop['bathrooms'] }}</div>
-                    <div class="spec-label">{{ __('properties.specs.bathrooms', [], 'es') }}</div>
+                    <div class="spec-label">{{ __('property.specs.bathrooms', [], 'es') }}</div>
                 </div>
             @endif
             @if($prop['halfBathrooms'])
                 <div class="spec-item">
                     <div class="spec-value">{{ $prop['halfBathrooms'] }}</div>
-                    <div class="spec-label">{{ __('properties.specs.half_bathroom', [], 'es') }}</div>
+                    <div class="spec-label">{{ __('property.specs.half_bathroom', [], 'es') }}</div>
                 </div>
             @endif
             @if($prop['parkingSpaces'])
                 <div class="spec-item">
                     <div class="spec-value">{{ $prop['parkingSpaces'] }}</div>
-                    <div class="spec-label">{{ __('properties.specs.parking_abbrev', [], 'es') }}.</div>
+                    <div class="spec-label">{{ __('property.specs.parking_abbrev', [], 'es') }}.</div>
                 </div>
             @endif
             @if($prop['builtSizeM2'])
                 <div class="spec-item">
                     <div class="spec-value">{{ number_format($prop['builtSizeM2']) }}</div>
-                    <div class="spec-label">m² {{ __('properties.specs.built', [], 'es') }}</div>
+                    <div class="spec-label">m² {{ __('property.specs.built', [], 'es') }}</div>
                 </div>
             @endif
             @if($prop['lotSizeM2'])
                 <div class="spec-item">
                     <div class="spec-value">{{ number_format($prop['lotSizeM2']) }}</div>
-                    <div class="spec-label">m² {{ __('properties.specs.lot', [], 'es') }}</div>
+                    <div class="spec-label">m² {{ __('property.specs.lot', [], 'es') }}</div>
                 </div>
             @endif
         </div>
@@ -129,7 +128,7 @@
                 <div class="audience-tags">
                     @foreach($prop['propertyInsights']['target_audience'] as $audience)
                         <span class="audience-tag">
-                            {{ CollectionPropertyPresenter::getTargetAudienceLabel($audience) }}
+                            {{ PropertyPresenter::targetAudienceLabel($audience) }}
                         </span>
                     @endforeach
                 </div>

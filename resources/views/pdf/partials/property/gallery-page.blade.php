@@ -1,5 +1,5 @@
 @php
-    use App\Services\CollectionPropertyPresenter;
+    use App\Services\PropertyPresenter;
 @endphp
 
 @if(count($prop['galleryImages']) >= 2)
@@ -24,7 +24,7 @@
         <div class="summary-header">Resumen de la Propiedad</div>
         <div class="summary-content">
             <div class="summary-main">
-                <span class="summary-type">{{ CollectionPropertyPresenter::getPropertyTypeLabel($prop['propertyType']) }}</span>
+                <span class="summary-type">{{ PropertyPresenter::propertyTypeLabel($prop['propertyType']) }}</span>
                 @if($prop['bedrooms'])
                     <span class="summary-sep">·</span>
                     <span>{{ $prop['bedrooms'] }} recamaras</span>

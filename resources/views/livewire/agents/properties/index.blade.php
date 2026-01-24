@@ -210,7 +210,7 @@
 
                     @if($bathrooms !== '')
                         <span class="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-700 dark:bg-violet-900/30 dark:text-violet-400 sm:text-xs">
-                            {{ $bathrooms }}+ {{ __('properties.specs.bathrooms', [], 'es') }}
+                            {{ $bathrooms }}+ {{ __('property.specs.bathrooms', [], 'es') }}
                             <button wire:click="$set('bathrooms', '')" class="hover:text-violet-900 dark:hover:text-violet-200">
                                 <svg class="size-2.5 sm:size-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
