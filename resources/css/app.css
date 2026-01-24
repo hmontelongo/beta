@@ -195,3 +195,148 @@ select:focus[data-flux-control] {
 [wire\:sort\:item] {
     view-transition-name: none;
 }
+
+/* Print / PDF export styles for collection pages */
+@media print {
+    /* Ensure backgrounds print correctly */
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+    }
+
+    /* Hide header navigation in print */
+    body > header,
+    header.sticky {
+        display: none !important;
+    }
+
+    /* Force light mode colors in print */
+    .dark {
+        color-scheme: light;
+    }
+
+    /* Override dark mode backgrounds for PDF */
+    .dark\:bg-zinc-950,
+    .dark\:bg-zinc-900,
+    .dark\:bg-zinc-800 {
+        background-color: white !important;
+    }
+
+    .dark\:text-white,
+    .dark\:text-zinc-100 {
+        color: #171717 !important;
+    }
+
+    /* Page break control for property cards */
+    article {
+        page-break-inside: avoid;
+        break-inside: avoid;
+        margin-top: 1.5rem !important;
+    }
+
+    /* Force subsequent properties to start on new page to avoid badge clipping */
+    article:not(:first-child) {
+        page-break-before: always;
+    }
+
+    /* Reduce spacing between properties - use margin instead of gap for print */
+    .space-y-16 {
+        gap: 0 !important;
+    }
+
+    .space-y-16 > * + * {
+        margin-top: 0 !important;
+    }
+
+    /* Keep each section together where possible */
+    .pdf-section {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    /* Image gallery should stay together */
+    .pdf-image-section {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    /* Specs grid - always keep together */
+    .pdf-specs-grid {
+        break-inside: avoid;
+        page-break-inside: avoid;
+    }
+
+    /* Ensure images are visible and don't break across pages */
+    img {
+        max-width: 100%;
+        height: auto;
+        page-break-inside: avoid;
+    }
+
+    /* Footer should not have excessive background */
+    footer {
+        background: white !important;
+        page-break-inside: avoid;
+    }
+
+    /* Collection page header - compact for PDF */
+    header.relative {
+        page-break-after: avoid;
+    }
+
+    header.relative > div {
+        padding-top: 1rem !important;
+        padding-bottom: 1rem !important;
+    }
+
+    /* Reduce collection title section margins */
+    header .mt-10,
+    header .lg\:mt-12 {
+        margin-top: 1rem !important;
+    }
+
+    header .pt-10,
+    header .lg\:pt-12 {
+        padding-top: 1rem !important;
+    }
+
+    /* Reduce header padding */
+    header .py-12,
+    header .lg\:py-16 {
+        padding-top: 1rem !important;
+        padding-bottom: 1rem !important;
+    }
+
+    /* Main content should start close to header */
+    main {
+        page-break-before: avoid;
+    }
+
+    main.py-12,
+    main .py-12,
+    main.lg\:py-16,
+    main .lg\:py-16 {
+        padding-top: 1.5rem !important;
+        padding-bottom: 1.5rem !important;
+    }
+
+    /* Reduce margins and padding throughout */
+    .px-6 {
+        padding-left: 1rem !important;
+        padding-right: 1rem !important;
+    }
+
+    .py-12 {
+        padding-top: 1.5rem !important;
+        padding-bottom: 1.5rem !important;
+    }
+
+    /* Reduce description section spacing */
+    .mt-8 {
+        margin-top: 1rem !important;
+    }
+
+    .pt-8 {
+        padding-top: 1rem !important;
+    }
+}

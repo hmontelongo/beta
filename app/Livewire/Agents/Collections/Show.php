@@ -5,17 +5,15 @@ namespace App\Livewire\Agents\Collections;
 use App\Livewire\Concerns\ShowsWhatsAppTip;
 use App\Models\Client;
 use App\Models\Collection;
-use App\Services\CollectionPropertyPresenter;
+use App\Services\CollectionPdfGenerator;
 use Flux\Flux;
 use Illuminate\Support\Collection as SupportCollection;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
-use Spatie\Browsershot\Browsershot;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 #[Layout('components.layouts.agent')]
@@ -175,65 +173,18 @@ class Show extends Component
     }
 
     /**
-     * Download collection as PDF using Browsershot for accurate rendering.
+     * Download collection as PDF using dedicated PDF template.
      */
     public function downloadPdf(): StreamedResponse
     {
-        $agent = auth()->user();
-
-        // Convert avatar to base64 for PDF embedding
-        $avatarBase64 = null;
-        if ($agent->avatar_path && Storage::disk('public')->exists($agent->avatar_path)) {
-            $avatarContent = Storage::disk('public')->get($agent->avatar_path);
-            $mimeType = Storage::disk('public')->mimeType($agent->avatar_path);
-            $avatarBase64 = 'data:'.$mimeType.';base64,'.base64_encode($avatarContent);
-        }
-
-        // Prepare rich property data using presenter
-        $presenter = new CollectionPropertyPresenter;
-        $this->collection->load(['properties.listings', 'client']);
-        $properties = $presenter->prepareProperties($this->collection->properties);
-
-        // Render the Blade view to HTML
-        $html = view('pdf.collection-print', [
-            'collection' => $this->collection,
-            'properties' => $properties,
-            'agent' => $agent,
-            'avatarBase64' => $avatarBase64,
-            'brandColor' => $agent->brand_color ?? '#3b82f6',
-        ])->render();
-
         $filename = Str::slug($this->collection->name).'.pdf';
+        $generator = app(CollectionPdfGenerator::class);
 
-        // Use Livewire's streamDownload for proper file download handling
-        return response()->streamDownload(function () use ($html) {
-            $browsershot = Browsershot::html($html)
-                ->format('letter')
-                ->margins(0.5, 0.5, 0.5, 0.5, 'in')
-                ->waitUntilNetworkIdle();
-
-            // Configure Node/NPM binaries from config
-            if ($nodeBinary = config('browsershot.node_binary')) {
-                $browsershot->setNodeBinary($nodeBinary);
-            }
-            if ($npmBinary = config('browsershot.npm_binary')) {
-                $browsershot->setNpmBinary($npmBinary);
-            }
-
-            // Use config for Chrome path if set
-            if ($chromePath = config('browsershot.chrome_path')) {
-                $browsershot->setChromePath($chromePath);
-            }
-
-            // Enable no-sandbox mode for server environments
-            if (config('browsershot.no_sandbox', false)) {
-                $browsershot->setOption('args', ['--no-sandbox', '--disable-setuid-sandbox']);
-            }
-
-            echo $browsershot->pdf();
-        }, $filename, [
-            'Content-Type' => 'application/pdf',
-        ]);
+        return response()->streamDownload(
+            fn () => print ($generator->generate($this->collection)),
+            $filename,
+            ['Content-Type' => 'application/pdf']
+        );
     }
 
     public function deleteCollection(): void
