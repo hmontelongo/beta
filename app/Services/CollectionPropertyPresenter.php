@@ -4,6 +4,8 @@ namespace App\Services;
 
 use App\Models\Property;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 /**
@@ -16,29 +18,36 @@ class CollectionPropertyPresenter
      * Prepare a collection of properties for rich display.
      *
      * @param  Collection<int, Property>  $properties
+     * @param  bool  $embedImages  Convert external image URLs to base64 data URIs (for PDF)
      * @return Collection<int, array>
      */
-    public function prepareProperties(Collection $properties): Collection
+    public function prepareProperties(Collection $properties, bool $embedImages = false): Collection
     {
-        return $properties->map(fn (Property $property, int $index) => $this->prepareProperty($property, $index + 1));
+        return $properties->map(fn (Property $property, int $index) => $this->prepareProperty($property, $index + 1, $embedImages));
     }
 
     /**
      * Prepare a single property for rich display.
      *
+     * @param  bool  $embedImages  Convert external image URLs to base64 data URIs (for PDF)
      * @return array<string, mixed>
      */
-    public function prepareProperty(Property $property, int $position): array
+    public function prepareProperty(Property $property, int $position, bool $embedImages = false): array
     {
         $extractedData = $property->ai_extracted_data ?? [];
+        $images = array_slice($property->images, 0, 5); // 1 main + 4 thumbnails
+
+        if ($embedImages && count($images) > 0) {
+            $images = $this->convertImagesToBase64($images);
+        }
 
         return [
             'position' => $position,
             'id' => $property->id,
             'property' => $property,
 
-            // Images (up to 4) - uses Property model accessor
-            'images' => array_slice($property->images, 0, 4),
+            // Images (up to 5) - converted to base64 for PDF if needed
+            'images' => $images,
 
             // Price info - uses Property model accessors
             'price' => $property->primary_price,
@@ -79,6 +88,46 @@ class CollectionPropertyPresenter
             // Maintenance fee - uses Property model accessor
             'maintenanceFee' => $property->maintenance_fee,
         ];
+    }
+
+    /**
+     * Convert image URLs to base64 data URIs for reliable PDF rendering.
+     *
+     * @param  array<int, string>  $urls
+     * @return array<int, string>
+     */
+    private function convertImagesToBase64(array $urls): array
+    {
+        return collect($urls)
+            ->map(function (string $url) {
+                try {
+                    $response = Http::timeout(5)
+                        ->withHeaders([
+                            'User-Agent' => 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36',
+                            'Accept' => 'image/webp,image/apng,image/*,*/*;q=0.8',
+                            'Referer' => parse_url($url, PHP_URL_SCHEME).'://'.parse_url($url, PHP_URL_HOST).'/',
+                        ])
+                        ->get($url);
+
+                    if ($response->successful()) {
+                        $contentType = $response->header('Content-Type') ?? 'image/jpeg';
+                        // Clean content type (remove charset if present)
+                        $contentType = explode(';', $contentType)[0];
+                        $base64 = base64_encode($response->body());
+
+                        return "data:{$contentType};base64,{$base64}";
+                    }
+
+                    Log::warning('Failed to fetch image for PDF', ['url' => $url, 'status' => $response->status()]);
+                } catch (\Exception $e) {
+                    Log::warning('Exception fetching image for PDF', ['url' => $url, 'error' => $e->getMessage()]);
+                }
+
+                return null;
+            })
+            ->filter()
+            ->values()
+            ->toArray();
     }
 
     /**
