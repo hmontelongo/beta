@@ -1,3 +1,4 @@
+@use('App\Services\CollectionPropertyPresenter')
 <div class="min-h-screen bg-zinc-50 pb-20 dark:bg-zinc-950 lg:pb-0">
     {{-- Minimal Sticky Header --}}
     <div class="sticky top-0 z-50 border-b border-zinc-200/80 bg-white/95 backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-900/95">
@@ -160,7 +161,7 @@
                             @foreach ($this->topAmenities as $amenity)
                                 <span class="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-3 py-1.5 text-sm font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
                                     <flux:icon name="check" class="size-3.5 text-green-500" />
-                                    {{ $this->humanizeAmenity($amenity) }}
+                                    {{ CollectionPropertyPresenter::humanizeAmenity($amenity) }}
                                 </span>
                             @endforeach
                         </div>
@@ -221,7 +222,7 @@
                                                 @foreach ($this->categorizedAmenities['unit'] ?? $this->categorizedAmenities['in_unit'] ?? [] as $amenity)
                                                     <div class="flex items-center gap-2">
                                                         <flux:icon name="check" class="size-4 text-green-500" />
-                                                        <flux:text size="sm">{{ $this->humanizeAmenity(is_array($amenity) ? $amenity['name'] : $amenity) }}</flux:text>
+                                                        <flux:text size="sm">{{ CollectionPropertyPresenter::humanizeAmenity(is_array($amenity) ? $amenity['name'] : $amenity) }}</flux:text>
                                                     </div>
                                                 @endforeach
                                             </div>
@@ -235,7 +236,7 @@
                                                 @foreach ($this->categorizedAmenities['building'] as $amenity)
                                                     <div class="flex items-center gap-2">
                                                         <flux:icon name="check" class="size-4 text-green-500" />
-                                                        <flux:text size="sm">{{ $this->humanizeAmenity(is_array($amenity) ? $amenity['name'] : $amenity) }}</flux:text>
+                                                        <flux:text size="sm">{{ CollectionPropertyPresenter::humanizeAmenity(is_array($amenity) ? $amenity['name'] : $amenity) }}</flux:text>
                                                     </div>
                                                 @endforeach
                                             </div>
@@ -249,7 +250,7 @@
                                                 @foreach ($this->categorizedAmenities['services'] as $amenity)
                                                     <div class="flex items-center gap-2">
                                                         <flux:icon name="check" class="size-4 text-blue-500" />
-                                                        <flux:text size="sm">{{ $this->humanizeAmenity(is_array($amenity) ? $amenity['name'] : $amenity) }}</flux:text>
+                                                        <flux:text size="sm">{{ CollectionPropertyPresenter::humanizeAmenity(is_array($amenity) ? $amenity['name'] : $amenity) }}</flux:text>
                                                     </div>
                                                 @endforeach
                                             </div>
@@ -264,7 +265,7 @@
                                                     <div class="flex items-center gap-2">
                                                         <flux:icon name="plus" class="size-4 text-zinc-400" />
                                                         <flux:text size="sm" class="text-zinc-500">
-                                                            {{ $this->humanizeAmenity(is_array($amenity) ? $amenity['name'] : $amenity) }}
+                                                            {{ CollectionPropertyPresenter::humanizeAmenity(is_array($amenity) ? $amenity['name'] : $amenity) }}
                                                             @if (is_array($amenity) && !empty($amenity['price']))
                                                                 <span class="text-xs">({{ $amenity['price'] }})</span>
                                                             @endif
@@ -281,7 +282,7 @@
                                     @foreach ($this->amenities as $amenity)
                                         <div class="flex items-center gap-2">
                                             <flux:icon name="check" class="size-4 text-green-500" />
-                                            <flux:text size="sm">{{ $this->humanizeAmenity($amenity) }}</flux:text>
+                                            <flux:text size="sm">{{ CollectionPropertyPresenter::humanizeAmenity($amenity) }}</flux:text>
                                         </div>
                                     @endforeach
                                 </div>

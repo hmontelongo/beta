@@ -860,10 +860,8 @@ describe('PDF Export', function () {
             ->hasAttached(Property::factory()->count(2))
             ->create(['name' => 'Test Collection']);
 
-        $response = Livewire::test(CollectionShowPage::class, ['collection' => $collection])
-            ->call('downloadPdf');
-
-        // Check it returns a streamed response (PDF download)
-        expect($response->effects['download'])->not->toBeNull();
+        Livewire::test(CollectionShowPage::class, ['collection' => $collection])
+            ->call('downloadPdf')
+            ->assertFileDownloaded('test-collection.pdf');
     });
 });

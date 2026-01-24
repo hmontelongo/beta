@@ -3,7 +3,10 @@
 namespace App\Livewire\Public\Collections;
 
 use App\Models\Collection;
+use App\Services\CollectionPropertyPresenter;
+use Illuminate\Support\Collection as SupportCollection;
 use Illuminate\View\View;
+use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
@@ -19,9 +22,22 @@ class Show extends Component
             throw new NotFoundHttpException('Collection not found or not accessible.');
         }
 
-        $this->collection = $collection->load(['properties.listings', 'user']);
+        $this->collection = $collection->load(['properties.listings', 'user', 'client']);
 
         $this->trackView();
+    }
+
+    /**
+     * Get prepared properties with rich data for display.
+     *
+     * @return SupportCollection<int, array>
+     */
+    #[Computed]
+    public function properties(): SupportCollection
+    {
+        $presenter = new CollectionPropertyPresenter;
+
+        return $presenter->prepareProperties($this->collection->properties);
     }
 
     /**

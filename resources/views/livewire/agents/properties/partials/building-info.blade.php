@@ -1,3 +1,5 @@
+@use('App\Services\CollectionPropertyPresenter')
+
 @props([
     'buildingInfo',
     'variant' => 'mobile', // 'mobile' or 'desktop'
@@ -35,7 +37,7 @@
             <div class="flex flex-wrap gap-2">
                 @foreach ($buildingInfo['nearby'] as $landmark)
                     <span class="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-3 py-1.5 text-sm dark:bg-zinc-800">
-                        <span>{{ $this->getLandmarkIcon($landmark['type'] ?? 'default') }}</span>
+                        <span>{{ CollectionPropertyPresenter::getLandmarkIcon($landmark['type'] ?? 'default') }}</span>
                         <span class="text-zinc-700 dark:text-zinc-300">{{ $landmark['name'] }}</span>
                         @if (! empty($landmark['distance']))
                             <span class="text-zinc-400">{{ $landmark['distance'] }}</span>

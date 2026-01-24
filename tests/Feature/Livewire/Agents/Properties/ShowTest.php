@@ -3,6 +3,7 @@
 use App\Livewire\Agents\Properties\Show;
 use App\Models\Property;
 use App\Models\User;
+use App\Services\CollectionPropertyPresenter;
 use Livewire\Livewire;
 
 beforeEach(function () {
@@ -12,147 +13,82 @@ beforeEach(function () {
 
 describe('humanizeAmenity', function () {
     it('translates known amenities', function () {
-        $property = Property::factory()->create();
-
-        $component = Livewire::test(Show::class, ['property' => $property]);
-        $instance = $component->instance();
-
-        expect($instance->humanizeAmenity('swimming_pool'))->toBe('Alberca')
-            ->and($instance->humanizeAmenity('gym'))->toBe('Gimnasio')
-            ->and($instance->humanizeAmenity('elevator'))->toBe('Elevador')
-            ->and($instance->humanizeAmenity('pet_friendly'))->toBe('Mascotas permitidas');
+        expect(CollectionPropertyPresenter::humanizeAmenity('swimming_pool'))->toBe('Alberca')
+            ->and(CollectionPropertyPresenter::humanizeAmenity('gym'))->toBe('Gimnasio')
+            ->and(CollectionPropertyPresenter::humanizeAmenity('elevator'))->toBe('Elevador')
+            ->and(CollectionPropertyPresenter::humanizeAmenity('pet_friendly'))->toBe('Mascotas permitidas');
     });
 
     it('handles case insensitivity', function () {
-        $property = Property::factory()->create();
-
-        $component = Livewire::test(Show::class, ['property' => $property]);
-        $instance = $component->instance();
-
-        expect($instance->humanizeAmenity('SWIMMING_POOL'))->toBe('Alberca')
-            ->and($instance->humanizeAmenity('Gym'))->toBe('Gimnasio');
+        expect(CollectionPropertyPresenter::humanizeAmenity('SWIMMING_POOL'))->toBe('Alberca')
+            ->and(CollectionPropertyPresenter::humanizeAmenity('Gym'))->toBe('Gimnasio');
     });
 
     it('falls back to humanized version for unknown amenities', function () {
-        $property = Property::factory()->create();
-
-        $component = Livewire::test(Show::class, ['property' => $property]);
-        $instance = $component->instance();
-
-        expect($instance->humanizeAmenity('unknown_amenity'))->toBe('Unknown amenity')
-            ->and($instance->humanizeAmenity('some_fancy_feature'))->toBe('Some fancy feature');
+        expect(CollectionPropertyPresenter::humanizeAmenity('unknown_amenity'))->toBe('Unknown amenity')
+            ->and(CollectionPropertyPresenter::humanizeAmenity('some_fancy_feature'))->toBe('Some fancy feature');
     });
 });
 
 describe('formatTargetAudience', function () {
     it('translates known audience types', function () {
-        $property = Property::factory()->create();
-
-        $component = Livewire::test(Show::class, ['property' => $property]);
-        $instance = $component->instance();
-
-        expect($instance->formatTargetAudience(['young_professionals']))->toBe('Profesionales')
-            ->and($instance->formatTargetAudience(['couples']))->toBe('Parejas')
-            ->and($instance->formatTargetAudience(['families']))->toBe('Familias');
+        expect(CollectionPropertyPresenter::formatTargetAudience(['young_professionals']))->toBe('Profesionales')
+            ->and(CollectionPropertyPresenter::formatTargetAudience(['couples']))->toBe('Parejas')
+            ->and(CollectionPropertyPresenter::formatTargetAudience(['families']))->toBe('Familias');
     });
 
     it('joins multiple audience types with commas', function () {
-        $property = Property::factory()->create();
-
-        $component = Livewire::test(Show::class, ['property' => $property]);
-        $instance = $component->instance();
-
-        expect($instance->formatTargetAudience(['young_professionals', 'couples']))
+        expect(CollectionPropertyPresenter::formatTargetAudience(['young_professionals', 'couples']))
             ->toBe('Profesionales, Parejas');
     });
 
     it('handles string input', function () {
-        $property = Property::factory()->create();
-
-        $component = Livewire::test(Show::class, ['property' => $property]);
-        $instance = $component->instance();
-
-        expect($instance->formatTargetAudience('students'))->toBe('Estudiantes');
+        expect(CollectionPropertyPresenter::formatTargetAudience('students'))->toBe('Estudiantes');
     });
 
     it('falls back for unknown audience types', function () {
-        $property = Property::factory()->create();
-
-        $component = Livewire::test(Show::class, ['property' => $property]);
-        $instance = $component->instance();
-
-        expect($instance->formatTargetAudience(['digital_nomads']))->toBe('Digital nomads');
+        expect(CollectionPropertyPresenter::formatTargetAudience(['digital_nomads']))->toBe('Digital nomads');
     });
 });
 
 describe('formatOccupancyType', function () {
     it('translates known occupancy types', function () {
-        $property = Property::factory()->create();
-
-        $component = Livewire::test(Show::class, ['property' => $property]);
-        $instance = $component->instance();
-
-        expect($instance->formatOccupancyType('single_person_or_couple'))->toBe('Individual/Pareja')
-            ->and($instance->formatOccupancyType('family'))->toBe('Familia')
-            ->and($instance->formatOccupancyType('roommates'))->toBe('Roomies');
+        expect(CollectionPropertyPresenter::formatOccupancyType('single_person_or_couple'))->toBe('Individual/Pareja')
+            ->and(CollectionPropertyPresenter::formatOccupancyType('family'))->toBe('Familia')
+            ->and(CollectionPropertyPresenter::formatOccupancyType('roommates'))->toBe('Roomies');
     });
 
     it('falls back for unknown occupancy types', function () {
-        $property = Property::factory()->create();
-
-        $component = Livewire::test(Show::class, ['property' => $property]);
-        $instance = $component->instance();
-
-        expect($instance->formatOccupancyType('digital_nomads'))->toBe('Digital nomads');
+        expect(CollectionPropertyPresenter::formatOccupancyType('digital_nomads'))->toBe('Digital nomads');
     });
 });
 
 describe('formatPropertyCondition', function () {
     it('translates known property conditions', function () {
-        $property = Property::factory()->create();
-
-        $component = Livewire::test(Show::class, ['property' => $property]);
-        $instance = $component->instance();
-
-        expect($instance->formatPropertyCondition('excellent'))->toBe('Excelente')
-            ->and($instance->formatPropertyCondition('good'))->toBe('Bueno')
-            ->and($instance->formatPropertyCondition('fair'))->toBe('Regular')
-            ->and($instance->formatPropertyCondition('needs_work'))->toBe('Necesita trabajo');
+        expect(CollectionPropertyPresenter::formatPropertyCondition('excellent'))->toBe('Excelente')
+            ->and(CollectionPropertyPresenter::formatPropertyCondition('good'))->toBe('Bueno')
+            ->and(CollectionPropertyPresenter::formatPropertyCondition('fair'))->toBe('Regular')
+            ->and(CollectionPropertyPresenter::formatPropertyCondition('needs_work'))->toBe('Necesita trabajo');
     });
 
     it('falls back for unknown property conditions', function () {
-        $property = Property::factory()->create();
-
-        $component = Livewire::test(Show::class, ['property' => $property]);
-        $instance = $component->instance();
-
-        expect($instance->formatPropertyCondition('pristine'))->toBe('Pristine');
+        expect(CollectionPropertyPresenter::formatPropertyCondition('pristine'))->toBe('Pristine');
     });
 });
 
 describe('getLandmarkIcon', function () {
     it('returns correct emoji for known types', function () {
-        $property = Property::factory()->create();
-
-        $component = Livewire::test(Show::class, ['property' => $property]);
-        $instance = $component->instance();
-
-        expect($instance->getLandmarkIcon('university'))->toBe('🎓')
-            ->and($instance->getLandmarkIcon('park'))->toBe('🌳')
-            ->and($instance->getLandmarkIcon('shopping_mall'))->toBe('🛒')
-            ->and($instance->getLandmarkIcon('hospital'))->toBe('🏥')
-            ->and($instance->getLandmarkIcon('metro'))->toBe('🚇')
-            ->and($instance->getLandmarkIcon('church'))->toBe('⛪');
+        expect(CollectionPropertyPresenter::getLandmarkIcon('university'))->toBe('🎓')
+            ->and(CollectionPropertyPresenter::getLandmarkIcon('park'))->toBe('🌳')
+            ->and(CollectionPropertyPresenter::getLandmarkIcon('shopping_mall'))->toBe('🛒')
+            ->and(CollectionPropertyPresenter::getLandmarkIcon('hospital'))->toBe('🏥')
+            ->and(CollectionPropertyPresenter::getLandmarkIcon('metro'))->toBe('🚇')
+            ->and(CollectionPropertyPresenter::getLandmarkIcon('church'))->toBe('⛪');
     });
 
     it('returns default pin for unknown types', function () {
-        $property = Property::factory()->create();
-
-        $component = Livewire::test(Show::class, ['property' => $property]);
-        $instance = $component->instance();
-
-        expect($instance->getLandmarkIcon('unknown'))->toBe('📍')
-            ->and($instance->getLandmarkIcon('random'))->toBe('📍');
+        expect(CollectionPropertyPresenter::getLandmarkIcon('unknown'))->toBe('📍')
+            ->and(CollectionPropertyPresenter::getLandmarkIcon('random'))->toBe('📍');
     });
 });
 

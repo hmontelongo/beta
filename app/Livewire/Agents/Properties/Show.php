@@ -54,9 +54,7 @@ class Show extends Component
     #[Computed]
     public function primaryListing(): ?Listing
     {
-        return $this->property->listings
-            ->sortByDesc('scraped_at')
-            ->first();
+        return $this->property->primary_listing;
     }
 
     /**
@@ -67,22 +65,7 @@ class Show extends Component
     #[Computed]
     public function images(): array
     {
-        $listing = $this->primaryListing;
-
-        if (! $listing) {
-            return [];
-        }
-
-        return collect($listing->raw_data['images'] ?? [])
-            ->map(fn (array|string $img): string => is_array($img) ? $img['url'] : $img)
-            ->filter(fn (string $url): bool => ! str_contains($url, '.svg')
-                && ! str_contains($url, 'placeholder')
-                && ! str_contains($url, 'icon')
-                && preg_match('/\.(jpg|jpeg|png|webp)/i', $url)
-            )
-            ->take(30)
-            ->values()
-            ->toArray();
+        return array_slice($this->property->images, 0, 30);
     }
 
     /**
@@ -93,21 +76,7 @@ class Show extends Component
     #[Computed]
     public function primaryPrice(): ?array
     {
-        foreach ($this->property->listings as $listing) {
-            $operations = $listing->raw_data['operations'] ?? [];
-            foreach ($operations as $op) {
-                if (($op['price'] ?? 0) > 0) {
-                    return [
-                        'type' => $op['type'] ?? 'unknown',
-                        'price' => (float) $op['price'],
-                        'currency' => $op['currency'] ?? 'MXN',
-                        'maintenance_fee' => $op['maintenance_fee'] ?? null,
-                    ];
-                }
-            }
-        }
-
-        return null;
+        return $this->property->primary_price;
     }
 
     /**
@@ -116,11 +85,7 @@ class Show extends Component
     #[Computed]
     public function description(): ?string
     {
-        if ($this->property->description) {
-            return $this->property->description;
-        }
-
-        return $this->primaryListing?->raw_data['description'] ?? null;
+        return $this->property->description_text;
     }
 
     /**
@@ -184,49 +149,7 @@ class Show extends Component
     #[Computed]
     public function topAmenities(): array
     {
-        // Priority amenities that agents care about most
-        $priorityAmenities = [
-            'swimming_pool', 'pool', 'alberca',
-            '24_hour_security', 'security', 'seguridad',
-            'gated_community', 'coto_cerrado',
-            'covered_parking', 'parking', 'estacionamiento',
-            'gym', 'gimnasio',
-            'furnished', 'amueblado',
-            'pet_friendly', 'mascotas',
-            'elevator', 'elevador',
-            'roof_garden', 'terrace', 'terraza',
-        ];
-
-        $allAmenities = $this->amenities;
-        $top = [];
-
-        // First, try to get priority amenities
-        foreach ($allAmenities as $amenity) {
-            $normalized = strtolower(str_replace([' ', '-'], '_', $amenity));
-            foreach ($priorityAmenities as $priority) {
-                if (str_contains($normalized, $priority)) {
-                    $top[] = $amenity;
-                    break;
-                }
-            }
-            if (count($top) >= 4) {
-                break;
-            }
-        }
-
-        // Fill remaining slots if needed
-        if (count($top) < 4) {
-            foreach ($allAmenities as $amenity) {
-                if (! in_array($amenity, $top)) {
-                    $top[] = $amenity;
-                    if (count($top) >= 4) {
-                        break;
-                    }
-                }
-            }
-        }
-
-        return $top;
+        return $this->property->top_amenities;
     }
 
     /**
@@ -299,14 +222,7 @@ class Show extends Component
     #[Computed]
     public function pricePerM2(): ?float
     {
-        $price = $this->primaryPrice;
-        $size = $this->property->built_size_m2;
-
-        if (! $price || ! $size || $size <= 0) {
-            return null;
-        }
-
-        return round($price['price'] / $size, 0);
+        return $this->property->price_per_m2;
     }
 
     /**
@@ -325,85 +241,9 @@ class Show extends Component
         }
 
         return [
-            'text' => $this->primaryListing?->raw_data['description'] ?? null,
+            'text' => $this->property->primary_listing?->raw_data['description'] ?? null,
             'source' => 'raw',
         ];
-    }
-
-    /**
-     * Humanize amenity name for display.
-     */
-    public function humanizeAmenity(string $amenity): string
-    {
-        $key = 'amenities.'.strtolower($amenity);
-        $translation = __($key);
-
-        return $translation !== $key ? $translation : ucfirst(str_replace('_', ' ', $amenity));
-    }
-
-    /**
-     * Get emoji icon for a landmark type.
-     */
-    public function getLandmarkIcon(string $type): string
-    {
-        return match ($type) {
-            'university' => '🎓',
-            'school', 'education' => '🏫',
-            'park', 'recreation' => '🌳',
-            'shopping_mall', 'mall', 'shopping' => '🛒',
-            'stadium' => '🏟️',
-            'government' => '🏛️',
-            'hospital', 'health', 'clinic' => '🏥',
-            'metro', 'transport', 'bus' => '🚇',
-            'restaurant', 'food' => '🍽️',
-            'church', 'religious' => '⛪',
-            'bank' => '🏦',
-            'gym', 'fitness' => '💪',
-            default => '📍',
-        };
-    }
-
-    /**
-     * Format target audience array for display.
-     *
-     * @param  array<string>|string  $audience
-     */
-    public function formatTargetAudience(array|string $audience): string
-    {
-        if (is_string($audience)) {
-            $audience = [$audience];
-        }
-
-        return collect($audience)
-            ->map(function ($a) {
-                $key = "properties.target_audience.{$a}";
-                $translation = __($key);
-
-                return $translation !== $key ? $translation : ucfirst(str_replace('_', ' ', $a));
-            })
-            ->join(', ');
-    }
-
-    /**
-     * Format occupancy type for display.
-     */
-    public function formatOccupancyType(string $occupancyType): string
-    {
-        $key = "properties.occupancy_type.{$occupancyType}";
-        $translation = __($key);
-
-        return $translation !== $key ? $translation : ucfirst(str_replace('_', ' ', $occupancyType));
-    }
-
-    /**
-     * Format property condition for display.
-     */
-    public function formatPropertyCondition(string $condition): string
-    {
-        $key = "properties.property_condition.{$condition}";
-        $translation = __($key);
-
-        return $translation !== $key ? $translation : ucfirst(str_replace('_', ' ', $condition));
     }
 
     public function toggleCollection(): void

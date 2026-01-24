@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Laravel\Fortify\TwoFactorAuthenticatable;
 
@@ -28,6 +29,11 @@ class User extends Authenticatable
         'role',
         'phone',
         'whatsapp',
+        'avatar_path',
+        'business_name',
+        'tagline',
+        'brand_color',
+        'default_whatsapp_message',
     ];
 
     /**
@@ -104,5 +110,33 @@ class User extends Authenticatable
         $path = $this->isAdmin() ? '/platforms' : '/properties';
 
         return "{$scheme}://{$domain}{$path}";
+    }
+
+    /**
+     * Get the full URL for the user's avatar.
+     */
+    public function getAvatarUrlAttribute(): ?string
+    {
+        if (! $this->avatar_path) {
+            return null;
+        }
+
+        return Storage::disk('public')->url($this->avatar_path);
+    }
+
+    /**
+     * Check if the user has an avatar uploaded.
+     */
+    public function hasAvatar(): bool
+    {
+        return $this->avatar_path !== null;
+    }
+
+    /**
+     * Get the display name for branding (business name or personal name).
+     */
+    public function getDisplayNameAttribute(): string
+    {
+        return $this->business_name ?: $this->name;
     }
 }

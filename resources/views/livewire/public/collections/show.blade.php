@@ -1,250 +1,510 @@
-<div class="min-h-screen">
-    {{-- Agent Contact Bar (Sticky) --}}
-    <div class="sticky top-0 z-50 border-b border-zinc-200 bg-white/95 backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-900/95">
-        <div class="mx-auto max-w-screen-xl px-4 py-3 sm:px-6 lg:px-8">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                    <flux:avatar :name="$collection->user->name" size="sm" />
+@php
+    use App\Services\CollectionPropertyPresenter;
+    $agent = $collection->user;
+    $brandColor = $agent->brand_color ?? '#3b82f6';
+@endphp
+
+<div class="min-h-screen bg-zinc-50 dark:bg-zinc-950">
+    {{-- Agent Header with Brand Color Accent --}}
+    <header class="border-b-4 bg-white dark:bg-zinc-900" style="border-color: {{ $brandColor }}">
+        <div class="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+            <div class="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+                {{-- Agent Info --}}
+                <div class="flex items-center gap-4">
+                    @if($agent->avatar_url)
+                        <img
+                            src="{{ $agent->avatar_url }}"
+                            alt="{{ $agent->display_name }}"
+                            class="size-16 rounded-full object-cover ring-2 ring-zinc-200 dark:ring-zinc-700 sm:size-20"
+                        />
+                    @else
+                        <div
+                            class="flex size-16 items-center justify-center rounded-full text-2xl font-bold text-white sm:size-20 sm:text-3xl"
+                            style="background-color: {{ $brandColor }}"
+                        >
+                            {{ substr($agent->display_name, 0, 1) }}
+                        </div>
+                    @endif
+
                     <div>
-                        <p class="font-semibold text-zinc-900 dark:text-zinc-100">{{ $collection->user->name }}</p>
-                        <p class="text-xs text-zinc-500">Agente inmobiliario</p>
+                        <h2 class="text-xl font-bold text-zinc-900 dark:text-zinc-100 sm:text-2xl">
+                            {{ $agent->display_name }}
+                        </h2>
+                        @if($agent->tagline)
+                            <p class="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">
+                                {{ $agent->tagline }}
+                            </p>
+                        @endif
+                        <div class="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-sm text-zinc-600 dark:text-zinc-400">
+                            @if($agent->whatsapp)
+                                <span class="flex items-center gap-1">
+                                    <x-icons.whatsapp class="size-3.5 text-green-600" />
+                                    {{ $agent->whatsapp }}
+                                </span>
+                            @endif
+                            @if($agent->email)
+                                <span class="flex items-center gap-1">
+                                    <flux:icon name="envelope" class="size-3.5" />
+                                    {{ $agent->email }}
+                                </span>
+                            @endif
+                        </div>
                     </div>
                 </div>
-                {{-- Contact button: WhatsApp > Email > Fallback text --}}
-                @if($collection->user->whatsapp)
-                    @php
-                        $phone = preg_replace('/[^0-9]/', '', $collection->user->whatsapp);
-                        $message = "Hola! Vi la coleccion '{$collection->name}' y me gustaria mas informacion.";
-                        $whatsappUrl = "https://wa.me/{$phone}?text=" . urlencode($message);
-                    @endphp
-                    <a
-                        href="{{ $whatsappUrl }}"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        class="inline-flex items-center gap-2 rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-green-700"
-                    >
-                        <x-icons.whatsapp class="size-4" />
-                        Contactar
-                    </a>
-                @elseif($collection->user->email)
-                    <a
-                        href="mailto:{{ $collection->user->email }}?subject={{ urlencode('Consulta: ' . $collection->name) }}&body={{ urlencode("Hola! Vi la coleccion '{$collection->name}' y me gustaria mas informacion.") }}"
-                        class="inline-flex items-center gap-2 rounded-lg bg-zinc-800 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-zinc-900 dark:bg-zinc-700 dark:hover:bg-zinc-600"
-                    >
-                        <flux:icon name="envelope" class="size-4" />
-                        Enviar email
-                    </a>
-                @else
-                    <span class="text-sm text-zinc-500">
-                        Busca a {{ $collection->user->name }}
-                    </span>
-                @endif
             </div>
-        </div>
-    </div>
 
-    {{-- Collection Header --}}
-    <div class="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
-        <div class="mx-auto max-w-screen-xl px-4 py-8 sm:px-6 lg:px-8">
-            <div class="text-center">
-                <p class="mb-2 text-sm font-medium text-zinc-500">Coleccion de propiedades</p>
-                <h1 class="text-2xl font-bold text-zinc-900 dark:text-zinc-100 sm:text-3xl">
+            {{-- Collection Info --}}
+            <div class="mt-8">
+                <h1 class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 sm:text-4xl">
                     {{ $collection->name }}
                 </h1>
-                @if ($collection->description)
-                    <p class="mx-auto mt-3 max-w-2xl text-zinc-600 dark:text-zinc-400">
-                        {{ $collection->description }}
-                    </p>
-                @endif
-                <p class="mt-4 text-sm text-zinc-500">
-                    {{ $collection->properties->count() }} {{ $collection->properties->count() === 1 ? 'propiedad' : 'propiedades' }}
-                    &middot;
-                    Seleccionadas para ti
+                <p class="mt-2 text-zinc-600 dark:text-zinc-400">
+                    {{ $this->properties->count() }} {{ $this->properties->count() === 1 ? 'propiedad seleccionada' : 'propiedades seleccionadas' }}
+                    @if($collection->client)
+                        · Preparado para {{ $collection->client->name }}
+                    @endif
                 </p>
             </div>
         </div>
-    </div>
+    </header>
 
-    {{-- Properties Grid --}}
-    <div class="mx-auto max-w-screen-xl px-4 py-8 sm:px-6 lg:px-8">
-        @if ($collection->properties->isEmpty())
-            <div class="flex flex-col items-center justify-center py-16 text-center">
+    {{-- Properties --}}
+    <main class="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+        @if ($this->properties->isEmpty())
+            <div class="flex flex-col items-center justify-center rounded-xl bg-white py-16 text-center shadow-sm dark:bg-zinc-900">
                 <flux:icon name="folder-open" class="size-12 text-zinc-300 dark:text-zinc-600" />
                 <p class="mt-4 text-lg font-medium text-zinc-900 dark:text-zinc-100">Esta coleccion esta vacia</p>
                 <p class="mt-1 text-sm text-zinc-500">No hay propiedades en esta coleccion.</p>
             </div>
         @else
-            <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-                @foreach ($collection->properties as $property)
-                    <div class="group overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-sm transition-shadow hover:shadow-md dark:border-zinc-800 dark:bg-zinc-900">
-                        {{-- Property Image --}}
-                        @php
-                            $images = collect($property->listings->first()?->raw_data['images'] ?? [])
-                                ->map(fn ($img) => is_array($img) ? $img['url'] : $img)
-                                ->filter(fn ($url) => !str_contains($url, '.svg') && !str_contains($url, 'placeholder'))
-                                ->take(1);
-                            $image = $images->first();
-
-                            $price = null;
-                            $priceType = null;
-                            foreach ($property->listings as $listing) {
-                                $operations = $listing->raw_data['operations'] ?? [];
-                                foreach ($operations as $op) {
-                                    if (($op['price'] ?? 0) > 0) {
-                                        $price = $op['price'];
-                                        $priceType = $op['type'] ?? 'unknown';
-                                        break 2;
-                                    }
-                                }
-                            }
-                        @endphp
-
-                        <div class="relative aspect-[4/3] overflow-hidden bg-zinc-100 dark:bg-zinc-800">
-                            @if ($image)
-                                <img
-                                    src="{{ $image }}"
-                                    alt="{{ $property->address }}"
-                                    class="size-full object-cover transition-transform duration-300 group-hover:scale-105"
-                                    loading="lazy"
-                                />
-                            @else
-                                <div class="flex size-full items-center justify-center">
-                                    <flux:icon name="photo" class="size-12 text-zinc-300 dark:text-zinc-600" />
-                                </div>
+            <div class="space-y-12">
+                @foreach ($this->properties as $prop)
+                    <article class="overflow-hidden rounded-2xl bg-white shadow-sm dark:bg-zinc-900">
+                        {{-- Property Header with Reference --}}
+                        <div class="flex items-center justify-between border-b border-zinc-100 px-6 py-4 dark:border-zinc-800">
+                            <div>
+                                <h2 class="text-xl font-bold sm:text-2xl" style="color: {{ $brandColor }}">
+                                    Propiedad #{{ $prop['position'] }}
+                                </h2>
+                                <p class="text-xs text-zinc-400">ID: {{ $prop['id'] }}</p>
+                            </div>
+                            @if($prop['price'])
+                                <span
+                                    class="inline-flex items-center rounded-full px-4 py-1.5 text-sm font-semibold uppercase text-white"
+                                    style="background-color: {{ $prop['price']['type'] === 'sale' ? $brandColor : '#10b981' }}"
+                                >
+                                    {{ $prop['price']['type'] === 'sale' ? 'En Venta' : 'En Renta' }}
+                                </span>
                             @endif
+                        </div>
 
-                            {{-- Price Badge --}}
-                            @if ($price)
-                                <div class="absolute bottom-3 left-3 rounded-lg bg-white/95 px-3 py-1.5 shadow-sm backdrop-blur-sm dark:bg-zinc-900/95">
-                                    <span class="text-lg font-bold text-zinc-900 dark:text-zinc-100">
-                                        ${{ number_format($price) }}
-                                    </span>
-                                    @if ($priceType === 'rent')
-                                        <span class="text-sm text-zinc-500">/mes</span>
-                                    @endif
+                        {{-- Image Gallery --}}
+                        <div class="relative">
+                            @if(count($prop['images']) > 0)
+                                <div class="aspect-[16/10] w-full overflow-hidden bg-zinc-100 dark:bg-zinc-800 sm:aspect-[16/9]">
+                                    <img
+                                        src="{{ $prop['images'][0] }}"
+                                        alt="{{ $prop['colonia'] }}"
+                                        class="size-full object-cover"
+                                        loading="lazy"
+                                    />
+                                </div>
+                                @if(count($prop['images']) > 1)
+                                    <div class="grid grid-cols-3 gap-1 p-1 sm:gap-2 sm:p-2">
+                                        @foreach(array_slice($prop['images'], 1, 3) as $thumb)
+                                            <div class="aspect-[4/3] overflow-hidden rounded bg-zinc-100 dark:bg-zinc-800">
+                                                <img
+                                                    src="{{ $thumb }}"
+                                                    alt=""
+                                                    class="size-full object-cover"
+                                                    loading="lazy"
+                                                />
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                @endif
+                            @else
+                                <div class="flex aspect-[16/10] w-full items-center justify-center bg-zinc-100 dark:bg-zinc-800">
+                                    <flux:icon name="photo" class="size-16 text-zinc-300 dark:text-zinc-600" />
                                 </div>
                             @endif
                         </div>
 
-                        {{-- Property Details --}}
-                        <div class="p-4">
-                            {{-- Location --}}
-                            <div class="flex items-start gap-2">
-                                <flux:icon name="map-pin" class="mt-0.5 size-4 shrink-0 text-zinc-400" />
-                                <div class="min-w-0">
-                                    <p class="truncate font-medium text-zinc-900 dark:text-zinc-100">
-                                        {{ $property->colonia }}
+                        {{-- Property Content --}}
+                        <div class="p-6 sm:p-8">
+                            {{-- Price Section --}}
+                            <div class="flex flex-wrap items-start justify-between gap-4">
+                                <div>
+                                    <p class="text-3xl font-bold text-zinc-900 dark:text-zinc-100 sm:text-4xl">
+                                        @if($prop['price'])
+                                            ${{ number_format($prop['price']['price']) }}
+                                            <span class="text-lg font-normal text-zinc-500">{{ $prop['price']['currency'] }}{{ $prop['price']['type'] === 'rent' ? '/mes' : '' }}</span>
+                                        @else
+                                            Consultar precio
+                                        @endif
                                     </p>
-                                    @if ($property->city)
-                                        <p class="truncate text-sm text-zinc-500">{{ $property->city }}</p>
+                                    @if($prop['maintenanceFee'])
+                                        <p class="mt-1 text-sm text-zinc-500">
+                                            + ${{ number_format($prop['maintenanceFee']['amount']) }} mantenimiento/mes
+                                        </p>
                                     @endif
                                 </div>
-                            </div>
-
-                            {{-- Stats --}}
-                            <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm text-zinc-600 dark:text-zinc-400">
-                                @if ($property->bedrooms)
-                                    <span>{{ $property->bedrooms }} rec</span>
-                                @endif
-                                @if ($property->bathrooms)
-                                    <span>{{ $property->bathrooms }} banos</span>
-                                @endif
-                                @if ($property->built_size_m2)
-                                    <span>{{ number_format($property->built_size_m2) }} m²</span>
+                                @if($prop['pricePerM2'])
+                                    <div class="text-right">
+                                        <p class="text-xs text-zinc-500">Precio por m²</p>
+                                        <p class="text-lg font-semibold text-zinc-900 dark:text-zinc-100">${{ number_format($prop['pricePerM2']) }}</p>
+                                    </div>
                                 @endif
                             </div>
 
-                            {{-- Property Type + Interest Button --}}
-                            <div class="mt-3 flex items-center justify-between">
-                                @if ($property->property_type)
-                                    <span class="rounded-full bg-zinc-100 px-2.5 py-1 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300">
-                                        {{ $property->property_type->labelEs() }}
-                                    </span>
-                                @else
-                                    <span></span>
-                                @endif
+                            {{-- Property Type & Condition --}}
+                            <div class="mt-3">
+                                <p class="text-lg font-medium text-zinc-700 dark:text-zinc-300">
+                                    {{ CollectionPropertyPresenter::getPropertyTypeLabel($prop['propertyType']) }}
+                                    @if($prop['ageYears'])
+                                        · {{ $prop['ageYears'] }} {{ $prop['ageYears'] === 1 ? 'año' : 'años' }}
+                                    @endif
+                                    @if($prop['propertyInsights'] && !empty($prop['propertyInsights']['property_condition']))
+                                        · {{ CollectionPropertyPresenter::getConditionLabel($prop['propertyInsights']['property_condition']) }}
+                                    @endif
+                                </p>
+                            </div>
 
-                                {{-- "Me interesa" button --}}
-                                @if($collection->user->whatsapp)
-                                    @php
-                                        $propertyPhone = preg_replace('/[^0-9]/', '', $collection->user->whatsapp);
-                                        $propertyMessage = "Hola! Me interesa la propiedad en {$property->colonia}" .
-                                            ($price ? " de $" . number_format($price) . ($priceType === 'rent' ? '/mes' : '') : '') .
-                                            " de la coleccion '{$collection->name}'.";
-                                        $propertyWhatsappUrl = "https://wa.me/{$propertyPhone}?text=" . urlencode($propertyMessage);
-                                    @endphp
+                            {{-- Location Section --}}
+                            <div class="mt-4 rounded-lg bg-zinc-50 p-4 dark:bg-zinc-800">
+                                <h3 class="mb-2 flex items-center gap-2 text-sm font-semibold uppercase tracking-wide text-zinc-700 dark:text-zinc-300">
+                                    <flux:icon name="map-pin" class="size-4" />
+                                    Ubicacion
+                                </h3>
+                                <p class="text-zinc-600 dark:text-zinc-400">
+                                    {{ $prop['fullAddress'] ?: ($prop['colonia'] . ($prop['city'] ? ', ' . $prop['city'] : '') . ($prop['state'] ? ', ' . $prop['state'] : '')) }}
+                                </p>
+                                @if($prop['latitude'] && $prop['longitude'])
                                     <a
-                                        href="{{ $propertyWhatsappUrl }}"
+                                        href="https://www.google.com/maps?q={{ $prop['latitude'] }},{{ $prop['longitude'] }}"
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        class="inline-flex items-center gap-1.5 rounded-lg bg-green-600 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-green-700"
+                                        class="mt-2 inline-flex items-center gap-1 text-sm hover:underline"
+                                        style="color: {{ $brandColor }}"
                                     >
-                                        <svg class="size-3.5" fill="currentColor" viewBox="0 0 24 24">
-                                            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-                                        </svg>
-                                        Me interesa
-                                    </a>
-                                @elseif($collection->user->email)
-                                    @php
-                                        $propertySubject = "Me interesa: {$property->colonia}";
-                                        $propertyBody = "Hola! Me interesa la propiedad en {$property->colonia}" .
-                                            ($price ? " de $" . number_format($price) . ($priceType === 'rent' ? '/mes' : '') : '') .
-                                            " de la coleccion '{$collection->name}'.";
-                                    @endphp
-                                    <a
-                                        href="mailto:{{ $collection->user->email }}?subject={{ urlencode($propertySubject) }}&body={{ urlencode($propertyBody) }}"
-                                        class="inline-flex items-center gap-1.5 rounded-lg bg-zinc-700 px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-zinc-800 dark:bg-zinc-600 dark:hover:bg-zinc-500"
-                                    >
-                                        <flux:icon name="envelope" class="size-3.5" />
-                                        Me interesa
+                                        <flux:icon name="arrow-top-right-on-square" class="size-3.5" />
+                                        Ver en Google Maps
                                     </a>
                                 @endif
                             </div>
+
+                            {{-- Specs Grid --}}
+                            <div class="mt-6 grid grid-cols-2 gap-4 border-y border-zinc-200 py-6 dark:border-zinc-700 sm:grid-cols-6">
+                                @if($prop['bedrooms'])
+                                    <div class="text-center">
+                                        <p class="text-2xl font-bold text-zinc-900 dark:text-zinc-100">{{ $prop['bedrooms'] }}</p>
+                                        <p class="text-xs text-zinc-500">Recamaras</p>
+                                    </div>
+                                @endif
+                                @if($prop['bathrooms'])
+                                    <div class="text-center">
+                                        <p class="text-2xl font-bold text-zinc-900 dark:text-zinc-100">{{ $prop['bathrooms'] }}</p>
+                                        <p class="text-xs text-zinc-500">Banos</p>
+                                    </div>
+                                @endif
+                                @if($prop['halfBathrooms'])
+                                    <div class="text-center">
+                                        <p class="text-2xl font-bold text-zinc-900 dark:text-zinc-100">{{ $prop['halfBathrooms'] }}</p>
+                                        <p class="text-xs text-zinc-500">Medio bano</p>
+                                    </div>
+                                @endif
+                                @if($prop['parkingSpaces'])
+                                    <div class="text-center">
+                                        <p class="text-2xl font-bold text-zinc-900 dark:text-zinc-100">{{ $prop['parkingSpaces'] }}</p>
+                                        <p class="text-xs text-zinc-500">Estacionamientos</p>
+                                    </div>
+                                @endif
+                                @if($prop['builtSizeM2'])
+                                    <div class="text-center">
+                                        <p class="text-2xl font-bold text-zinc-900 dark:text-zinc-100">{{ number_format($prop['builtSizeM2']) }}</p>
+                                        <p class="text-xs text-zinc-500">m² Construidos</p>
+                                    </div>
+                                @endif
+                                @if($prop['lotSizeM2'])
+                                    <div class="text-center">
+                                        <p class="text-2xl font-bold text-zinc-900 dark:text-zinc-100">{{ number_format($prop['lotSizeM2']) }}</p>
+                                        <p class="text-xs text-zinc-500">m² Terreno</p>
+                                    </div>
+                                @endif
+                            </div>
+
+                            {{-- Ideal For / Target Audience --}}
+                            @if($prop['propertyInsights'] && !empty($prop['propertyInsights']['target_audience']))
+                                <div class="mt-6">
+                                    <h3 class="mb-2 text-sm font-semibold uppercase tracking-wide text-zinc-700 dark:text-zinc-300">
+                                        Ideal para
+                                    </h3>
+                                    <div class="flex flex-wrap gap-2">
+                                        @foreach($prop['propertyInsights']['target_audience'] as $audience)
+                                            <span
+                                                class="inline-flex items-center rounded-full px-3 py-1 text-sm font-medium"
+                                                style="background-color: {{ $brandColor }}20; color: {{ $brandColor }}"
+                                            >
+                                                {{ CollectionPropertyPresenter::getTargetAudienceLabel($audience) }}
+                                            </span>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            @endif
+
+                            {{-- Full Description --}}
+                            @if($prop['description'])
+                                <div class="mt-6">
+                                    <h3 class="mb-2 text-sm font-semibold uppercase tracking-wide text-zinc-700 dark:text-zinc-300">
+                                        Descripcion
+                                    </h3>
+                                    <div class="text-sm text-zinc-600 dark:text-zinc-400 [&>h3]:mt-4 [&>h3]:mb-2 [&>h3]:text-sm [&>h3]:font-semibold [&>h3]:text-zinc-700 [&>h3]:dark:text-zinc-300 [&>h3:first-child]:mt-0 [&>p]:mb-3 [&>p]:leading-relaxed [&>ul]:my-2 [&>ul]:list-disc [&>ul]:pl-5 [&>ol]:my-2 [&>ol]:list-decimal [&>ol]:pl-5 [&>li]:mb-1">
+                                        {!! $prop['description'] !!}
+                                    </div>
+                                </div>
+                            @endif
+
+                            {{-- Building Info / Nearby Places --}}
+                            @if($prop['buildingInfo'] && (!empty($prop['buildingInfo']['building_name']) || !empty($prop['buildingInfo']['nearby']) || !empty($prop['buildingInfo']['building_type'])))
+                                <div class="mt-6">
+                                    <h3 class="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-700 dark:text-zinc-300">
+                                        Edificio y Alrededores
+                                    </h3>
+                                    <div class="rounded-lg bg-zinc-50 p-4 dark:bg-zinc-800">
+                                        @if(!empty($prop['buildingInfo']['building_name']))
+                                            <p class="font-semibold text-zinc-900 dark:text-zinc-100">
+                                                {{ $prop['buildingInfo']['building_name'] }}
+                                                @if(!empty($prop['buildingInfo']['building_type']))
+                                                    <span class="font-normal text-zinc-500">
+                                                        · {{ CollectionPropertyPresenter::getBuildingTypeLabel($prop['buildingInfo']['building_type']) }}
+                                                    </span>
+                                                @endif
+                                            </p>
+                                        @endif
+                                        @if(!empty($prop['buildingInfo']['nearby']))
+                                            <div class="mt-3 space-y-2">
+                                                <p class="text-xs font-medium text-zinc-500">Lugares cercanos:</p>
+                                                <div class="grid gap-2 sm:grid-cols-2">
+                                                    @foreach($prop['buildingInfo']['nearby'] as $landmark)
+                                                        <div class="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
+                                                            <span class="text-base">{{ CollectionPropertyPresenter::getLandmarkIcon($landmark['type'] ?? '') }}</span>
+                                                            <span>{{ $landmark['name'] ?? '' }}</span>
+                                                            @if(!empty($landmark['distance']))
+                                                                <span class="text-zinc-400">· {{ $landmark['distance'] }}</span>
+                                                            @endif
+                                                        </div>
+                                                    @endforeach
+                                                </div>
+                                            </div>
+                                        @endif
+                                    </div>
+                                </div>
+                            @endif
+
+                            {{-- All Amenities --}}
+                            @if($prop['categorizedAmenities'] || count($prop['flatAmenities']) > 0)
+                                <div class="mt-6">
+                                    <h3 class="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-700 dark:text-zinc-300">Amenidades</h3>
+                                    @if($prop['categorizedAmenities'])
+                                        <div class="grid gap-6 sm:grid-cols-2">
+                                            @if(!empty($prop['categorizedAmenities']['in_unit'] ?? $prop['categorizedAmenities']['unit'] ?? []))
+                                                <div>
+                                                    <p class="mb-2 text-xs font-medium text-zinc-500">En la unidad</p>
+                                                    <div class="space-y-1">
+                                                        @foreach($prop['categorizedAmenities']['in_unit'] ?? $prop['categorizedAmenities']['unit'] ?? [] as $amenity)
+                                                            <p class="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
+                                                                <span style="color: {{ $brandColor }}">✓</span>
+                                                                {{ CollectionPropertyPresenter::humanizeAmenity($amenity) }}
+                                                            </p>
+                                                        @endforeach
+                                                    </div>
+                                                </div>
+                                            @endif
+                                            @if(!empty($prop['categorizedAmenities']['building'] ?? []))
+                                                <div>
+                                                    <p class="mb-2 text-xs font-medium text-zinc-500">Del edificio</p>
+                                                    <div class="space-y-1">
+                                                        @foreach($prop['categorizedAmenities']['building'] as $amenity)
+                                                            <p class="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
+                                                                <span style="color: {{ $brandColor }}">✓</span>
+                                                                {{ CollectionPropertyPresenter::humanizeAmenity($amenity) }}
+                                                            </p>
+                                                        @endforeach
+                                                    </div>
+                                                </div>
+                                            @endif
+                                            @if(!empty($prop['categorizedAmenities']['services'] ?? []))
+                                                <div>
+                                                    <p class="mb-2 text-xs font-medium text-zinc-500">Servicios incluidos</p>
+                                                    <div class="space-y-1">
+                                                        @foreach($prop['categorizedAmenities']['services'] as $service)
+                                                            <p class="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
+                                                                <span style="color: {{ $brandColor }}">✓</span>
+                                                                {{ CollectionPropertyPresenter::humanizeAmenity($service) }}
+                                                            </p>
+                                                        @endforeach
+                                                    </div>
+                                                </div>
+                                            @endif
+                                        </div>
+                                    @else
+                                        <div class="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                                            @foreach($prop['flatAmenities'] as $amenity)
+                                                <p class="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
+                                                    <span style="color: {{ $brandColor }}">✓</span>
+                                                    {{ CollectionPropertyPresenter::humanizeAmenity($amenity) }}
+                                                </p>
+                                            @endforeach
+                                        </div>
+                                    @endif
+                                </div>
+                            @endif
+
+                            {{-- Pricing Details (included services, extra costs) --}}
+                            @if($prop['pricingDetails'] && (!empty($prop['pricingDetails']['included_services']) || !empty($prop['pricingDetails']['extra_costs'])))
+                                <div class="mt-6">
+                                    <h3 class="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-700 dark:text-zinc-300">Detalles de Precio</h3>
+                                    <div class="rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">
+                                        @if(!empty($prop['pricingDetails']['included_services']))
+                                            <div class="mb-3">
+                                                <p class="mb-2 text-xs font-medium text-green-600">Incluido en el precio:</p>
+                                                <div class="space-y-1">
+                                                    @foreach($prop['pricingDetails']['included_services'] as $service)
+                                                        <p class="text-sm text-zinc-600 dark:text-zinc-400">
+                                                            <span class="text-green-600">✓</span>
+                                                            {{ $service['details'] ?? ucfirst($service['service'] ?? '') }}
+                                                        </p>
+                                                    @endforeach
+                                                </div>
+                                            </div>
+                                        @endif
+                                        @if(!empty($prop['pricingDetails']['extra_costs']))
+                                            <div>
+                                                <p class="mb-2 text-xs font-medium text-amber-600">Costos adicionales:</p>
+                                                <div class="space-y-1">
+                                                    @foreach($prop['pricingDetails']['extra_costs'] as $cost)
+                                                        <p class="text-sm text-zinc-600 dark:text-zinc-400">
+                                                            {{ ucfirst($cost['item'] ?? '') }}:
+                                                            ${{ number_format($cost['price'] ?? 0) }}
+                                                            @if(!empty($cost['period']))
+                                                                /{{ $cost['period'] === 'monthly' ? 'mes' : $cost['period'] }}
+                                                            @endif
+                                                            @if(!empty($cost['note']))
+                                                                <span class="text-zinc-400">({{ $cost['note'] }})</span>
+                                                            @endif
+                                                        </p>
+                                                    @endforeach
+                                                </div>
+                                            </div>
+                                        @endif
+                                    </div>
+                                </div>
+                            @endif
+
+                            {{-- Rental Terms (for rentals) --}}
+                            @if($prop['price'] && $prop['price']['type'] === 'rent' && $prop['rentalTerms'])
+                                @php $terms = $prop['rentalTerms']; @endphp
+                                @if(!empty($terms['deposit_months']) || !empty($terms['advance_months']) || isset($terms['pets_allowed']) || isset($terms['guarantor_required']) || !empty($terms['income_proof_months']) || !empty($terms['restrictions']))
+                                    <div class="mt-6">
+                                        <h3 class="mb-3 text-sm font-semibold uppercase tracking-wide text-amber-700 dark:text-amber-400">Requisitos de Renta</h3>
+                                        <div class="rounded-lg bg-amber-50 p-4 dark:bg-amber-900/20">
+                                            <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                                                @if(!empty($terms['deposit_months']))
+                                                    <div class="text-center">
+                                                        <p class="text-xl font-bold text-amber-700 dark:text-amber-400">{{ $terms['deposit_months'] }}</p>
+                                                        <p class="text-xs text-amber-600 dark:text-amber-500">Deposito (meses)</p>
+                                                    </div>
+                                                @endif
+                                                @if(!empty($terms['advance_months']))
+                                                    <div class="text-center">
+                                                        <p class="text-xl font-bold text-amber-700 dark:text-amber-400">{{ $terms['advance_months'] }}</p>
+                                                        <p class="text-xs text-amber-600 dark:text-amber-500">Adelanto (meses)</p>
+                                                    </div>
+                                                @endif
+                                                @if(!empty($terms['income_proof_months']))
+                                                    <div class="text-center">
+                                                        <p class="text-xl font-bold text-amber-700 dark:text-amber-400">{{ $terms['income_proof_months'] }}</p>
+                                                        <p class="text-xs text-amber-600 dark:text-amber-500">Comprobante ingresos</p>
+                                                    </div>
+                                                @endif
+                                                @if(isset($terms['pets_allowed']))
+                                                    <div class="text-center">
+                                                        <p class="text-xl font-bold text-amber-700 dark:text-amber-400">{{ $terms['pets_allowed'] ? '✓ Si' : '✗ No' }}</p>
+                                                        <p class="text-xs text-amber-600 dark:text-amber-500">Mascotas</p>
+                                                    </div>
+                                                @endif
+                                                @if(isset($terms['guarantor_required']))
+                                                    <div class="text-center">
+                                                        <p class="text-xl font-bold text-amber-700 dark:text-amber-400">{{ $terms['guarantor_required'] ? 'Si' : 'No' }}</p>
+                                                        <p class="text-xs text-amber-600 dark:text-amber-500">Aval requerido</p>
+                                                    </div>
+                                                @endif
+                                            </div>
+                                            @if(!empty($terms['restrictions']))
+                                                <div class="mt-4 border-t border-amber-200 pt-3 dark:border-amber-800">
+                                                    <p class="text-xs font-medium text-amber-600 dark:text-amber-500">Restricciones:</p>
+                                                    <ul class="mt-1 list-disc pl-4 text-sm text-amber-700 dark:text-amber-400">
+                                                        @foreach($terms['restrictions'] as $restriction)
+                                                            <li>{{ $restriction }}</li>
+                                                        @endforeach
+                                                    </ul>
+                                                </div>
+                                            @endif
+                                        </div>
+                                    </div>
+                                @endif
+                            @endif
+
+                            {{-- Sale Requirements (for sales) --}}
+                            @if($prop['price'] && $prop['price']['type'] === 'sale' && $prop['rentalTerms'])
+                                @php $terms = $prop['rentalTerms']; @endphp
+                                @if(!empty($terms['legal_policy']) || !empty($terms['restrictions']))
+                                    <div class="mt-6">
+                                        <h3 class="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-700 dark:text-zinc-300">Informacion Adicional de Venta</h3>
+                                        <div class="rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">
+                                            @if(!empty($terms['legal_policy']))
+                                                <p class="text-sm text-zinc-600 dark:text-zinc-400">{{ $terms['legal_policy'] }}</p>
+                                            @endif
+                                            @if(!empty($terms['restrictions']))
+                                                <div class="mt-2">
+                                                    <p class="text-xs font-medium text-zinc-500">Notas:</p>
+                                                    <ul class="mt-1 list-disc pl-4 text-sm text-zinc-600 dark:text-zinc-400">
+                                                        @foreach($terms['restrictions'] as $restriction)
+                                                            <li>{{ $restriction }}</li>
+                                                        @endforeach
+                                                    </ul>
+                                                </div>
+                                            @endif
+                                        </div>
+                                    </div>
+                                @endif
+                            @endif
                         </div>
-                    </div>
+                    </article>
                 @endforeach
             </div>
         @endif
-    </div>
+    </main>
 
-    {{-- Footer CTA --}}
-    <div class="border-t border-zinc-200 bg-zinc-50 py-12 text-center dark:border-zinc-800 dark:bg-zinc-900">
-        <p class="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
-            ¿Te interesa alguna propiedad?
-        </p>
-        <p class="mt-1 text-sm text-zinc-500">
-            Contacta a {{ $collection->user->name }} para mas informacion
-        </p>
-        {{-- Contact button: WhatsApp > Email > Fallback --}}
-        @if($collection->user->whatsapp)
-            @php
-                $phone = preg_replace('/[^0-9]/', '', $collection->user->whatsapp);
-                $message = "Hola! Vi la coleccion '{$collection->name}' y me gustaria mas informacion.";
-                $whatsappUrl = "https://wa.me/{$phone}?text=" . urlencode($message);
-            @endphp
-            <a
-                href="{{ $whatsappUrl }}"
-                target="_blank"
-                rel="noopener noreferrer"
-                class="mt-4 inline-flex items-center gap-2 rounded-lg bg-green-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-green-700"
-            >
-                <svg class="size-5" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-                </svg>
-                Enviar WhatsApp
-            </a>
-        @elseif($collection->user->email)
-            <a
-                href="mailto:{{ $collection->user->email }}?subject={{ urlencode('Consulta: ' . $collection->name) }}&body={{ urlencode("Hola! Vi la coleccion '{$collection->name}' y me gustaria mas informacion.") }}"
-                class="mt-4 inline-flex items-center gap-2 rounded-lg bg-zinc-800 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-zinc-900 dark:bg-zinc-700 dark:hover:bg-zinc-600"
-            >
-                <flux:icon name="envelope" class="size-5" />
-                Enviar email
-            </a>
-        @else
-            <p class="mt-4 text-sm text-zinc-400">
-                Busca a {{ $collection->user->name }} en redes sociales
-            </p>
-        @endif
-    </div>
+    {{-- Footer --}}
+    <footer class="border-t border-zinc-200 bg-white py-8 dark:border-zinc-800 dark:bg-zinc-900">
+        <div class="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-col items-center justify-between gap-4 text-center sm:flex-row sm:text-left">
+                <div class="text-sm text-zinc-600 dark:text-zinc-400">
+                    <span class="font-medium text-zinc-900 dark:text-zinc-100">{{ $agent->display_name }}</span>
+                    @if($agent->whatsapp)
+                        <span class="mx-2">·</span>
+                        <span>{{ $agent->whatsapp }}</span>
+                    @endif
+                    @if($agent->email)
+                        <span class="mx-2">·</span>
+                        <span>{{ $agent->email }}</span>
+                    @endif
+                </div>
+                <p class="text-xs text-zinc-400">
+                    Generado el {{ now()->format('d/m/Y') }}
+                </p>
+            </div>
+        </div>
+    </footer>
 </div>
