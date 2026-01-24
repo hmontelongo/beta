@@ -3,7 +3,27 @@
     <head>
         @include('partials.head')
     </head>
-    <body class="min-h-screen bg-zinc-50 antialiased dark:bg-zinc-950">
+    <body
+        class="min-h-screen bg-zinc-50 antialiased dark:bg-zinc-950"
+        x-data="{
+            copyToClipboard(text) {
+                if (navigator.clipboard && window.isSecureContext) {
+                    navigator.clipboard.writeText(text);
+                } else {
+                    const textarea = document.createElement('textarea');
+                    textarea.value = text;
+                    textarea.style.position = 'fixed';
+                    textarea.style.left = '-9999px';
+                    document.body.appendChild(textarea);
+                    textarea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textarea);
+                }
+            }
+        }"
+        @copy-to-clipboard.window="copyToClipboard($event.detail.text)"
+        @open-url.window="window.open($event.detail.url, '_blank')"
+    >
         {{-- Minimal Header --}}
         <header class="sticky top-0 z-50 border-b border-zinc-200/80 bg-white/95 backdrop-blur-sm supports-[backdrop-filter]:bg-white/80 dark:border-zinc-800 dark:bg-zinc-900/95 dark:supports-[backdrop-filter]:bg-zinc-900/80">
             <div class="mx-auto flex h-14 max-w-screen-2xl items-center justify-between px-4 sm:px-6 lg:px-8">

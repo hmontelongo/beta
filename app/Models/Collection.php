@@ -6,6 +6,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
 class Collection extends Model
@@ -78,27 +80,42 @@ class Collection extends Model
     }
 
     /**
+     * @return HasMany<CollectionView>
+     */
+    public function views(): HasMany
+    {
+        return $this->hasMany(CollectionView::class);
+    }
+
+    /**
+     * Get total view count for this collection.
+     */
+    public function getViewCountAttribute(): int
+    {
+        return $this->views_count ?? $this->views()->count();
+    }
+
+    /**
+     * Get when this collection was last viewed.
+     * Use withMax('views', 'viewed_at') when eager loading to avoid N+1.
+     */
+    public function getLastViewedAtAttribute(): ?Carbon
+    {
+        // Use eager loaded aggregate if available
+        if (array_key_exists('views_max_viewed_at', $this->attributes)) {
+            return $this->attributes['views_max_viewed_at'] ? Carbon::parse($this->attributes['views_max_viewed_at']) : null;
+        }
+
+        return $this->views()->latest('viewed_at')->value('viewed_at');
+    }
+
+    /**
      * Get the derived status of the collection.
+     * Simplified to 2 states: active (not yet shared) or shared.
      */
     public function getStatusAttribute(): string
     {
-        if ($this->isDraft()) {
-            return 'draft';
-        }
-
-        if ($this->shared_at) {
-            return 'shared';
-        }
-
-        // Use properties_count if available (from withCount), otherwise check relation or query
-        $propertyCount = $this->properties_count
-            ?? ($this->relationLoaded('properties') ? $this->properties->count() : $this->properties()->count());
-
-        if ($this->is_public && $propertyCount > 0) {
-            return 'ready';
-        }
-
-        return 'active';
+        return $this->shared_at ? 'shared' : 'active';
     }
 
     /**
@@ -106,41 +123,29 @@ class Collection extends Model
      */
     public function getStatusLabelAttribute(): string
     {
-        return match ($this->status) {
-            'draft' => 'Borrador',
-            'active' => 'En proceso',
-            'ready' => 'Lista',
-            'shared' => 'Compartida',
-            default => 'Desconocido',
-        };
+        return $this->shared_at ? 'Compartida' : 'En proceso';
     }
 
     /**
-     * Get the CSS classes for status badge styling.
+     * Get the Flux badge color for status.
      */
     public function getStatusColorAttribute(): string
     {
-        return match ($this->status) {
-            'draft' => 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400',
-            'active' => 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-            'ready' => 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-            'shared' => 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
-            default => 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400',
-        };
+        return $this->shared_at ? 'green' : 'blue';
     }
 
     /**
-     * Get the tooltip text for the status badge.
+     * Mark collection as shared. Sets shared_at and is_public, then refreshes model.
      */
-    public function getStatusTooltipAttribute(): string
+    public function markAsShared(): void
     {
-        return match ($this->status) {
-            'draft' => 'Coleccion sin nombre',
-            'active' => 'Agregando propiedades',
-            'ready' => 'Lista para compartir',
-            'shared' => 'Enviada al cliente',
-            default => '',
-        };
+        if (! $this->shared_at) {
+            $this->update([
+                'shared_at' => now(),
+                'is_public' => true,
+            ]);
+            $this->refresh();
+        }
     }
 
     /**

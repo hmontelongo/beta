@@ -75,16 +75,6 @@ class Index extends Component
 
     public bool $showCollectionPanel = false;
 
-    /** Show quick share modal */
-    public bool $showShareModal = false;
-
-    /** Collection name for quick share */
-    #[Validate('required|string|max:255')]
-    public string $shareName = '';
-
-    /** Show save modal */
-    public bool $showSaveModal = false;
-
     /** Collection name for save */
     #[Validate('required|string|max:255')]
     public string $saveName = '';
@@ -297,30 +287,101 @@ class Index extends Component
     }
 
     /**
-     * Open the save modal.
+     * Pre-fill the save name when opening the collection panel.
      */
-    public function openSaveModal(): void
+    public function updatedShowCollectionPanel(bool $value): void
+    {
+        if ($value) {
+            $collection = $this->activeCollection;
+            if ($collection) {
+                $this->saveName = $collection->isDraft() ? $this->suggestedName : $collection->name;
+            }
+        }
+    }
+
+    /**
+     * Save collection name (inline edit).
+     */
+    public function saveCollectionName(): void
+    {
+        if (trim($this->saveName) === '') {
+            return;
+        }
+
+        $collection = $this->activeCollection;
+
+        if (! $collection) {
+            return;
+        }
+
+        $collection->update([
+            'name' => $this->saveName,
+        ]);
+
+        $this->clearCollectionCaches();
+
+        Flux::toast(
+            text: 'Nombre guardado',
+            variant: 'success',
+        );
+    }
+
+    /**
+     * Share collection via WhatsApp.
+     */
+    public function shareViaWhatsApp(): void
     {
         $collection = $this->activeCollection;
 
         if (! $collection || $collection->properties()->count() === 0) {
-            Flux::toast(
-                heading: 'Sin propiedades',
-                text: 'Agrega propiedades a la coleccion primero',
-                variant: 'warning',
-            );
-
             return;
         }
 
-        // Pre-fill with existing name or suggested name
-        $this->saveName = $collection->isDraft() ? $this->suggestedName : $collection->name;
-        $this->showSaveModal = true;
+        $this->saveNameIfChanged($collection);
+        $collection->markAsShared();
+
+        $this->dispatch('open-url', url: $collection->getWhatsAppShareUrl());
+
+        $this->showWhatsAppTipIfNeeded();
     }
 
     /**
-     * Save collection with the provided name.
-     * Stays on the search page so agent can continue adding properties.
+     * Copy collection share link.
+     */
+    public function copyShareLink(): void
+    {
+        $collection = $this->activeCollection;
+
+        if (! $collection || $collection->properties()->count() === 0) {
+            return;
+        }
+
+        $this->saveNameIfChanged($collection);
+        $collection->markAsShared();
+
+        $this->dispatch('copy-to-clipboard', text: $collection->getShareUrl());
+
+        Flux::toast(
+            heading: 'Link copiado',
+            text: 'El link ha sido copiado al portapapeles',
+            variant: 'success',
+        );
+
+        $this->showWhatsAppTipIfNeeded();
+    }
+
+    /**
+     * Save the collection name if it has been changed.
+     */
+    private function saveNameIfChanged(Collection $collection): void
+    {
+        if (trim($this->saveName) !== '' && $this->saveName !== $collection->name) {
+            $collection->update(['name' => $this->saveName]);
+        }
+    }
+
+    /**
+     * Save collection and redirect to detail page (legacy for tests).
      */
     public function saveCollection(): void
     {
@@ -336,10 +397,7 @@ class Index extends Component
             'name' => $this->saveName,
         ]);
 
-        $this->showSaveModal = false;
-
-        // Clear caches so UI reflects the new name
-        $this->clearCollectionCaches();
+        $this->showCollectionPanel = false;
 
         Flux::toast(
             heading: 'Coleccion guardada',
@@ -347,85 +405,7 @@ class Index extends Component
             variant: 'success',
         );
 
-        // Stay on page - agent can continue adding properties
-    }
-
-    /**
-     * Open the quick share modal.
-     */
-    public function openShareModal(): void
-    {
-        $collection = $this->activeCollection;
-
-        if (! $collection || $collection->properties()->count() === 0) {
-            Flux::toast(
-                heading: 'Sin propiedades',
-                text: 'Agrega propiedades a la coleccion primero',
-                variant: 'warning',
-            );
-
-            return;
-        }
-
-        // Pre-fill name if collection already has one, or use suggested
-        $this->shareName = $collection->isDraft() ? $this->suggestedName : $collection->name;
-        $this->showShareModal = true;
-    }
-
-    /**
-     * Quick share via WhatsApp from the modal.
-     */
-    public function quickShareWhatsApp(): void
-    {
-        $this->validateOnly('shareName');
-
-        $collection = $this->activeCollection;
-
-        if (! $collection) {
-            return;
-        }
-
-        // Save the name and make public
-        $collection->update([
-            'name' => $this->shareName,
-            'is_public' => true,
-        ]);
-
-        $this->showShareModal = false;
-        $this->dispatch('open-url', url: $collection->getWhatsAppShareUrl());
-
-        $this->showWhatsAppTipIfNeeded();
-    }
-
-    /**
-     * Quick share by copying link from the modal.
-     */
-    public function quickShareCopyLink(): void
-    {
-        $this->validateOnly('shareName');
-
-        $collection = $this->activeCollection;
-
-        if (! $collection) {
-            return;
-        }
-
-        // Save the name and make public
-        $collection->update([
-            'name' => $this->shareName,
-            'is_public' => true,
-        ]);
-
-        $this->showShareModal = false;
-        $this->dispatch('copy-to-clipboard', text: $collection->getShareUrl());
-
-        Flux::toast(
-            heading: 'Link copiado',
-            text: 'El link ha sido copiado al portapapeles',
-            variant: 'success',
-        );
-
-        $this->showWhatsAppTipIfNeeded();
+        $this->redirectRoute('agents.collections.show', $collection, navigate: true);
     }
 
     public function isInCollection(int $propertyId): bool

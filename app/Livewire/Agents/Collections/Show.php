@@ -5,13 +5,16 @@ namespace App\Livewire\Agents\Collections;
 use App\Livewire\Concerns\ShowsWhatsAppTip;
 use App\Models\Client;
 use App\Models\Collection;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Flux\Flux;
 use Illuminate\Support\Collection as SupportCollection;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 #[Layout('components.layouts.agent')]
 #[Title('Detalle de Coleccion')]
@@ -25,8 +28,6 @@ class Show extends Component
     public string $name = '';
 
     public ?int $clientId = null;
-
-    public bool $isPublic = true;
 
     // New client modal
     public bool $showNewClientModal = false;
@@ -46,7 +47,6 @@ class Show extends Component
         $this->collection = $collection->load(['properties.listings', 'client']);
         $this->name = $collection->name;
         $this->clientId = $collection->client_id;
-        $this->isPublic = $collection->is_public;
     }
 
     /**
@@ -81,16 +81,6 @@ class Show extends Component
 
         Flux::toast(
             text: 'Cliente actualizado',
-            variant: 'success',
-        );
-    }
-
-    public function updatedIsPublic(): void
-    {
-        $this->collection->update(['is_public' => $this->isPublic]);
-
-        Flux::toast(
-            text: $this->isPublic ? 'Coleccion publica' : 'Coleccion privada',
             variant: 'success',
         );
     }
@@ -160,11 +150,7 @@ class Show extends Component
 
     public function shareViaWhatsApp(): void
     {
-        $this->collection->update([
-            'is_public' => true,
-            'shared_at' => now(),
-        ]);
-        $this->isPublic = true;
+        $this->collection->markAsShared();
 
         $this->dispatch('open-url', url: $this->collection->getWhatsAppShareUrl());
 
@@ -173,11 +159,7 @@ class Show extends Component
 
     public function copyShareLink(): void
     {
-        $this->collection->update([
-            'is_public' => true,
-            'shared_at' => now(),
-        ]);
-        $this->isPublic = true;
+        $this->collection->markAsShared();
 
         $this->dispatch('copy-to-clipboard', text: $this->collection->getShareUrl());
 
@@ -188,6 +170,24 @@ class Show extends Component
         );
 
         $this->showWhatsAppTipIfNeeded();
+    }
+
+    /**
+     * Download collection as PDF.
+     */
+    public function downloadPdf(): StreamedResponse
+    {
+        $pdf = Pdf::loadView('pdf.collection', [
+            'collection' => $this->collection->load('properties.listings'),
+            'agent' => auth()->user(),
+        ]);
+
+        $filename = Str::slug($this->collection->name).'.pdf';
+
+        return response()->streamDownload(
+            fn () => print ($pdf->output()),
+            $filename
+        );
     }
 
     public function deleteCollection(): void

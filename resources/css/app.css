@@ -131,6 +131,66 @@ select:focus[data-flux-control] {
     animation: fade-in-up 600ms ease-out both;
 }
 
+/* Floating orb animations for landing page */
+@keyframes float-slow {
+    0%, 100% {
+        transform: translate(0, 0) scale(1);
+    }
+    25% {
+        transform: translate(10px, -20px) scale(1.05);
+    }
+    50% {
+        transform: translate(-5px, -10px) scale(0.95);
+    }
+    75% {
+        transform: translate(-15px, -25px) scale(1.02);
+    }
+}
+
+@keyframes float-medium {
+    0%, 100% {
+        transform: translate(0, 0) scale(1);
+    }
+    33% {
+        transform: translate(-20px, 15px) scale(1.03);
+    }
+    66% {
+        transform: translate(15px, -10px) scale(0.97);
+    }
+}
+
+@keyframes float-fast {
+    0%, 100% {
+        transform: translate(0, 0) scale(1);
+    }
+    50% {
+        transform: translate(20px, -15px) scale(1.1);
+    }
+}
+
+.animate-float-slow {
+    animation: float-slow 20s ease-in-out infinite;
+}
+
+.animate-float-medium {
+    animation: float-medium 15s ease-in-out infinite;
+}
+
+.animate-float-fast {
+    animation: float-fast 10s ease-in-out infinite;
+}
+
+/* Respect user preference for reduced motion */
+@media (prefers-reduced-motion: reduce) {
+    .animate-float-slow,
+    .animate-float-medium,
+    .animate-float-fast,
+    .animate-fade-in,
+    .animate-fade-in-up {
+        animation: none;
+    }
+}
+
 /* Disable View Transition animations for wire:sort items */
 [wire\:sort\:item] {
     view-transition-name: none;

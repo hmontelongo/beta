@@ -114,12 +114,10 @@
                                     @endif
                                 </div>
 
-                                {{-- Status Badge with Tooltip --}}
-                                <flux:tooltip content="{{ $collection->status_tooltip }}">
-                                    <span class="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium {{ $collection->status_color }}">
-                                        {{ $collection->status_label }}
-                                    </span>
-                                </flux:tooltip>
+                                {{-- Status Badge --}}
+                                <flux:badge size="sm" :color="$collection->status_color">
+                                    {{ $collection->status_label }}
+                                </flux:badge>
                             </div>
 
                             {{-- Property Thumbnails --}}

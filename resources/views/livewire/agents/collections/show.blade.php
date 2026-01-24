@@ -22,13 +22,7 @@
                                 class="w-full min-w-0 border-0 bg-transparent p-0 text-lg font-bold text-zinc-900 placeholder:text-zinc-400 focus:ring-0 dark:text-zinc-100"
                                 placeholder="Nombre de la coleccion"
                             />
-                            <flux:badge size="sm" :color="match($collection->status) {
-                                'draft' => 'zinc',
-                                'active' => 'blue',
-                                'ready' => 'amber',
-                                'shared' => 'green',
-                                default => 'zinc'
-                            }">
+                            <flux:badge size="sm" :color="$collection->status_color">
                                 {{ $collection->status_label }}
                             </flux:badge>
                         </div>
@@ -40,6 +34,9 @@
 
                 {{-- Right: Share Actions --}}
                 <div class="flex shrink-0 items-center gap-2">
+                    <flux:button wire:click="downloadPdf" variant="ghost" icon="document-arrow-down" size="sm">
+                        PDF
+                    </flux:button>
                     <flux:button wire:click="copyShareLink" variant="ghost" icon="link" size="sm">
                         Copiar
                     </flux:button>
@@ -49,6 +46,20 @@
                             WhatsApp
                         </span>
                     </flux:button>
+
+                    {{-- Overflow Menu --}}
+                    <flux:dropdown position="bottom" align="end">
+                        <flux:button variant="ghost" icon="ellipsis-vertical" size="sm" />
+                        <flux:menu>
+                            <flux:menu.item
+                                x-on:click="$flux.modal('delete-collection').show()"
+                                icon="trash"
+                                variant="danger"
+                            >
+                                Eliminar coleccion
+                            </flux:menu.item>
+                        </flux:menu>
+                    </flux:dropdown>
                 </div>
             </div>
         </div>
@@ -109,13 +120,17 @@
                 {{-- Spacer --}}
                 <div class="flex-1"></div>
 
-                {{-- Public Toggle --}}
-                <div class="flex items-center gap-2">
-                    <flux:switch wire:model.live="isPublic" />
-                    <span class="text-sm {{ $isPublic ? 'text-green-600' : 'text-zinc-500' }}">
-                        {{ $isPublic ? 'Publica' : 'Privada' }}
-                    </span>
-                </div>
+                {{-- View Stats (only when shared) --}}
+                @if($collection->shared_at)
+                    <div class="flex items-center gap-1.5 text-sm text-zinc-500">
+                        <flux:icon name="eye" class="size-4" />
+                        <span>{{ $collection->view_count }}</span>
+                        @if($collection->last_viewed_at)
+                            <span class="text-zinc-400">·</span>
+                            <span>{{ $collection->last_viewed_at->diffForHumans() }}</span>
+                        @endif
+                    </div>
+                @endif
             </div>
         </div>
     </div>
@@ -274,44 +289,32 @@
             </div>
         @endif
 
-        {{-- Footer Actions --}}
-        <div class="mt-6 flex items-center justify-between">
-            <button
-                wire:click="addProperties"
-                class="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400"
-            >
-                <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                </svg>
-                Agregar propiedades
-            </button>
-
-            {{-- Overflow Menu with Delete --}}
-            <flux:dropdown position="bottom-end">
-                <flux:button variant="ghost" icon="ellipsis-vertical" size="sm" />
-                <flux:menu>
-                    <flux:menu.item
-                        x-on:click="$flux.modal('delete-collection').show()"
-                        icon="trash"
-                        variant="danger"
-                    >
-                        Eliminar coleccion
-                    </flux:menu.item>
-                </flux:menu>
-            </flux:dropdown>
-
-            {{-- Delete Collection Confirmation Modal --}}
-            <x-confirm-modal
-                name="delete-collection"
-                title="¿Eliminar coleccion?"
-                message="Esta accion no se puede deshacer."
-            >
-                <flux:button variant="danger" wire:click="deleteCollection">
-                    Eliminar
-                </flux:button>
-            </x-confirm-modal>
-        </div>
+        {{-- Add More Properties Link (only when collection has properties) --}}
+        @if($collection->properties->isNotEmpty())
+            <div class="mt-6">
+                <button
+                    wire:click="addProperties"
+                    class="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400"
+                >
+                    <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                    </svg>
+                    Agregar mas propiedades
+                </button>
+            </div>
+        @endif
     </div>
+
+    {{-- Delete Collection Confirmation Modal --}}
+    <x-confirm-modal
+        name="delete-collection"
+        title="¿Eliminar coleccion?"
+        message="Esta accion no se puede deshacer."
+    >
+        <flux:button variant="danger" wire:click="deleteCollection">
+            Eliminar
+        </flux:button>
+    </x-confirm-modal>
 
     {{-- New Client Modal --}}
     <flux:modal wire:model="showNewClientModal" class="w-full max-w-md">

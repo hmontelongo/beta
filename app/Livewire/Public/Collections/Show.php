@@ -20,6 +20,24 @@ class Show extends Component
         }
 
         $this->collection = $collection->load(['properties.listings', 'user']);
+
+        $this->trackView();
+    }
+
+    /**
+     * Track this view (one per IP per day to avoid spam).
+     */
+    private function trackView(): void
+    {
+        $this->collection->views()->firstOrCreate(
+            [
+                'ip_address' => request()->ip(),
+                'viewed_at' => now()->startOfDay(),
+            ],
+            [
+                'user_agent' => request()->userAgent(),
+            ]
+        );
     }
 
     public function render(): View

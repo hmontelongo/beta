@@ -609,35 +609,28 @@
         </div>
     </flux:modal>
 
-    {{-- Collection Panel (Simplified) --}}
-    <flux:modal wire:model="showCollectionPanel" position="right" class="w-full max-w-3xl">
+    {{-- Collection Panel --}}
+    <flux:modal wire:model="showCollectionPanel" position="right" class="w-full max-w-3xl" :dismissible="true">
         <div class="flex h-full flex-col">
             {{-- Header --}}
-            <div class="mb-4 flex items-start justify-between pr-8">
-                <div class="min-w-0 flex-1">
-                    @if($this->activeCollection && !$this->activeCollection->isDraft())
-                        <h3 class="truncate text-lg font-bold text-zinc-900 dark:text-zinc-100">{{ $this->activeCollection->name }}</h3>
-                    @else
-                        <h3 class="text-lg font-bold text-zinc-900 dark:text-zinc-100">Mi seleccion</h3>
-                    @endif
-                    <p class="text-sm font-medium text-blue-600 dark:text-blue-400">
+            <div class="mb-4">
+                <flux:heading size="lg">Mi seleccion</flux:heading>
+                <div class="mt-3 flex items-center gap-3">
+                    <flux:input
+                        wire:model.blur="saveName"
+                        wire:keydown.enter="saveCollectionName"
+                        placeholder="Nombre de la coleccion"
+                        class="max-w-xs"
+                    />
+                    <flux:button wire:click="saveCollectionName" variant="ghost" icon="bookmark" size="sm" />
+                    <flux:text size="sm" class="text-zinc-500">
                         {{ count($this->collectionPropertyIds) }} {{ count($this->collectionPropertyIds) === 1 ? 'propiedad' : 'propiedades' }}
-                    </p>
-                </div>
-                <div class="flex items-center gap-2">
-                    @if($this->activeCollection && count($this->collectionPropertyIds) > 0)
-                        <button
-                            x-on:click="$flux.modal('confirm-new-collection').show()"
-                            class="shrink-0 rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-xs font-medium text-zinc-600 transition-colors hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
-                        >
-                            + Nueva
-                        </button>
-                    @endif
+                    </flux:text>
                 </div>
             </div>
 
             @if(count($this->collectionPropertyIds) > 0)
-                {{-- Property Grid (3 columns) --}}
+                {{-- Property Grid --}}
                 <div class="flex-1 overflow-y-auto">
                     <div class="grid grid-cols-3 gap-3">
                         @foreach($this->collectionProperties as $property)
@@ -693,41 +686,35 @@
                     </div>
                 </div>
 
-                {{-- Actions (Simplified) --}}
-                <div class="mt-4 space-y-3 border-t border-zinc-200 pt-4 dark:border-zinc-700">
-                    <div class="flex gap-3">
-                        <button
-                            wire:click="openSaveModal"
-                            class="flex flex-1 items-center justify-center gap-2 rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
-                        >
-                            <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" />
-                            </svg>
-                            Guardar
-                        </button>
-                        <button
-                            wire:click="openShareModal"
-                            class="flex flex-1 items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-green-700"
-                        >
+                {{-- Action Bar --}}
+                <div class="mt-4 flex items-center gap-2 border-t border-zinc-200 pt-4 dark:border-zinc-700">
+                    {{-- Sharing Actions (left) --}}
+                    <flux:button wire:click="copyShareLink" variant="ghost" icon="link" size="sm">
+                        Copiar link
+                    </flux:button>
+                    <flux:button wire:click="shareViaWhatsApp" size="sm" class="!bg-green-600 !text-white hover:!bg-green-700">
+                        <span class="flex items-center gap-1.5">
                             <x-icons.whatsapp class="size-4" />
-                            Compartir
-                        </button>
-                    </div>
-                    <div class="flex items-center justify-between">
-                        <a
-                            href="{{ route('agents.collections.index') }}"
-                            wire:navigate
-                            class="text-sm text-zinc-500 transition-colors hover:text-zinc-700 dark:hover:text-zinc-300"
-                        >
-                            Ver mis colecciones
-                        </a>
-                        <button
-                            x-on:click="$flux.modal('confirm-clear-collection').show()"
-                            class="text-sm text-zinc-400 transition-colors hover:text-red-500"
-                        >
-                            Vaciar seleccion
-                        </button>
-                    </div>
+                            WhatsApp
+                        </span>
+                    </flux:button>
+
+                    <div class="flex-1"></div>
+
+                    {{-- Navigation (right) --}}
+                    <flux:button :href="route('agents.collections.index')" variant="ghost" icon="folder" size="sm" wire:navigate>
+                        Colecciones
+                    </flux:button>
+
+                    {{-- Overflow Menu --}}
+                    <flux:dropdown position="bottom" align="end">
+                        <flux:button variant="ghost" icon="ellipsis-vertical" size="sm" />
+                        <flux:menu>
+                            <flux:menu.item x-on:click="$flux.modal('confirm-clear-collection').show()" icon="trash" class="text-red-600">
+                                Vaciar seleccion
+                            </flux:menu.item>
+                        </flux:menu>
+                    </flux:dropdown>
                 </div>
             @else
                 {{-- Empty State --}}
@@ -757,106 +744,6 @@
                     </a>
                 </div>
             @endif
-        </div>
-    </flux:modal>
-
-    {{-- Quick Share Modal --}}
-    <flux:modal wire:model="showShareModal" class="max-w-sm">
-        <div class="space-y-4">
-            <div class="text-center">
-                <h3 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Compartir coleccion</h3>
-                <p class="mt-1 text-sm text-zinc-500">{{ count($this->collectionPropertyIds) }} propiedades seleccionadas</p>
-            </div>
-
-            <div>
-                <label for="shareName" class="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                    Nombre de la coleccion *
-                </label>
-                <flux:input
-                    wire:model="shareName"
-                    id="shareName"
-                    placeholder="Ej: Casas para familia Martinez"
-                />
-                @error('shareName')
-                    <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
-                @enderror
-            </div>
-
-            <div class="flex gap-2">
-                <button
-                    wire:click="quickShareWhatsApp"
-                    class="flex flex-1 items-center justify-center gap-2 rounded-lg bg-green-600 px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-green-700"
-                >
-                    <x-icons.whatsapp class="size-4" />
-                    WhatsApp
-                </button>
-                <button
-                    wire:click="quickShareCopyLink"
-                    class="flex flex-1 items-center justify-center gap-2 rounded-lg border border-zinc-200 px-4 py-2.5 text-sm font-semibold text-zinc-700 transition-all hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                >
-                    <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
-                    </svg>
-                    Copiar link
-                </button>
-            </div>
-
-            <div class="border-t border-zinc-200 pt-3 text-center dark:border-zinc-700">
-                <a
-                    href="{{ route('agents.collections.index') }}"
-                    wire:navigate
-                    class="text-sm text-blue-600 hover:text-blue-700 dark:text-blue-400"
-                >
-                    Mas opciones en Colecciones →
-                </a>
-            </div>
-        </div>
-    </flux:modal>
-
-    {{-- Save Collection Modal --}}
-    <flux:modal wire:model="showSaveModal" class="max-w-sm">
-        <div class="space-y-4">
-            <div class="text-center">
-                <div class="mx-auto mb-3 flex size-12 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/30">
-                    <svg class="size-6 text-blue-600 dark:text-blue-400" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" />
-                    </svg>
-                </div>
-                <h3 class="text-lg font-semibold text-zinc-900 dark:text-zinc-100">Guardar coleccion</h3>
-                <p class="mt-1 text-sm text-zinc-500">{{ count($this->collectionPropertyIds) }} propiedades seleccionadas</p>
-            </div>
-
-            <div>
-                <label for="saveName" class="mb-1.5 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
-                    Nombre de la coleccion *
-                </label>
-                <flux:input
-                    wire:model="saveName"
-                    id="saveName"
-                    placeholder="Ej: Casas para familia Martinez"
-                />
-                @error('saveName')
-                    <p class="mt-1 text-xs text-red-500">{{ $message }}</p>
-                @enderror
-            </div>
-
-            <div class="flex gap-3">
-                <button
-                    wire:click="$set('showSaveModal', false)"
-                    class="flex flex-1 items-center justify-center rounded-lg border border-zinc-200 px-4 py-2.5 text-sm font-semibold text-zinc-700 transition-all hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                >
-                    Cancelar
-                </button>
-                <button
-                    wire:click="saveCollection"
-                    class="flex flex-1 items-center justify-center gap-2 rounded-lg bg-zinc-900 px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200"
-                >
-                    <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-                    </svg>
-                    Guardar
-                </button>
-            </div>
         </div>
     </flux:modal>
 

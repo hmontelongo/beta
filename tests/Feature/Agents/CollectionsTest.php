@@ -131,31 +131,30 @@ describe('Agent Collection Management', function () {
         expect($this->agent->collections->first()->properties)->toHaveCount(0);
     });
 
-    it('saves collection with name via quick share', function () {
+    it('saves collection with name from panel', function () {
         $this->actingAs($this->agent);
 
         Livewire::test(Index::class)
             ->call('toggleCollection', $this->property->id)
-            ->call('openShareModal')
-            ->set('shareName', 'Mi coleccion de prueba')
-            ->call('quickShareCopyLink');
+            ->set('showCollectionPanel', true)
+            ->set('saveName', 'Mi coleccion de prueba')
+            ->call('saveCollection');
 
         $collection = Collection::where('name', 'Mi coleccion de prueba')->first();
 
         expect($collection)->not->toBeNull();
-        expect($collection->is_public)->toBeTrue();
         expect($collection->properties)->toHaveCount(1);
     });
 
-    it('validates collection name is required when sharing', function () {
+    it('validates collection name is required when saving', function () {
         $this->actingAs($this->agent);
 
         Livewire::test(Index::class)
             ->call('toggleCollection', $this->property->id)
-            ->call('openShareModal')
-            ->set('shareName', '')
-            ->call('quickShareCopyLink')
-            ->assertHasErrors(['shareName' => 'required']);
+            ->set('showCollectionPanel', true)
+            ->set('saveName', '')
+            ->call('saveCollection')
+            ->assertHasErrors(['saveName' => 'required']);
     });
 
     it('isInCollection returns true for added properties', function () {
@@ -260,43 +259,16 @@ describe('Client Association', function () {
         expect($url)->toContain('wa.me/?text=');
     });
 
-    it('quick share makes collection public', function () {
-        $this->actingAs($this->agent);
-
-        $component = Livewire::test(Index::class)
-            ->call('toggleCollection', $this->property->id)
-            ->call('openShareModal')
-            ->set('shareName', 'Shared Collection')
-            ->call('quickShareCopyLink');
-
-        $collection = Collection::where('name', 'Shared Collection')->first();
-
-        expect($collection->is_public)->toBeTrue();
-    });
-
-    it('keeps collection active after sharing', function () {
-        $this->actingAs($this->agent);
-
-        $component = Livewire::test(Index::class)
-            ->call('toggleCollection', $this->property->id)
-            ->call('openShareModal')
-            ->set('shareName', 'Persistent Collection')
-            ->call('quickShareCopyLink');
-
-        // activeCollectionId should NOT be null after sharing
-        expect($component->get('activeCollectionId'))->not->toBeNull();
-    });
-
-    it('saveCollection saves with custom name and stays on page', function () {
+    it('saveCollection saves and redirects to collection detail', function () {
         $this->actingAs($this->agent);
 
         Livewire::test(Index::class)
             ->call('toggleCollection', $this->property->id)
-            ->call('openSaveModal')
+            ->set('showCollectionPanel', true)
             ->set('saveName', 'Casas para Carlos Martinez')
             ->call('saveCollection')
-            ->assertSet('showSaveModal', false)
-            ->assertNoRedirect(); // Stays on search page to continue adding
+            ->assertSet('showCollectionPanel', false)
+            ->assertRedirect(); // Redirects to collection detail for sharing
 
         $collection = Collection::where('name', 'Casas para Carlos Martinez')->first();
 
@@ -309,19 +281,19 @@ describe('Client Association', function () {
 
         Livewire::test(Index::class)
             ->call('toggleCollection', $this->property->id)
-            ->call('openSaveModal')
+            ->set('showCollectionPanel', true)
             ->set('saveName', '')
             ->call('saveCollection')
             ->assertHasErrors(['saveName' => 'required']);
     });
 
-    it('openSaveModal pre-fills with suggested name', function () {
+    it('collection panel pre-fills with suggested name', function () {
         $this->actingAs($this->agent);
         $this->property->update(['colonia' => 'Puerta de Hierro']);
 
         $component = Livewire::test(Index::class)
             ->call('toggleCollection', $this->property->id)
-            ->call('openSaveModal');
+            ->set('showCollectionPanel', true);
 
         // Should have pre-filled name based on property location
         expect($component->get('saveName'))->toContain('Puerta de Hierro');
@@ -434,38 +406,15 @@ describe('Client Model', function () {
 });
 
 describe('Collection Status', function () {
-    it('returns draft status for draft collections', function () {
-        $collection = Collection::factory()->for($this->agent)->create([
-            'name' => Collection::DRAFT_NAME,
-        ]);
-
-        expect($collection->status)->toBe('draft');
-        expect($collection->status_label)->toBe('Borrador');
-    });
-
-    it('returns active status for named collections without properties', function () {
+    it('returns active status when not shared', function () {
         $collection = Collection::factory()->for($this->agent)->create([
             'name' => 'My Collection',
-            'is_public' => true,
             'shared_at' => null,
         ]);
 
         expect($collection->status)->toBe('active');
         expect($collection->status_label)->toBe('En proceso');
-    });
-
-    it('returns ready status for public collections with properties', function () {
-        $collection = Collection::factory()
-            ->for($this->agent)
-            ->hasAttached(Property::factory()->count(2))
-            ->create([
-                'name' => 'My Collection',
-                'is_public' => true,
-                'shared_at' => null,
-            ]);
-
-        expect($collection->status)->toBe('ready');
-        expect($collection->status_label)->toBe('Lista');
+        expect($collection->status_color)->toBe('blue');
     });
 
     it('returns shared status when shared_at is set', function () {
@@ -476,6 +425,35 @@ describe('Collection Status', function () {
 
         expect($collection->status)->toBe('shared');
         expect($collection->status_label)->toBe('Compartida');
+        expect($collection->status_color)->toBe('green');
+    });
+
+    it('markAsShared sets shared_at and is_public', function () {
+        $collection = Collection::factory()->for($this->agent)->create([
+            'is_public' => false,
+            'shared_at' => null,
+        ]);
+
+        $collection->markAsShared();
+
+        expect($collection->shared_at)->not->toBeNull();
+        expect($collection->is_public)->toBeTrue();
+        expect($collection->status)->toBe('shared');
+    });
+
+    it('markAsShared only runs once', function () {
+        $collection = Collection::factory()->for($this->agent)->create([
+            'shared_at' => null,
+        ]);
+
+        $collection->markAsShared();
+        $firstSharedAt = $collection->shared_at;
+
+        // Wait a moment and call again
+        $collection->markAsShared();
+
+        // Should be the same timestamp (not updated)
+        expect($collection->shared_at->timestamp)->toBe($firstSharedAt->timestamp);
     });
 
     it('gets client name from relationship first', function () {
@@ -495,40 +473,6 @@ describe('Collection Status', function () {
         ]);
 
         expect($collection->client_name_display)->toBe('Legacy Name');
-    });
-
-    it('returns correct status color for each status', function () {
-        // Draft status
-        $draft = Collection::factory()->for($this->agent)->create(['name' => Collection::DRAFT_NAME]);
-        expect($draft->status_color)->toContain('bg-zinc-100');
-
-        // Active status
-        $active = Collection::factory()->for($this->agent)->create(['name' => 'Active Collection']);
-        expect($active->status_color)->toContain('bg-blue-100');
-
-        // Shared status
-        $shared = Collection::factory()->for($this->agent)->create([
-            'name' => 'Shared Collection',
-            'shared_at' => now(),
-        ]);
-        expect($shared->status_color)->toContain('bg-green-100');
-    });
-
-    it('returns correct status tooltip for each status', function () {
-        // Draft status
-        $draft = Collection::factory()->for($this->agent)->create(['name' => Collection::DRAFT_NAME]);
-        expect($draft->status_tooltip)->toBe('Coleccion sin nombre');
-
-        // Active status
-        $active = Collection::factory()->for($this->agent)->create(['name' => 'Active Collection']);
-        expect($active->status_tooltip)->toBe('Agregando propiedades');
-
-        // Shared status
-        $shared = Collection::factory()->for($this->agent)->create([
-            'name' => 'Shared Collection',
-            'shared_at' => now(),
-        ]);
-        expect($shared->status_tooltip)->toBe('Enviada al cliente');
     });
 });
 
@@ -571,20 +515,6 @@ describe('Collection Detail View', function () {
         $collection->update(['name' => 'New Name']);
         $collection->refresh();
         expect($collection->name)->toBe('New Name');
-    });
-
-    it('toggles public status', function () {
-        $this->actingAs($this->agent);
-
-        $collection = Collection::factory()->for($this->agent)->create(['is_public' => false]);
-
-        // Using set with live model triggers the updated hook automatically
-        Livewire::test(CollectionShowPage::class, ['collection' => $collection])
-            ->assertSet('isPublic', false)
-            ->set('isPublic', true);
-
-        $collection->refresh();
-        expect($collection->is_public)->toBeTrue();
     });
 
     it('removes property from collection', function () {
@@ -827,7 +757,7 @@ describe('Active Collection Session Persistence', function () {
         expect(session('active_collection_id'))->toBeNull();
     });
 
-    it('saved collection stays active after saving', function () {
+    it('saved collection stays in session after saving', function () {
         $this->actingAs($this->agent);
 
         $component = Livewire::test(Index::class)
@@ -836,12 +766,12 @@ describe('Active Collection Session Persistence', function () {
         $collectionId = $component->get('activeCollectionId');
 
         $component
-            ->call('openSaveModal')
+            ->set('showCollectionPanel', true)
             ->set('saveName', 'My Saved Collection')
             ->call('saveCollection')
-            ->assertSet('activeCollectionId', $collectionId); // Still the same collection
+            ->assertRedirect(); // Redirects to collection detail
 
-        // Session should still have the collection
+        // Session should still have the collection for when they come back
         expect(session('active_collection_id'))->toBe($collectionId);
 
         // Collection should be renamed
@@ -879,5 +809,61 @@ describe('Active Collection Session Persistence', function () {
         $collection->refresh();
         expect($collection->properties)->toHaveCount(1);
         expect($collection->properties->first()->id)->toBe($newProperty->id);
+    });
+});
+
+describe('View Tracking', function () {
+    it('tracks views when public collection is accessed', function () {
+        $collection = Collection::factory()->public()->create();
+
+        expect($collection->views)->toHaveCount(0);
+
+        Livewire::test(PublicCollectionShow::class, ['collection' => $collection]);
+
+        $collection->refresh();
+        expect($collection->views)->toHaveCount(1);
+        expect($collection->view_count)->toBe(1);
+    });
+
+    it('only tracks one view per IP per day', function () {
+        $collection = Collection::factory()->public()->create();
+
+        // First visit
+        Livewire::test(PublicCollectionShow::class, ['collection' => $collection]);
+
+        // Second visit same IP same day
+        Livewire::test(PublicCollectionShow::class, ['collection' => $collection]);
+
+        $collection->refresh();
+        expect($collection->views)->toHaveCount(1);
+    });
+
+    it('records last viewed at timestamp', function () {
+        $collection = Collection::factory()->public()->create();
+
+        expect($collection->last_viewed_at)->toBeNull();
+
+        Livewire::test(PublicCollectionShow::class, ['collection' => $collection]);
+
+        $collection->refresh();
+        expect($collection->last_viewed_at)->not->toBeNull();
+        expect($collection->last_viewed_at->isToday())->toBeTrue();
+    });
+});
+
+describe('PDF Export', function () {
+    it('can download collection as PDF', function () {
+        $this->actingAs($this->agent);
+
+        $collection = Collection::factory()
+            ->for($this->agent)
+            ->hasAttached(Property::factory()->count(2))
+            ->create(['name' => 'Test Collection']);
+
+        $response = Livewire::test(CollectionShowPage::class, ['collection' => $collection])
+            ->call('downloadPdf');
+
+        // Check it returns a streamed response (PDF download)
+        expect($response->effects['download'])->not->toBeNull();
     });
 });
