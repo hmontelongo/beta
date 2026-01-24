@@ -1,12 +1,66 @@
 @php
     use App\Services\CollectionPropertyPresenter;
+    use App\Services\PropertyPresenter;
     $agent = $collection->user;
     $brandColor = $agent->brand_color ?? '#3b82f6';
     $brandColorLight = $brandColor . '15';
     $brandColorMedium = $brandColor . '30';
 @endphp
 
-<div class="min-h-screen bg-zinc-100 dark:bg-zinc-950">
+<div
+    x-data="{ scrolled: false }"
+    x-on:scroll.window="scrolled = window.scrollY > 420"
+    class="min-h-screen bg-zinc-100 dark:bg-zinc-950"
+>
+    {{-- Sticky Mini Header (shown when scrolled past the hero) --}}
+    <div
+        x-show="scrolled"
+        x-transition:enter="transition ease-out duration-300"
+        x-transition:enter-start="opacity-0 -translate-y-full"
+        x-transition:enter-end="opacity-100 translate-y-0"
+        x-transition:leave="transition ease-in duration-200"
+        x-transition:leave-start="opacity-100 translate-y-0"
+        x-transition:leave-end="opacity-0 -translate-y-full"
+        x-cloak
+        class="fixed inset-x-0 top-0 z-50 border-b border-zinc-200/80 bg-white/95 shadow-sm backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-900/95"
+    >
+        <div class="mx-auto flex max-w-5xl items-center gap-4 px-6 py-3">
+            {{-- Agent mini avatar --}}
+            @if($agent->avatar_url)
+                <img src="{{ $agent->avatar_url }}" alt="{{ $agent->display_name }}" class="size-8 rounded-full object-cover ring-2 ring-white shadow-sm" />
+            @else
+                <div class="flex size-8 items-center justify-center rounded-full text-sm font-bold text-white ring-2 ring-white shadow-sm" style="background: {{ $brandColor }};">
+                    {{ substr($agent->display_name, 0, 1) }}
+                </div>
+            @endif
+
+            {{-- Collection name --}}
+            <span class="truncate text-sm font-semibold text-zinc-900 dark:text-white">{{ $collection->name }}</span>
+
+            {{-- Thumbnail strip (overflow-visible for badges, hidden scrollbar) --}}
+            <div class="ml-auto flex gap-2 overflow-visible py-1" style="-webkit-overflow-scrolling: touch;">
+                @foreach($this->properties as $index => $prop)
+                    <button
+                        x-on:click="document.getElementById('property-{{ $prop['id'] }}').scrollIntoView({ behavior: 'smooth', block: 'start' })"
+                        class="group relative shrink-0 transition-transform hover:scale-105"
+                        title="Propiedad {{ $index + 1 }}"
+                    >
+                        @if(count($prop['images']) > 0)
+                            <img src="{{ $prop['images'][0] }}" alt="" class="size-10 rounded-lg object-cover ring-1 ring-zinc-200 dark:ring-zinc-700" />
+                        @else
+                            <div class="flex size-10 items-center justify-center rounded-lg bg-zinc-100 dark:bg-zinc-800">
+                                <flux:icon name="photo" class="size-5 text-zinc-400" />
+                            </div>
+                        @endif
+                        <span class="absolute -right-1.5 -top-1.5 flex size-5 items-center justify-center rounded-full text-[10px] font-bold text-white shadow" style="background: {{ $brandColor }};">
+                            {{ $index + 1 }}
+                        </span>
+                    </button>
+                @endforeach
+            </div>
+        </div>
+    </div>
+
     {{-- Cover / Header Section - Magazine Style --}}
     <header class="relative overflow-hidden bg-white dark:bg-zinc-900">
         {{-- Decorative gradient background --}}
@@ -89,6 +143,34 @@
                         </span>
                     @endif
                 </div>
+
+                {{-- Property Thumbnail Navigation --}}
+                @if($this->properties->count() > 1)
+                    <div class="mt-8 print:hidden">
+                        <p class="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">Navega las propiedades</p>
+                        <div class="flex gap-3 overflow-visible pt-2">
+                            @foreach($this->properties as $index => $prop)
+                                <button
+                                    x-on:click="document.getElementById('property-{{ $prop['id'] }}').scrollIntoView({ behavior: 'smooth', block: 'start' })"
+                                    class="group relative shrink-0 transition-transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 rounded-xl"
+                                    style="--tw-ring-color: {{ $brandColor }};"
+                                    title="Ir a propiedad {{ $index + 1 }}"
+                                >
+                                    @if(count($prop['images']) > 0)
+                                        <img src="{{ $prop['images'][0] }}" alt="" class="size-16 rounded-xl object-cover ring-2 ring-white shadow-md dark:ring-zinc-800 lg:size-20" />
+                                    @else
+                                        <div class="flex size-16 items-center justify-center rounded-xl bg-zinc-100 ring-2 ring-white shadow-md dark:bg-zinc-800 dark:ring-zinc-800 lg:size-20">
+                                            <flux:icon name="photo" class="size-6 text-zinc-400" />
+                                        </div>
+                                    @endif
+                                    <span class="absolute -right-2 -top-2 flex size-6 items-center justify-center rounded-full text-xs font-bold text-white shadow-lg lg:size-7 lg:text-sm" style="background: {{ $brandColor }};">
+                                        {{ $index + 1 }}
+                                    </span>
+                                </button>
+                            @endforeach
+                        </div>
+                    </div>
+                @endif
             </div>
         </div>
 
@@ -111,7 +193,7 @@
         @else
             <div class="space-y-16">
                 @foreach ($this->properties as $prop)
-                    <article class="group relative">
+                    <article id="property-{{ $prop['id'] }}" class="group relative scroll-mt-20">
                         {{-- Property Number Badge --}}
                         <div class="absolute -left-3 -top-3 z-10 flex size-12 items-center justify-center rounded-xl text-lg font-bold text-white shadow-lg lg:-left-4 lg:-top-4 lg:size-14 lg:text-xl" style="background: linear-gradient(135deg, {{ $brandColor }}, {{ $brandColor }}cc);">
                             {{ $prop['position'] }}
@@ -136,21 +218,20 @@
                                             <div>
                                                 <p class="text-3xl font-bold text-white drop-shadow-lg lg:text-4xl">
                                                     @if($prop['price'])
-                                                        ${{ number_format($prop['price']['price']) }}
-                                                        <span class="text-lg font-normal text-white/80">{{ $prop['price']['currency'] }}{{ $prop['price']['type'] === 'rent' ? '/mes' : '' }}</span>
+                                                        {{ PropertyPresenter::formatPrice($prop['price']) }}
                                                     @else
                                                         Consultar
                                                     @endif
                                                 </p>
                                                 @if($prop['pricePerM2'])
                                                     <p class="mt-1 text-sm text-white/70">
-                                                        ${{ number_format($prop['pricePerM2']) }}/m²
+                                                        {{ PropertyPresenter::formatPricePerM2($prop['pricePerM2']) }}
                                                     </p>
                                                 @endif
                                             </div>
                                             @if($prop['price'])
                                                 <span class="rounded-full px-4 py-2 text-sm font-bold uppercase tracking-wide text-white shadow-lg" style="background: {{ $prop['price']['type'] === 'sale' ? $brandColor : '#10b981' }};">
-                                                    {{ $prop['price']['type'] === 'sale' ? 'Venta' : 'Renta' }}
+                                                    {{ PropertyPresenter::operationTypeLabel($prop['price']['type']) }}
                                                 </span>
                                             @endif
                                         </div>
@@ -215,42 +296,42 @@
                                         <div class="flex flex-col items-center justify-center rounded-xl bg-zinc-50 p-4 dark:bg-zinc-800/50">
                                             <flux:icon name="home-modern" class="size-6 text-zinc-400" />
                                             <p class="mt-2 text-2xl font-bold text-zinc-900 dark:text-white">{{ $prop['bedrooms'] }}</p>
-                                            <p class="text-xs text-zinc-500">Recamaras</p>
+                                            <p class="text-xs text-zinc-500">{{ __('properties.specs.bedrooms', [], 'es') }}</p>
                                         </div>
                                     @endif
                                     @if($prop['bathrooms'])
                                         <div class="flex flex-col items-center justify-center rounded-xl bg-zinc-50 p-4 dark:bg-zinc-800/50">
                                             <svg class="size-6 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" /><rect x="4" y="10" width="16" height="8" rx="2" /></svg>
                                             <p class="mt-2 text-2xl font-bold text-zinc-900 dark:text-white">{{ $prop['bathrooms'] }}</p>
-                                            <p class="text-xs text-zinc-500">Banos</p>
+                                            <p class="text-xs text-zinc-500">{{ __('properties.specs.bathrooms', [], 'es') }}</p>
                                         </div>
                                     @endif
                                     @if($prop['halfBathrooms'])
                                         <div class="flex flex-col items-center justify-center rounded-xl bg-zinc-50 p-4 dark:bg-zinc-800/50">
                                             <svg class="size-6 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5"><rect x="6" y="12" width="12" height="6" rx="1" /></svg>
                                             <p class="mt-2 text-2xl font-bold text-zinc-900 dark:text-white">{{ $prop['halfBathrooms'] }}</p>
-                                            <p class="text-xs text-zinc-500">Medio bano</p>
+                                            <p class="text-xs text-zinc-500">{{ __('properties.specs.half_bathroom', [], 'es') }}</p>
                                         </div>
                                     @endif
                                     @if($prop['parkingSpaces'])
                                         <div class="flex flex-col items-center justify-center rounded-xl bg-zinc-50 p-4 dark:bg-zinc-800/50">
                                             <flux:icon name="truck" class="size-6 text-zinc-400" />
                                             <p class="mt-2 text-2xl font-bold text-zinc-900 dark:text-white">{{ $prop['parkingSpaces'] }}</p>
-                                            <p class="text-xs text-zinc-500">Estacionamientos</p>
+                                            <p class="text-xs text-zinc-500">{{ __('properties.specs.parkings', [], 'es') }}</p>
                                         </div>
                                     @endif
                                     @if($prop['builtSizeM2'])
                                         <div class="flex flex-col items-center justify-center rounded-xl bg-zinc-50 p-4 dark:bg-zinc-800/50">
                                             <flux:icon name="square-3-stack-3d" class="size-6 text-zinc-400" />
                                             <p class="mt-2 text-2xl font-bold text-zinc-900 dark:text-white">{{ number_format($prop['builtSizeM2']) }}</p>
-                                            <p class="text-xs text-zinc-500">m² Construidos</p>
+                                            <p class="text-xs text-zinc-500">m² {{ __('properties.specs.built', [], 'es') }}</p>
                                         </div>
                                     @endif
                                     @if($prop['lotSizeM2'])
                                         <div class="flex flex-col items-center justify-center rounded-xl bg-zinc-50 p-4 dark:bg-zinc-800/50">
                                             <flux:icon name="map" class="size-6 text-zinc-400" />
                                             <p class="mt-2 text-2xl font-bold text-zinc-900 dark:text-white">{{ number_format($prop['lotSizeM2']) }}</p>
-                                            <p class="text-xs text-zinc-500">m² Terreno</p>
+                                            <p class="text-xs text-zinc-500">m² {{ __('properties.specs.lot', [], 'es') }}</p>
                                         </div>
                                     @endif
                                 </div>
@@ -513,7 +594,7 @@
                 @endif
 
                 <p class="text-xs text-zinc-400 dark:text-zinc-600">
-                    Generado el {{ now()->format('d/m/Y') }} · Creado con PropertyManager
+                    Generado el {{ now()->format('d/m/Y') }}
                 </p>
             </div>
         </div>

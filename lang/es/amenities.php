@@ -51,6 +51,7 @@ return [
     'security_24h' => 'Seguridad 24h',
     '24_hour_security' => 'Seguridad 24h',
     'guard_house' => 'Caseta de guardia',
+    'security_guard' => 'Guardia de seguridad',
     'concierge' => 'Concierge',
     'maintenance' => 'Mantenimiento',
     'cleaning' => 'Limpieza',

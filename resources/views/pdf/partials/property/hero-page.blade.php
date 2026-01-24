@@ -1,5 +1,6 @@
 @php
     use App\Services\CollectionPropertyPresenter;
+    use App\Services\PropertyPresenter;
 @endphp
 
 <div class="property-page hero-page">
@@ -21,11 +22,10 @@
                     <div class="property-price">
                         @if($prop['price'])
                             <div class="price-amount">
-                                ${{ number_format($prop['price']['price']) }}
-                                <span class="price-currency">{{ $prop['price']['currency'] }}{{ $prop['price']['type'] === 'rent' ? '/mes' : '' }}</span>
+                                {{ PropertyPresenter::formatPrice($prop['price']) }}
                             </div>
                             @if($prop['pricePerM2'])
-                                <div class="price-per-m2">${{ number_format($prop['pricePerM2']) }}/m²</div>
+                                <div class="price-per-m2">{{ PropertyPresenter::formatPricePerM2($prop['pricePerM2']) }}</div>
                             @endif
                         @else
                             <div class="price-amount">Consultar</div>
@@ -33,7 +33,7 @@
                     </div>
                     @if($prop['price'])
                         <span class="property-type-badge {{ $prop['price']['type'] === 'sale' ? 'badge-sale' : 'badge-rent' }}">
-                            {{ $prop['price']['type'] === 'sale' ? 'Venta' : 'Renta' }}
+                            {{ PropertyPresenter::operationTypeLabel($prop['price']['type']) }}
                         </span>
                     @endif
                 </div>
@@ -87,37 +87,37 @@
             @if($prop['bedrooms'])
                 <div class="spec-item">
                     <div class="spec-value">{{ $prop['bedrooms'] }}</div>
-                    <div class="spec-label">Recamaras</div>
+                    <div class="spec-label">{{ __('properties.specs.bedrooms', [], 'es') }}</div>
                 </div>
             @endif
             @if($prop['bathrooms'])
                 <div class="spec-item">
                     <div class="spec-value">{{ $prop['bathrooms'] }}</div>
-                    <div class="spec-label">Banos</div>
+                    <div class="spec-label">{{ __('properties.specs.bathrooms', [], 'es') }}</div>
                 </div>
             @endif
             @if($prop['halfBathrooms'])
                 <div class="spec-item">
                     <div class="spec-value">{{ $prop['halfBathrooms'] }}</div>
-                    <div class="spec-label">Medio bano</div>
+                    <div class="spec-label">{{ __('properties.specs.half_bathroom', [], 'es') }}</div>
                 </div>
             @endif
             @if($prop['parkingSpaces'])
                 <div class="spec-item">
                     <div class="spec-value">{{ $prop['parkingSpaces'] }}</div>
-                    <div class="spec-label">Estac.</div>
+                    <div class="spec-label">{{ __('properties.specs.parking_abbrev', [], 'es') }}.</div>
                 </div>
             @endif
             @if($prop['builtSizeM2'])
                 <div class="spec-item">
                     <div class="spec-value">{{ number_format($prop['builtSizeM2']) }}</div>
-                    <div class="spec-label">m² Const.</div>
+                    <div class="spec-label">m² {{ __('properties.specs.built', [], 'es') }}</div>
                 </div>
             @endif
             @if($prop['lotSizeM2'])
                 <div class="spec-item">
                     <div class="spec-value">{{ number_format($prop['lotSizeM2']) }}</div>
-                    <div class="spec-label">m² Terreno</div>
+                    <div class="spec-label">m² {{ __('properties.specs.lot', [], 'es') }}</div>
                 </div>
             @endif
         </div>

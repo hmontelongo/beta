@@ -308,4 +308,52 @@ class CollectionPropertyPresenter
             default => ucfirst(str_replace('_', ' ', $type)),
         };
     }
+
+    /**
+     * Format target audience array for display.
+     *
+     * @param  array<string>|string|null  $audience
+     */
+    public static function formatTargetAudience(array|string|null $audience): string
+    {
+        if (! $audience) {
+            return '';
+        }
+
+        if (is_string($audience)) {
+            $audience = [$audience];
+        }
+
+        return collect($audience)
+            ->map(fn ($a) => self::getTargetAudienceLabel($a))
+            ->join(', ');
+    }
+
+    /**
+     * Format occupancy type for display.
+     */
+    public static function formatOccupancyType(?string $occupancyType): string
+    {
+        if (! $occupancyType) {
+            return '';
+        }
+
+        return match ($occupancyType) {
+            'single_person_or_couple' => 'Individual/Pareja',
+            'single_person' => 'Individual',
+            'couple' => 'Pareja',
+            'family' => 'Familia',
+            'roommates' => 'Roomies',
+            'students' => 'Estudiantes',
+            default => ucfirst(str_replace('_', ' ', $occupancyType)),
+        };
+    }
+
+    /**
+     * Format property condition for display.
+     */
+    public static function formatPropertyCondition(?string $condition): string
+    {
+        return self::getConditionLabel($condition);
+    }
 }

@@ -1,3 +1,5 @@
+@use('App\Services\PropertyPresenter')
+
 <div class="min-h-screen">
     {{-- Sticky Header with Share Actions --}}
     <div class="sticky top-0 z-40 border-b border-zinc-200 bg-white/95 backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-900/95">
@@ -228,8 +230,8 @@
                                 {{-- Operation Badge --}}
                                 @if($opType)
                                     <div class="absolute bottom-2 left-2">
-                                        <flux:badge size="sm" :color="$opType === 'rent' ? 'blue' : 'zinc'">
-                                            {{ $opType === 'rent' ? 'Renta' : 'Venta' }}
+                                        <flux:badge size="sm" :color="PropertyPresenter::operationTypeBadgeColor($opType)">
+                                            {{ PropertyPresenter::operationTypeLabel($opType) }}
                                         </flux:badge>
                                     </div>
                                 @endif
@@ -241,7 +243,7 @@
                                 <div class="mb-1">
                                     @if($price)
                                         <p class="text-lg font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
-                                            ${{ number_format($price) }}{{ $opType === 'rent' ? '/mes' : '' }}
+                                            {{ PropertyPresenter::formatPrice(['type' => $opType, 'price' => $price]) }}
                                         </p>
                                     @else
                                         <p class="text-lg font-bold text-zinc-400 dark:text-zinc-600">
@@ -259,26 +261,20 @@
                                 <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-zinc-500">
                                     @if($property->bedrooms)
                                         <span class="flex items-center gap-1">
-                                            <svg class="size-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
-                                            </svg>
-                                            {{ $property->bedrooms }} rec
+                                            {!! PropertyPresenter::bedroomIcon('size-3.5') !!}
+                                            {{ PropertyPresenter::formatBedrooms($property->bedrooms, abbrev: true) }}
                                         </span>
                                     @endif
                                     @if($property->bathrooms)
                                         <span class="flex items-center gap-1">
-                                            <svg class="size-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                            </svg>
-                                            {{ $property->bathrooms }} ban
+                                            {!! PropertyPresenter::bathroomIcon('size-3.5') !!}
+                                            {{ PropertyPresenter::formatBathrooms($property->bathrooms, abbrev: true) }}
                                         </span>
                                     @endif
                                     @if($property->built_size_m2)
                                         <span class="flex items-center gap-1">
-                                            <svg class="size-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
-                                            </svg>
-                                            {{ number_format($property->built_size_m2) }} m²
+                                            {!! PropertyPresenter::sizeIcon('size-3.5') !!}
+                                            {{ PropertyPresenter::formatBuiltSize($property->built_size_m2) }}
                                         </span>
                                     @endif
                                 </div>

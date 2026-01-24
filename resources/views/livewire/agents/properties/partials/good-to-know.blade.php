@@ -1,4 +1,4 @@
-@use('App\Services\CollectionPropertyPresenter')
+@use('App\Services\PropertyPresenter')
 
 @props([
     'propertyInsights',
@@ -23,21 +23,21 @@
                 <div class="rounded-xl bg-zinc-50 p-3 text-center dark:bg-zinc-800">
                     <div class="mb-1 {{ $emojiSize }}">👥</div>
                     <div class="text-xs text-zinc-500">Ideal para</div>
-                    <div class="{{ $textSize }} font-medium text-zinc-900 dark:text-zinc-100">{{ CollectionPropertyPresenter::formatTargetAudience($propertyInsights['target_audience']) }}</div>
+                    <div class="{{ $textSize }} font-medium text-zinc-900 dark:text-zinc-100">{{ PropertyPresenter::formatTargetAudience($propertyInsights['target_audience']) }}</div>
                 </div>
             @endif
             @if (! empty($propertyInsights['occupancy_type']))
                 <div class="rounded-xl bg-zinc-50 p-3 text-center dark:bg-zinc-800">
                     <div class="mb-1 {{ $emojiSize }}">🏠</div>
                     <div class="text-xs text-zinc-500">Mejor para</div>
-                    <div class="{{ $textSize }} font-medium text-zinc-900 dark:text-zinc-100">{{ CollectionPropertyPresenter::formatOccupancyType($propertyInsights['occupancy_type']) }}</div>
+                    <div class="{{ $textSize }} font-medium text-zinc-900 dark:text-zinc-100">{{ PropertyPresenter::formatOccupancyType($propertyInsights['occupancy_type']) }}</div>
                 </div>
             @endif
             @if (! empty($propertyInsights['property_condition']))
                 <div class="rounded-xl bg-zinc-50 p-3 text-center dark:bg-zinc-800">
                     <div class="mb-1 {{ $emojiSize }}">✨</div>
                     <div class="text-xs text-zinc-500">Condicion</div>
-                    <div class="{{ $textSize }} font-medium text-zinc-900 dark:text-zinc-100">{{ CollectionPropertyPresenter::formatPropertyCondition($propertyInsights['property_condition']) }}</div>
+                    <div class="{{ $textSize }} font-medium text-zinc-900 dark:text-zinc-100">{{ PropertyPresenter::conditionLabel($propertyInsights['property_condition']) }}</div>
                 </div>
             @endif
         </div>

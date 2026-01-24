@@ -1,3 +1,5 @@
+@use('App\Services\PropertyPresenter')
+
 <div>
     {{-- Compact Sticky Filter Bar --}}
     <div class="sticky top-14 z-40 border-b border-zinc-200/80 bg-white dark:border-zinc-800 dark:bg-zinc-900">
@@ -208,7 +210,7 @@
 
                     @if($bathrooms !== '')
                         <span class="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-700 dark:bg-violet-900/30 dark:text-violet-400 sm:text-xs">
-                            {{ $bathrooms }}+ banos
+                            {{ $bathrooms }}+ {{ __('properties.specs.bathrooms', [], 'es') }}
                             <button wire:click="$set('bathrooms', '')" class="hover:text-violet-900 dark:hover:text-violet-200">
                                 <svg class="size-2.5 sm:size-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
@@ -328,7 +330,7 @@
                             {{-- Operation Badge --}}
                             @if($opType)
                                 <span class="absolute left-2 top-2 rounded-md px-1.5 py-0.5 text-[10px] font-semibold sm:left-3 sm:top-3 sm:px-2 sm:text-xs {{ $opType === 'rent' ? 'bg-blue-500 text-white' : 'bg-zinc-800 text-white' }}">
-                                    {{ $opType === 'rent' ? 'Renta' : 'Venta' }}
+                                    {{ PropertyPresenter::operationTypeLabel($opType) }}
                                 </span>
                             @endif
 
@@ -349,7 +351,7 @@
                             <div class="mb-1">
                                 @if($price)
                                     <p class="text-base font-bold tracking-tight text-zinc-900 dark:text-zinc-100 sm:text-lg">
-                                        ${{ number_format($price) }}{{ $opType === 'rent' ? '/mes' : '' }}
+                                        {{ PropertyPresenter::formatPrice(['type' => $opType, 'price' => $price]) }}
                                     </p>
                                 @else
                                     <p class="text-base font-bold text-zinc-400 dark:text-zinc-600 sm:text-lg">
@@ -367,34 +369,26 @@
                             <div class="flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] text-zinc-500 dark:text-zinc-500 sm:gap-x-3 sm:text-xs">
                                 @if($property->bedrooms)
                                     <span class="flex items-center gap-0.5 sm:gap-1">
-                                        <svg class="size-3 sm:size-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
-                                        </svg>
-                                        {{ $property->bedrooms }} rec
+                                        {!! PropertyPresenter::bedroomIcon('size-3 sm:size-3.5') !!}
+                                        {{ PropertyPresenter::formatBedrooms($property->bedrooms, abbrev: true) }}
                                     </span>
                                 @endif
                                 @if($property->bathrooms)
                                     <span class="flex items-center gap-0.5 sm:gap-1">
-                                        <svg class="size-3 sm:size-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                        </svg>
-                                        {{ $property->bathrooms }} ban
+                                        {!! PropertyPresenter::bathroomIcon('size-3 sm:size-3.5') !!}
+                                        {{ PropertyPresenter::formatBathrooms($property->bathrooms, abbrev: true) }}
                                     </span>
                                 @endif
                                 @if($property->parking_spots)
                                     <span class="flex items-center gap-0.5 sm:gap-1">
-                                        <svg class="size-3 sm:size-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12" />
-                                        </svg>
-                                        {{ $property->parking_spots }}
+                                        {!! PropertyPresenter::parkingIcon('size-3 sm:size-3.5') !!}
+                                        {{ PropertyPresenter::formatParking($property->parking_spots, abbrev: true) }}
                                     </span>
                                 @endif
                                 @if($property->built_size_m2)
                                     <span class="flex items-center gap-0.5 sm:gap-1">
-                                        <svg class="size-3 sm:size-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
-                                        </svg>
-                                        {{ number_format($property->built_size_m2) }} m²
+                                        {!! PropertyPresenter::sizeIcon('size-3 sm:size-3.5') !!}
+                                        {{ PropertyPresenter::formatBuiltSize($property->built_size_m2) }}
                                     </span>
                                 @endif
                             </div>
@@ -494,7 +488,7 @@
             {{-- Bedrooms & Bathrooms - matching grids --}}
             <div class="grid grid-cols-2 gap-4">
                 <div>
-                    <label class="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Recamaras</label>
+                    <label class="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Recámaras</label>
                     <div class="grid grid-cols-4 gap-1" wire:key="bedrooms-group-{{ $bedrooms }}">
                         @foreach(['1' => '1+', '2' => '2+', '3' => '3+', '4' => '4+'] as $value => $label)
                             <button
@@ -511,7 +505,7 @@
                     </div>
                 </div>
                 <div>
-                    <label class="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Banos</label>
+                    <label class="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Baños</label>
                     <div class="grid grid-cols-4 gap-1" wire:key="bathrooms-group-{{ $bathrooms }}">
                         @foreach(['1' => '1+', '2' => '2+', '3' => '3+', '4' => '4+'] as $value => $label)
                             <button
@@ -532,7 +526,7 @@
             {{-- Size & Parking - matching layout --}}
             <div class="grid grid-cols-2 gap-4">
                 <div>
-                    <label class="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Tamano (m²)</label>
+                    <label class="mb-2 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Tamaño (m²)</label>
                     <div class="flex items-center gap-2">
                         <flux:input type="number" wire:model.live.debounce.500ms="minSize" placeholder="Min" size="sm" />
                         <span class="text-zinc-400">—</span>
@@ -658,7 +652,7 @@
                                     <div class="p-2">
                                         <p class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
                                             @if($price)
-                                                ${{ number_format($price) }}<span class="text-xs font-normal text-zinc-500">{{ $opType === 'rent' ? '/mes' : '' }}</span>
+                                                {{ PropertyPresenter::formatPrice(['type' => $opType, 'price' => $price]) }}
                                             @else
                                                 <span class="text-zinc-400">Sin precio</span>
                                             @endif
@@ -666,8 +660,8 @@
                                         <p class="truncate text-xs text-zinc-500">{{ $property->colonia }}</p>
                                         @if($property->bedrooms || $property->bathrooms)
                                             <p class="mt-0.5 text-xs text-zinc-400">
-                                                @if($property->bedrooms){{ $property->bedrooms }}rec @endif
-                                                @if($property->bathrooms){{ $property->bathrooms }}ban @endif
+                                                @if($property->bedrooms){{ PropertyPresenter::formatBedrooms($property->bedrooms, abbrev: true) }} @endif
+                                                @if($property->bathrooms){{ PropertyPresenter::formatBathrooms($property->bathrooms, abbrev: true) }}@endif
                                             </p>
                                         @endif
                                     </div>

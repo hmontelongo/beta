@@ -1,5 +1,6 @@
 @php
     use App\Services\CollectionPropertyPresenter;
+    use App\Services\PropertyPresenter;
     use Illuminate\Support\Str;
 
     // Collect all amenities
@@ -185,7 +186,7 @@
                 @if($hasMaintenanceFee)
                     <div class="cost-item highlight">
                         <span class="cost-label">Mantenimiento:</span>
-                        <span class="cost-value">${{ number_format($prop['maintenanceFee']) }}/mes</span>
+                        <span class="cost-value">{{ PropertyPresenter::formatMaintenanceFee(['amount' => $prop['maintenanceFee'], 'currency' => 'MXN', 'period' => 'monthly']) }}</span>
                     </div>
                 @endif
                 @if(!empty($prop['pricingDetails']['extra_costs']))

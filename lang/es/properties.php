@@ -1,15 +1,51 @@
 <?php
 
 return [
+    // Property specs (with proper Spanish accents)
+    'specs' => [
+        'bedroom' => 'recámara',
+        'bedrooms' => 'recámaras',
+        'bedroom_abbrev' => 'rec',
+        'bathroom' => 'baño',
+        'bathrooms' => 'baños',
+        'bathroom_abbrev' => 'baño',
+        'bathrooms_abbrev' => 'baños',
+        'half_bathroom' => 'medio baño',
+        'half_bathrooms' => 'medios baños',
+        'parking' => 'estacionamiento',
+        'parkings' => 'estacionamientos',
+        'parking_abbrev' => 'est',
+        'year' => 'año',
+        'years' => 'años',
+        'new_construction' => 'Nuevo/Estrenar',
+        'built' => 'construidos',
+        'lot' => 'terreno',
+    ],
+
+    // Operation types (rent/sale)
+    'operation_type' => [
+        'rent' => 'Renta',
+        'sale' => 'Venta',
+    ],
+
+    // Freshness status
+    'freshness' => [
+        'fresh' => 'Reciente',
+        'recent' => 'Actual',
+        'stale' => 'Antiguo',
+    ],
+
     // Target audience
     'target_audience' => [
         'young_professionals' => 'Profesionales',
+        'professionals' => 'Profesionales',
         'couples' => 'Parejas',
         'families' => 'Familias',
         'students' => 'Estudiantes',
         'singles' => 'Solteros',
         'retirees' => 'Jubilados',
         'executives' => 'Ejecutivos',
+        'expats' => 'Extranjeros',
     ],
 
     // Occupancy types
@@ -29,6 +65,7 @@ return [
         'fair' => 'Regular',
         'needs_work' => 'Necesita trabajo',
         'new' => 'Nuevo',
+        'renovated' => 'Remodelado',
     ],
 
     // Landmark types
