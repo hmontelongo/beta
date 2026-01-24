@@ -11,12 +11,24 @@
         'brandColor' => $brandColor,
     ])
 
-    {{-- Property Pages --}}
+    {{-- Property Pages (Multi-page magazine layout) --}}
     @foreach($properties as $prop)
-        @include('pdf.partials.property-card', [
+        {{-- Page 1: Hero & Overview --}}
+        @include('pdf.partials.property.hero-page', [
             'prop' => $prop,
             'brandColor' => $brandColor,
-            'isLast' => $loop->last,
+        ])
+
+        {{-- Page 2: Details & Amenities (conditional) --}}
+        @include('pdf.partials.property.details-page', [
+            'prop' => $prop,
+            'brandColor' => $brandColor,
+        ])
+
+        {{-- Page 3: Gallery (if 2+ gallery images available) --}}
+        @include('pdf.partials.property.gallery-page', [
+            'prop' => $prop,
+            'brandColor' => $brandColor,
         ])
     @endforeach
 

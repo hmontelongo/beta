@@ -6,7 +6,6 @@ use App\Models\Property;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 
 /**
  * Prepares property data for rich display in collection views (PDF and public web).
@@ -35,19 +34,29 @@ class CollectionPropertyPresenter
     public function prepareProperty(Property $property, int $position, bool $embedImages = false): array
     {
         $extractedData = $property->ai_extracted_data ?? [];
-        $images = array_slice($property->images, 0, 5); // 1 main + 4 thumbnails
 
-        if ($embedImages && count($images) > 0) {
-            $images = $this->convertImagesToBase64($images);
+        // Get up to 11 images: 5 for hero section + 6 for gallery
+        $allImages = array_slice($property->images, 0, 11);
+
+        if ($embedImages && count($allImages) > 0) {
+            $allImages = $this->convertImagesToBase64($allImages);
         }
+
+        // Split into hero images (first 5) and gallery images (remaining)
+        $heroImages = array_slice($allImages, 0, 5);
+        $galleryImages = array_slice($allImages, 5, 6);
 
         return [
             'position' => $position,
             'id' => $property->id,
             'property' => $property,
 
-            // Images (up to 5) - converted to base64 for PDF if needed
-            'images' => $images,
+            // Hero images (1 main + 4 thumbnails)
+            'images' => $heroImages,
+            'heroImages' => $heroImages,
+
+            // Gallery images (up to 6 for 2x3 grid)
+            'galleryImages' => $galleryImages,
 
             // Price info - uses Property model accessors
             'price' => $property->primary_price,
@@ -142,6 +151,65 @@ class CollectionPropertyPresenter
     }
 
     /**
+     * Get emoji icon for an amenity.
+     */
+    public static function getAmenityIcon(string $amenity): string
+    {
+        return match (strtolower($amenity)) {
+            // Unit amenities
+            'integrated_kitchen', 'kitchen' => '🍳',
+            'terrace', 'balcony' => '🌅',
+            'laundry_room', 'washer', 'dryer' => '🧺',
+            'closet', 'walk_in_closet' => '👔',
+            'air_conditioning', 'ac' => '❄️',
+            'heating' => '🔥',
+            'dishwasher' => '🍽️',
+            'furnished', 'semi_furnished' => '🛋️',
+            'granite_countertops' => '💎',
+            'natural_gas' => '🔥',
+
+            // Building amenities
+            'swimming_pool', 'pool' => '🏊',
+            'gym' => '💪',
+            'elevator' => '🛗',
+            'playground' => '🎠',
+            'party_room', 'multipurpose_room', 'meeting_room' => '🎉',
+            'garden', 'roof_garden' => '🌳',
+            'bbq_area', 'grill' => '🔥',
+            'pet_area' => '🐕',
+            'jacuzzi' => '🛁',
+            'rooftop' => '🌆',
+            'coworking', 'business_center' => '💼',
+            'bike_parking' => '🚲',
+            'common_area' => '🏠',
+            'fountain' => '⛲',
+            'convenience_store' => '🏪',
+            'restaurant' => '🍽️',
+
+            // Services
+            'security', 'security_24h', '24_hour_security', 'guard_house', 'security_booth' => '🛡️',
+            'concierge' => '🛎️',
+            'covered_parking', 'visitor_parking' => '🅿️',
+            'storage' => '📦',
+            'gated_community' => '🚧',
+            'security_cameras' => '📹',
+            'maintenance' => '🔧',
+            'cleaning' => '🧹',
+            'valet_parking' => '🚗',
+            'disabled_access', 'wheelchair_access', 'accessibility_features' => '♿',
+            'package_reception' => '📬',
+
+            // Extras
+            'pet_friendly' => '🐾',
+            'solar_panels' => '☀️',
+            'water_tank' => '💧',
+            'generator' => '⚡',
+
+            default => '✓',
+        };
+    }
+
+    /**
      * Get emoji icon for a landmark type.
      */
     public static function getLandmarkIcon(string $type): string
@@ -181,18 +249,6 @@ class CollectionPropertyPresenter
             'warehouse' => 'Bodega',
             default => $type->value,
         };
-    }
-
-    /**
-     * Truncate description for display.
-     */
-    public static function truncateDescription(?string $description, int $limit = 300): ?string
-    {
-        if (! $description) {
-            return null;
-        }
-
-        return Str::limit(strip_tags($description), $limit);
     }
 
     /**
@@ -251,56 +307,5 @@ class CollectionPropertyPresenter
             'gated_community' => 'Coto privado',
             default => ucfirst(str_replace('_', ' ', $type)),
         };
-    }
-
-    /**
-     * Format money amount.
-     */
-    public static function formatMoney(float|int $amount, string $currency = 'MXN'): string
-    {
-        return '$'.number_format($amount).' '.$currency;
-    }
-
-    /**
-     * Format target audience array for display.
-     *
-     * @param  array<string>|string  $audience
-     */
-    public static function formatTargetAudience(array|string $audience): string
-    {
-        if (is_string($audience)) {
-            $audience = [$audience];
-        }
-
-        return collect($audience)
-            ->map(function ($a) {
-                $key = "properties.target_audience.{$a}";
-                $translation = __($key);
-
-                return $translation !== $key ? $translation : ucfirst(str_replace('_', ' ', $a));
-            })
-            ->join(', ');
-    }
-
-    /**
-     * Format occupancy type for display.
-     */
-    public static function formatOccupancyType(string $occupancyType): string
-    {
-        $key = "properties.occupancy_type.{$occupancyType}";
-        $translation = __($key);
-
-        return $translation !== $key ? $translation : ucfirst(str_replace('_', ' ', $occupancyType));
-    }
-
-    /**
-     * Format property condition for display.
-     */
-    public static function formatPropertyCondition(string $condition): string
-    {
-        $key = "properties.property_condition.{$condition}";
-        $translation = __($key);
-
-        return $translation !== $key ? $translation : ucfirst(str_replace('_', ' ', $condition));
     }
 }

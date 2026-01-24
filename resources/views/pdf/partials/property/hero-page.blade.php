@@ -2,16 +2,16 @@
     use App\Services\CollectionPropertyPresenter;
 @endphp
 
-<div class="property-card">
+<div class="property-page hero-page">
     {{-- Image Section --}}
     <div class="property-header">
         {{-- Position Badge --}}
         <div class="property-number">{{ $prop['position'] }}</div>
 
-        @if(count($prop['images']) > 0)
+        @if(count($prop['heroImages']) > 0)
             {{-- Main Image with Price Overlay --}}
             <div style="position: relative;">
-                <img src="{{ $prop['images'][0] }}" alt="{{ $prop['colonia'] }}" class="property-main-image">
+                <img src="{{ $prop['heroImages'][0] }}" alt="{{ $prop['colonia'] }}" class="property-main-image">
 
                 {{-- Gradient overlay --}}
                 <div style="position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.6) 0%, transparent 50%); border-radius: 8px;"></div>
@@ -40,15 +40,15 @@
             </div>
 
             {{-- Thumbnails --}}
-            @if(count($prop['images']) > 1)
+            @if(count($prop['heroImages']) > 1)
                 <div class="property-thumbnails">
-                    @foreach(array_slice($prop['images'], 1, 4) as $thumb)
+                    @foreach(array_slice($prop['heroImages'], 1, 4) as $thumb)
                         <img src="{{ $thumb }}" alt="" class="property-thumb">
                     @endforeach
                 </div>
             @endif
         @else
-            <div style="width: 100%; height: 2.8in; background: #f5f5f5; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #ccc;">
+            <div style="width: 100%; height: 3in; background: #f5f5f5; border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #ccc;">
                 Sin imagenes
             </div>
         @endif
@@ -127,7 +127,7 @@
             <div class="target-audience">
                 <div class="target-label">Ideal para</div>
                 <div class="audience-tags">
-                    @foreach(array_slice($prop['propertyInsights']['target_audience'], 0, 4) as $audience)
+                    @foreach($prop['propertyInsights']['target_audience'] as $audience)
                         <span class="audience-tag">
                             {{ CollectionPropertyPresenter::getTargetAudienceLabel($audience) }}
                         </span>
@@ -136,44 +136,13 @@
             </div>
         @endif
 
-        {{-- Description (truncated) --}}
+        {{-- Full Description (no truncation) --}}
         @if($prop['description'])
-            <div class="section-header">Descripcion</div>
-            <div class="property-description">
-                {!! Str::limit(strip_tags($prop['description']), 250) !!}
-                @if(strlen(strip_tags($prop['description'])) > 250)
-                    <div class="description-truncated">Ver descripcion completa en linea</div>
-                @endif
-            </div>
-        @endif
-
-        {{-- Amenities (limited) --}}
-        @php
-            $allAmenities = collect();
-            if ($prop['categorizedAmenities']) {
-                $allAmenities = $allAmenities
-                    ->merge($prop['categorizedAmenities']['in_unit'] ?? $prop['categorizedAmenities']['unit'] ?? [])
-                    ->merge($prop['categorizedAmenities']['building'] ?? [])
-                    ->merge($prop['categorizedAmenities']['services'] ?? []);
-            } elseif (!empty($prop['flatAmenities'])) {
-                $allAmenities = collect($prop['flatAmenities']);
-            }
-            $displayAmenities = $allAmenities->take(8);
-            $remainingCount = max(0, $allAmenities->count() - 8);
-        @endphp
-
-        @if($allAmenities->isNotEmpty())
-            <div class="section-header">Amenidades</div>
-            <div class="amenities-grid">
-                @foreach($displayAmenities as $amenity)
-                    <span class="amenity-tag">
-                        <span class="amenity-check">✓</span>
-                        {{ CollectionPropertyPresenter::humanizeAmenity($amenity) }}
-                    </span>
-                @endforeach
-                @if($remainingCount > 0)
-                    <span class="amenity-more">+{{ $remainingCount }} mas</span>
-                @endif
+            <div class="description-section">
+                <div class="section-header">Descripcion</div>
+                <div class="property-description">
+                    {!! nl2br(e(strip_tags($prop['description']))) !!}
+                </div>
             </div>
         @endif
     </div>
