@@ -3,8 +3,9 @@
 **Document:** `.claude/docs/ROADMAP_AGENT_APPLICATION.md`
 **Related:** `.claude/docs/ARCHITECTURE_STATE.md` (current system architecture)
 **Created:** 2026-01-21
-**Status:** In Progress
-**Last Updated:** 2026-01-22
+**Status:** ✅ COMPLETE
+**Last Updated:** 2026-01-23
+**Next Phase:** `.claude/docs/ROADMAP_AGENT_SHARING.md`
 
 ---
 
@@ -15,7 +16,7 @@ Build the agent-facing portion of PropData where real estate agents can search p
 **Architecture Approach:** Subdomain routing to separate concerns
 - `admin.propdata.test` → Internal admin (scraping, data management)
 - `agents.propdata.test` → Agent application (search, collections, sharing)
-- `propdata.test` → Public pages (shared collections, future marketing)
+- `propdata.test` → Public pages (shared collections, landing page)
 
 **Key Decisions:**
 - Subdomain prefix: `agents.` (not `app.`)
@@ -183,173 +184,235 @@ Tested via Playwright browser automation:
 
 ---
 
-## Phase 3: Agent UI Prototype (UI-First Approach) 🚧 IN PROGRESS
+## Phase 3: Agent Property Search & Collections UI ✅ COMPLETE
 
-**Goal:** Build experimental UI/UX for agent property search to understand what data and features are actually needed before committing to database schemas.
+**Goal:** Build the agent property search and collection management UI.
 
-**Rationale:** By building the UI first with real property data, we can:
-- Discover what information agents actually need to see
-- Understand what collection features make sense
-- Iterate quickly on UX without migration concerns
-- Inform the final database schema design
+**Change from Original Plan:** Originally this phase was "UI-First Approach" with mockups. Instead, we built fully functional features directly since the collection data model was straightforward.
 
-**Change from Original Plan:** Originally Phase 3 was "Collection Data Model". We've restructured to build UI first, then create database models informed by UI learnings.
+**Completed:** 2026-01-23
 
-**Prerequisite:** Phase 2 complete and verified. ✅
+### Step 3.1: Property Search UI ✅
+- [x] Full property search component with real data (320 properties)
+- [x] Implemented filters:
+  - Operation type (Todas/Venta/Renta) - pill buttons
+  - Zone autocomplete (grouped by city)
+  - Property type (Todas/Casa/Depto/Terreno/Local) - pill buttons
+  - Price quick picks ($2M, $2M-$4M, $4M-$8M, $8M-$15M, $15M+)
+  - Bedrooms quick picks (1, 2, 3, 4+)
+  - **Added:** Advanced filter modal with min/max price, bathrooms, parking, size range
+- [x] Mobile-first responsive card grid
+- [x] Pagination with Livewire
+- [x] **Changed:** Layout uses minimal header instead of sidebar (cleaner agent experience)
 
-**Status:** In Progress
+**Files Created:**
+- `app/Livewire/Agents/Properties/Index.php`
+- `resources/views/livewire/agents/properties/index.blade.php`
+- `resources/views/components/layouts/agent.blade.php` (minimal header layout)
 
-### Step 3.1: Property Search UI (Primary Focus)
-- [ ] Replace placeholder with full property search component
-- [ ] Use existing `Property` model data (93 properties available)
-- [ ] Implement filters:
-  - Location (state, city, colonia)
-  - Price range (min/max) - via linked listings
-  - Operation type (rent/sale) - via linked listings
-  - Property type (apartment, house, commercial, office, warehouse, land)
-  - Bedrooms, bathrooms, parking
-  - Size range
-- [ ] Display results as mobile-first card grid
-- [ ] Each card shows: image, price, location, key features
-- [ ] Pagination with Livewire
+### Step 3.2: Property Detail View ✅
+- [x] Hero image with lightbox gallery (Alpine.js)
+- [x] Price prominently displayed with operation type badge
+- [x] Key stats (beds, baths, parking, size)
+- [x] Full description
+- [x] Amenities/features list
+- [x] Location info with colonia/city
+- [x] **Added:** Multiple listing sources shown (when property has multiple listings)
+- [x] **Added:** "Add to collection" button integrated
+- [x] Mobile-responsive design
 
-**Data Available:**
-- 93 properties in database
-- Property types: apartments (34), commercial (19), houses (16), offices (11), warehouses (8), land (5)
-- Images stored in `listings.raw_data.images` (10-24 per listing)
-- Price/operation via `listings.operations` JSON
+**Files Created:**
+- `app/Livewire/Agents/Properties/Show.php`
+- `resources/views/livewire/agents/properties/show.blade.php`
+- `resources/views/livewire/agents/properties/partials/` (gallery, features, description, listings)
 
-**Files:**
-- `app/Livewire/Agents/Properties/Index.php` (replace placeholder)
-- `resources/views/livewire/agents/properties/index.blade.php` (new)
+### Step 3.3: Collection Panel (Inline) ✅
+- [x] **Changed:** Instead of separate collections pages, built inline collection panel
+- [x] Collection panel slides in from right (Flux modal flyout)
+- [x] Shows selected properties with thumbnails
+- [x] Inline name editing with save button
+- [x] Property count display
+- [x] Action bar with sharing options
+- [x] "Add to collection" buttons on property cards (functional, not "coming soon")
 
-### Step 3.2: Property Detail View
-- [ ] Create property detail page for agents
-- [ ] Display:
-  - Hero image with gallery (lightbox)
-  - Price prominently displayed
-  - Key stats (beds, baths, parking, size)
-  - Full description
-  - Amenities list
-  - Location info
-  - Publisher info (if available)
-- [ ] Mobile-responsive design
+**Design Decision:** The inline collection panel provides faster workflow than navigating to separate pages. Agents can build collections while browsing without losing context.
 
-**Files:**
-- `app/Livewire/Agents/Properties/Show.php` (new)
-- `resources/views/livewire/agents/properties/show.blade.php` (new)
+### Step 3.4: Collections Management Page ✅
+- [x] List all user's collections with status badges
+- [x] Filter by status (all/active/shared)
+- [x] Shows property count, view count, last viewed date
+- [x] Delete collection with confirmation modal
+- [x] Click to view collection detail
 
-### Step 3.3: Collection UI Mockup (Disabled/Visual Only)
-- [ ] Add "Collections" link to agent sidebar (navigates to mockup)
-- [ ] Create collections index page with static/mock data
-- [ ] Create collection detail page with static/mock data
-- [ ] "Add to Collection" button on property cards (shows toast: "Coming soon")
-- [ ] Visual design exploration for:
-  - How collections are displayed
-  - What client info fields make sense
-  - How properties are organized within a collection
-  - Share/public link UI
+**Files Created:**
+- `app/Livewire/Agents/Collections/Index.php`
+- `resources/views/livewire/agents/collections/index.blade.php`
 
-**Note:** These features are UI-only - no database operations. The goal is to iterate on what feels right before building the backend.
+### Step 3.5: Collection Detail View ✅
+- [x] Editable collection name
+- [x] Property grid with drag-to-reorder (wire:sort)
+- [x] Remove individual properties
+- [x] **Added:** Client management (select existing or create new)
+- [x] Share via WhatsApp (opens wa.me with pre-filled message)
+- [x] Copy share link
+- [x] **Added:** PDF download
+- [x] Status badge (active/shared)
+- [x] View count and last viewed display
 
-**Files:**
-- `app/Livewire/Agents/Collections/Index.php` (mock data)
-- `app/Livewire/Agents/Collections/Show.php` (mock data)
-- `resources/views/livewire/agents/collections/index.blade.php` (new)
-- `resources/views/livewire/agents/collections/show.blade.php` (new)
+**Files Created:**
+- `app/Livewire/Agents/Collections/Show.php`
+- `resources/views/livewire/agents/collections/show.blade.php`
 
-### Step 3.4: Navigation & Layout Polish
-- [ ] Update agent sidebar with Collections link
-- [ ] Ensure consistent navigation between pages
-- [ ] Mobile hamburger menu works correctly
+### Step 3.6: Navigation & Layout ✅
+- [x] **Changed:** Agent app uses minimal header layout (not sidebar)
+- [x] Header shows: logo, collection button with count, profile dropdown
+- [x] Profile dropdown has: Mis Colecciones, Configuracion, Cerrar sesion
+- [x] Collection panel accessible from any page via header button
+- [x] Mobile hamburger menu works correctly
 
-**Files:**
-- `resources/views/components/layouts/app/sidebar.blade.php` (modify)
-
-**Phase 3 Verification:**
-- [ ] Agent can search and filter properties with real data
-- [ ] Property detail page shows all available information
-- [ ] Collection UI mockups are navigable (even if non-functional)
-- [ ] Mobile responsive design works
-- [ ] Feedback gathered on what's missing or needs adjustment
-
----
-
-## Phase 4: Collection Data Model (Informed by UI Prototype)
-
-**Goal:** Create the database structure for agent collections based on learnings from Phase 3 UI prototype.
-
-**Prerequisite:** Phase 3 UI complete and feedback incorporated.
-
-**Status:** Pending (schema will be refined based on Phase 3 learnings)
-
-### Step 4.1: Collections Table
-- [ ] Create migration for `collections` table
-- [ ] Fields TBD based on UI prototype feedback
-
-### Step 4.2: Collection-Property Pivot Table
-- [ ] Create migration for `collection_property` table
-- [ ] Additional fields TBD based on UI prototype
-
-### Step 4.3: Collection Model & Factory
-- [ ] Create `Collection` model with relationships
-- [ ] Create `CollectionFactory` for testing
-
-### Step 4.4: Wire Up UI to Real Data
-- [ ] Replace mock data in collection components with real queries
-- [ ] Implement CRUD operations
-- [ ] Add/remove properties from collections
-- [ ] Write feature tests
-
-**Phase 4 Verification:**
-- [ ] Collections CRUD works completely
-- [ ] All UI features now backed by real data
-- [ ] Tests pass
+**Phase 3 Verification:** ✅
+- [x] Agent can search and filter properties with real data
+- [x] Property detail page shows all available information
+- [x] Collections are fully functional (not just mockups)
+- [x] Mobile responsive design works
+- [x] 72 collection-related tests passing
 
 ---
 
-## Phase 5: PDF Generation
+## Phase 4: Collection Data Model ✅ COMPLETE
 
-**Goal:** Generate professional property spec sheets.
+**Goal:** Create the database structure for agent collections.
 
-**Prerequisite:** Phase 4 complete.
+**Note:** This was implemented alongside Phase 3, not after. The data model evolved as features were built.
 
-### Step 5.1: Install PDF Package
-- [ ] Run `composer require spatie/laravel-pdf`
-- [ ] Verify Chromium/Puppeteer dependencies
+**Completed:** 2026-01-23
 
-### Step 5.2: PDF Template
-- [ ] Create property spec sheet Blade template
-- [ ] Professional layout with images, stats, description
+### Step 4.1: Collections Table ✅
+- [x] Create migration for `collections` table
+- [x] Fields: `user_id`, `name`, `description`, `share_token` (auto-generated), `is_public`, `shared_at`, `expires_at`
+- [x] **Added:** `client_id` foreign key for client association
+- [x] **Added:** Legacy `client_name`, `client_whatsapp` fields (for backward compatibility)
 
-### Step 5.3: PDF Controller & Routes
-- [ ] Create `PropertyPdfController`
-- [ ] Add routes for PDF generation
+**Files Created:**
+- `database/migrations/2026_01_23_044441_create_collections_table.php`
+- `database/migrations/2026_01_23_050139_add_client_fields_to_collections_table.php`
+- `database/migrations/2026_01_23_203120_add_client_id_and_shared_at_to_collections_table.php`
 
-### Step 5.4: Wire Up UI Buttons
-- [ ] Connect PDF download buttons in property/collection views
+### Step 4.2: Collection-Property Pivot Table ✅
+- [x] Create migration for `collection_property` table
+- [x] Fields: `collection_id`, `property_id`, `position` (for ordering)
+- [x] Timestamps included
 
-### Step 5.5: PDF Tests
-- [ ] Test PDF generation and content
+**Files Created:**
+- `database/migrations/2026_01_23_044442_create_collection_property_table.php`
+
+### Step 4.3: Client Model ✅
+- [x] **Added:** Client model for reusable client contacts
+- [x] Fields: `user_id`, `name`, `whatsapp`
+- [x] Belongs to User, has many Collections
+
+**Files Created:**
+- `app/Models/Client.php`
+- `database/factories/ClientFactory.php`
+- `database/migrations/2026_01_23_203107_create_clients_table.php`
+
+### Step 4.4: Collection View Tracking ✅
+- [x] **Added:** CollectionView model for analytics
+- [x] Fields: `collection_id`, `ip_address`, `user_agent`, `viewed_at`
+- [x] Tracks one view per IP per day (avoids spam)
+- [x] Accessors: `view_count`, `last_viewed_at` on Collection model
+
+**Files Created:**
+- `app/Models/CollectionView.php`
+- `database/migrations/2026_01_24_000218_create_collection_views_table.php`
+
+### Step 4.5: Collection Model ✅
+- [x] Create `Collection` model with relationships
+- [x] Auto-generates `share_token` on creation
+- [x] Relationships: belongsTo User, belongsTo Client, belongsToMany Properties, hasMany Views
+- [x] **Simplified:** Status from 4 states (draft/active/ready/shared) to 2 (active/shared)
+- [x] `markAsShared()` method sets `shared_at` and `is_public` idempotently
+- [x] `isAccessible()` checks public and not expired
+- [x] `getShareUrl()`, `getWhatsAppShareUrl()` helpers
+- [x] Create `CollectionFactory` for testing
+
+**Files Created:**
+- `app/Models/Collection.php`
+- `database/factories/CollectionFactory.php`
+
+### Step 4.6: Public Collection View ✅
+- [x] Public route at `/c/{share_token}`
+- [x] Shows collection properties without auth
+- [x] Tracks views automatically
+- [x] Returns 404 for private or expired collections
+
+**Files Created:**
+- `app/Livewire/Public/Collections/Show.php`
+- `resources/views/livewire/public/collections/show.blade.php`
+- `resources/views/components/layouts/public.blade.php`
+
+**Phase 4 Verification:** ✅
+- [x] Collections CRUD works completely
+- [x] All UI features backed by real data
+- [x] 72 collection tests pass
 
 ---
 
-## Phase 6: Polish & Documentation
+## Phase 5: PDF Generation ✅ COMPLETE
+
+**Goal:** Generate professional property spec sheets for collections.
+
+**Change from Original Plan:** Used `barryvdh/laravel-dompdf` instead of `spatie/laravel-pdf` (simpler, no Chromium dependency).
+
+**Completed:** 2026-01-23
+
+### Step 5.1: Install PDF Package ✅
+- [x] Run `composer require barryvdh/laravel-dompdf`
+- [x] No additional dependencies required (pure PHP)
+
+### Step 5.2: PDF Template ✅
+- [x] Create collection PDF Blade template
+- [x] Shows: collection name, agent info, property grid
+- [x] Each property: image, price, location, key features
+- [x] Clean professional layout
+
+**Files Created:**
+- `resources/views/pdf/collection.blade.php`
+
+### Step 5.3: PDF Download Action ✅
+- [x] Add `downloadPdf()` method to Collections/Show component
+- [x] Returns StreamedResponse with PDF
+- [x] Filename: `{collection-name-slugified}.pdf`
+
+### Step 5.4: Wire Up UI Button ✅
+- [x] PDF download button in collection detail header
+- [x] Uses Flux button with document-arrow-down icon
+
+### Step 5.5: PDF Tests ✅
+- [x] Test PDF generation returns 200
+- [x] Test correct content-type header
+
+**Phase 5 Verification:** ✅
+- [x] PDF downloads correctly from collection detail
+- [x] PDF contains collection properties
+- [x] Test passes
+
+---
+
+## Phase 6: Polish & Documentation ✅ DEFERRED
 
 **Goal:** Final cleanup and documentation.
 
-### Step 6.1: Local Development Documentation
-- [ ] Create `docs/LOCAL_DEVELOPMENT.md`
-- [ ] Document Herd subdomain setup
-- [ ] Document seeder usage
+**Status:** Deferred to ongoing maintenance. Core functionality is complete and tested. Documentation will be created as needed.
 
-### Step 6.2: Final Test Suite
-- [ ] All tests pass
-- [ ] Code formatted
-- [ ] Manual smoke test
+### Completed:
+- [x] All tests pass (577 tests)
+- [x] Code formatted with Pint
+- [x] Code review fixes applied (N+1, DRY, accessibility)
 
-### Step 6.3: Browser Tests (Optional)
-- [ ] Pest v4 browser tests for critical flows
+### Deferred:
+- [ ] `docs/LOCAL_DEVELOPMENT.md` - Create when onboarding new developers
+- [ ] Pest v4 browser tests - Add for critical flows as needed
 
 ---
 
@@ -357,25 +420,37 @@ Tested via Playwright browser automation:
 
 ### Design Decisions Made During Implementation
 
-1. **Single Sidebar with Conditional Rendering**: Instead of creating separate `admin-sidebar.blade.php` and `agent-sidebar.blade.php` files, we use a single sidebar with `@if($isAdmin)` conditional blocks. This keeps styling consistent and reduces code duplication.
+1. **Minimal Header Layout for Agents**: Instead of using the sidebar layout like admin, agents get a cleaner minimal header with just logo, collection button, and profile dropdown. This provides more screen space for browsing properties.
 
-2. **Centralized Redirect Logic**: The `User::homeUrl(bool $secure)` method centralizes all redirect URL logic. All auth responses (login, register, verify email) and the role middleware use this single source of truth.
+2. **Inline Collection Panel**: Rather than navigating to separate collection pages while browsing, the collection panel slides in as a flyout modal. This lets agents build collections without losing their search context.
 
-3. **All Admin Routes Use `admin.*` Prefix**: For consistency and to avoid conflicts with future agent routes, all admin routes now use the `admin.` prefix (e.g., `admin.platforms.index`, `admin.listings.show`).
+3. **Simplified Collection Status**: Originally planned 4 states (draft → active → ready → shared). Simplified to 2 states:
+   - `active` - Collection exists but hasn't been shared yet
+   - `shared` - Collection has been shared (shared_at is set)
+   The `markAsShared()` method handles the transition idempotently.
 
-4. **Explicit Role in UserFactory**: The UserFactory now explicitly sets `role => UserRole::Agent` as the default, making test behavior predictable and matching the expected behavior for new user registrations.
+4. **View Tracking**: Added analytics not in original plan. Tracks unique views per IP per day to show agents how their shared collections are performing.
 
-5. **Settings Layout Uses User Role**: The settings layout determines the route prefix based on `auth()->user()?->isAdmin()` instead of inspecting the host/subdomain. This is more reliable and explicit.
+5. **Client Management**: Added Client model for reusable contacts. Agents can select existing clients or create new ones when sharing collections.
 
-6. **UI-First Approach for Collections**: Phase 3 was restructured to build UI prototypes first before creating database schemas. This allows us to iterate on UX and discover actual requirements before committing to migrations.
+6. **barryvdh/laravel-dompdf over spatie/laravel-pdf**: Chose dompdf for simplicity - no Chromium dependency, works out of the box.
 
-### Files Created (Phase 1 & 2)
+7. **Session-Based Active Collection**: The "current collection" being edited persists in session. This allows agents to add properties from detail pages and return to the same collection.
+
+8. **Public Landing Page**: Added a marketing landing page at the root domain with dark mode support and animated background effects.
+
+### Files Created (All Phases)
 
 **Configuration:**
 - `config/domains.php` ✅
 
 **Enums:**
 - `app/Enums/UserRole.php` ✅
+
+**Models:**
+- `app/Models/Collection.php` ✅
+- `app/Models/CollectionView.php` ✅
+- `app/Models/Client.php` ✅
 
 **Middleware:**
 - `app/Http/Middleware/EnsureUserRole.php` ✅
@@ -385,79 +460,98 @@ Tested via Playwright browser automation:
 - `app/Http/Responses/RegisterResponse.php` ✅
 - `app/Http/Responses/VerifyEmailResponse.php` ✅
 
+**Livewire Components:**
+- `app/Livewire/Agents/Properties/Index.php` ✅
+- `app/Livewire/Agents/Properties/Show.php` ✅
+- `app/Livewire/Agents/Collections/Index.php` ✅
+- `app/Livewire/Agents/Collections/Show.php` ✅
+- `app/Livewire/Public/Collections/Show.php` ✅
+- `app/Livewire/Landing.php` ✅
+
+**Layouts:**
+- `resources/views/components/layouts/agent.blade.php` ✅
+- `resources/views/components/layouts/public.blade.php` ✅
+- `resources/views/components/layouts/landing.blade.php` ✅
+
+**Views:**
+- `resources/views/livewire/agents/properties/index.blade.php` ✅
+- `resources/views/livewire/agents/properties/show.blade.php` ✅
+- `resources/views/livewire/agents/properties/partials/*.blade.php` ✅
+- `resources/views/livewire/agents/collections/index.blade.php` ✅
+- `resources/views/livewire/agents/collections/show.blade.php` ✅
+- `resources/views/livewire/public/collections/show.blade.php` ✅
+- `resources/views/livewire/landing.blade.php` ✅
+- `resources/views/pdf/collection.blade.php` ✅
+
 **Migrations:**
 - `database/migrations/2026_01_22_185333_add_role_to_users_table.php` ✅
+- `database/migrations/2026_01_23_044441_create_collections_table.php` ✅
+- `database/migrations/2026_01_23_044442_create_collection_property_table.php` ✅
+- `database/migrations/2026_01_23_050139_add_client_fields_to_collections_table.php` ✅
+- `database/migrations/2026_01_23_203107_create_clients_table.php` ✅
+- `database/migrations/2026_01_23_203120_add_client_id_and_shared_at_to_collections_table.php` ✅
+- `database/migrations/2026_01_24_000218_create_collection_views_table.php` ✅
+
+**Factories:**
+- `database/factories/CollectionFactory.php` ✅
+- `database/factories/ClientFactory.php` ✅
 
 **Seeders:**
 - `database/seeders/UserSeeder.php` ✅
 
 **Tests:**
 - `tests/Feature/Middleware/EnsureUserRoleTest.php` ✅
+- `tests/Feature/Agents/CollectionsTest.php` ✅
 
-### Files Modified (Phase 1 & 2)
-
-- `.env` ✅
-- `.env.example` ✅
-- `bootstrap/app.php` ✅
-- `routes/web.php` ✅
-- `app/Models/User.php` ✅
-- `app/Providers/FortifyServiceProvider.php` ✅
-- `database/seeders/DatabaseSeeder.php` ✅
-- `database/factories/UserFactory.php` ✅
-- `resources/views/components/layouts/app/sidebar.blade.php` ✅
-- `resources/views/components/settings/layout.blade.php` ✅
-- All admin Livewire components (moved to `Admin/` namespace) ✅
-- All admin views (moved to `admin/` directory) ✅
-- `tests/Feature/Auth/RegistrationTest.php` ✅
-- `tests/Feature/Auth/EmailVerificationTest.php` ✅
-
----
-
-## Risk Mitigation
-
-**Git Strategy:**
-- Do not Commit after each completed step, stage all changes and ask for review on the staged files, then commit ✅
-- Use descriptive commit messages ✅
-- Feature branches for each phase ✅
-- Merge to main after each phase completion ✅
-
-**Branches Used:**
-- `feature/agent-application` - Phase 1 & 2 (merged to main)
-- `feature/agent-ui-prototype` - Phase 3 (current)
+**Traits:**
+- `app/Livewire/Concerns/ShowsWhatsAppTip.php` ✅
 
 ---
 
 ## Progress Log
 
-| Date | Phase | Step | Status | Notes |
-|------|-------|------|--------|-------|
-| 2026-01-21 | - | - | Complete | Initial plan created and approved |
-| 2026-01-21 | 1 | 1.1-1.5 | Complete | Domain config, UserRole enum, middleware, LoginResponse |
-| 2026-01-21 | 2 | 2.1-2.3 | Complete | Routes restructured, components moved to Admin namespace |
-| 2026-01-22 | 2 | 2.4 | Complete | Sidebar updated with role-based navigation |
-| 2026-01-22 | 2 | 2.5 | Complete | All pages verified via Playwright browser testing |
-| 2026-01-22 | 1 | - | Complete | Added RegisterResponse, VerifyEmailResponse, User::homeUrl() |
-| 2026-01-22 | 2 | - | Complete | Fixed route naming consistency (admin.* prefix) |
-| 2026-01-22 | - | - | Complete | All 505 tests passing |
-| 2026-01-22 | - | - | Complete | Merged feature/agent-application to main |
-| 2026-01-22 | 3 | - | Started | New branch: feature/agent-ui-prototype |
-| 2026-01-22 | - | - | Changed | Restructured plan: UI-first approach before database models |
+| Date | Phase | Status | Notes |
+|------|-------|--------|-------|
+| 2026-01-21 | 1 | Complete | Domain config, UserRole enum, middleware, auth responses |
+| 2026-01-21 | 2 | Complete | Routes restructured, components moved to Admin namespace |
+| 2026-01-22 | 2 | Complete | Sidebar updated, all pages verified via Playwright |
+| 2026-01-22 | 2 | Complete | Merged feature/agent-application to main |
+| 2026-01-22 | 3 | Started | Property search UI with filters |
+| 2026-01-22 | 3 | Complete | Property detail view with gallery |
+| 2026-01-22 | 4 | Complete | Collection data model created |
+| 2026-01-23 | 3 | Complete | Collection panel, management pages |
+| 2026-01-23 | 4 | Complete | Client model, view tracking |
+| 2026-01-23 | 5 | Complete | PDF export with dompdf |
+| 2026-01-23 | - | Complete | Landing page with dark mode |
+| 2026-01-23 | - | Complete | Collection panel UI redesign |
+| 2026-01-23 | - | Complete | Code review fixes (N+1, DRY, reduced motion) |
 
 ---
 
-## Next Steps
+## Completion Summary (2026-01-23)
 
-**Immediate (Phase 3 - UI Prototype):**
-1. Build agent property search UI with real property data
-2. Implement search filters (location, price, type, features)
-3. Build property detail view for agents
-4. Create collection UI mockups (visual only, no database)
-5. Iterate on UX based on how it feels to use
+This roadmap is now **COMPLETE**. The agent application core functionality has been fully implemented and tested.
 
-**After Phase 3:**
-- Finalize collection data model based on UI learnings (Phase 4)
-- Wire up collection UI to real database
-- Build PDF generation (Phase 5)
+**Delivered Features:**
+- ✅ Agent property search with filters
+- ✅ Property detail view with gallery
+- ✅ Collection management (create, edit, delete)
+- ✅ Add/remove properties from collections
+- ✅ Share via WhatsApp
+- ✅ Copy share link
+- ✅ Public collection view
+- ✅ View tracking analytics
+- ✅ PDF export
+- ✅ Client management
+- ✅ Landing page with dark mode
+
+**Test Coverage:**
+- 577 total tests passing
+- 72 collection-specific tests
+
+**Future Work:**
+Continued development of agent features is tracked in the next roadmap:
+→ `.claude/docs/ROADMAP_AGENT_SHARING.md` - Agent sharing tools and preferences
 
 ---
 
@@ -470,3 +564,5 @@ Tested via Playwright browser automation:
 | 2.0 | 2026-01-22 | Phase 1 & 2 marked complete with implementation notes |
 | 2.1 | 2026-01-22 | Documented design decisions that differed from original plan |
 | 2.2 | 2026-01-22 | Restructured to UI-first approach - Phase 3 is now UI prototype |
+| 3.0 | 2026-01-23 | Phase 3, 4, 5 marked complete. Documented actual implementation vs plan. |
+| 4.0 | 2026-01-23 | Roadmap marked COMPLETE. Future work moves to ROADMAP_AGENT_SHARING.md |
