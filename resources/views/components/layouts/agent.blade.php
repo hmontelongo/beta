@@ -34,14 +34,17 @@
                     </a>
 
                     {{-- Navigation Links --}}
+                    @php
+                        $isPropertiesActive = request()->routeIs(['agents.properties.index', 'agents.properties.show', 'agents.properties.upload.*']);
+                    @endphp
                     <nav class="hidden items-center gap-1 sm:flex">
                         <a
                             href="{{ route('agents.properties.index') }}"
                             wire:navigate
                             @class([
                                 'rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
-                                'bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100' => request()->routeIs('agents.properties.*'),
-                                'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100' => !request()->routeIs('agents.properties.*'),
+                                'bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100' => $isPropertiesActive,
+                                'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100' => ! $isPropertiesActive,
                             ])
                         >
                             Propiedades
@@ -71,8 +74,12 @@
                     </nav>
                 </div>
 
-                {{-- Right Side: Collection + Profile --}}
+                {{-- Right Side: New Property + Profile --}}
                 <div class="flex items-center gap-2">
+                    <flux:button href="{{ route('agents.properties.upload.describe') }}" variant="primary" size="sm" icon="plus" wire:navigate>
+                        Nueva propiedad
+                    </flux:button>
+
                     {{ $headerActions ?? '' }}
 
                     {{-- Profile Dropdown --}}

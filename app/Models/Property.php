@@ -2,14 +2,18 @@
 
 namespace App\Models;
 
+use App\Enums\OperationType;
+use App\Enums\PropertySourceType;
 use App\Enums\PropertyStatus;
 use App\Enums\PropertySubtype;
 use App\Enums\PropertyType;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Collection;
 
 class Property extends Model
@@ -17,7 +21,20 @@ class Property extends Model
     /** @use HasFactory<\Database\Factories\PropertyFactory> */
     use HasFactory;
 
+    use SoftDeletes;
+
     protected $fillable = [
+        // Ownership & source
+        'user_id',
+        'source_type',
+        // Operation & pricing (for native properties)
+        'operation_type',
+        'price',
+        'price_currency',
+        // Collaboration
+        'is_collaborative',
+        'commission_split',
+        // Location
         'address',
         'interior_number',
         'colonia',
@@ -26,6 +43,7 @@ class Property extends Model
         'postal_code',
         'latitude',
         'longitude',
+        // Property details
         'property_type',
         'property_subtype',
         'bedrooms',
@@ -37,6 +55,8 @@ class Property extends Model
         'age_years',
         'amenities',
         'description',
+        'original_description',
+        // AI/scraping metadata
         'ai_unification',
         'ai_extracted_data',
         'ai_unified_at',
@@ -53,6 +73,13 @@ class Property extends Model
     protected function casts(): array
     {
         return [
+            // New native upload fields
+            'source_type' => PropertySourceType::class,
+            'operation_type' => OperationType::class,
+            'price' => 'decimal:2',
+            'is_collaborative' => 'boolean',
+            'commission_split' => 'decimal:2',
+            // Existing fields
             'latitude' => 'decimal:7',
             'longitude' => 'decimal:7',
             'property_type' => PropertyType::class,
@@ -67,6 +94,30 @@ class Property extends Model
             'needs_reanalysis' => 'boolean',
             'discrepancies' => 'array',
         ];
+    }
+
+    // =========================================================================
+    // Relationships
+    // =========================================================================
+
+    /**
+     * The user (agent) who owns this property (for native uploads).
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function owner(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'user_id');
+    }
+
+    /**
+     * Images uploaded for this property (native uploads).
+     *
+     * @return HasMany<PropertyImage, $this>
+     */
+    public function propertyImages(): HasMany
+    {
+        return $this->hasMany(PropertyImage::class)->orderBy('position');
     }
 
     /**
@@ -94,25 +145,6 @@ class Property extends Model
     }
 
     /**
-     * Scope for properties that need AI re-analysis.
-     *
-     * @param  Builder<Property>  $query
-     * @return Builder<Property>
-     */
-    public function scopeNeedsReanalysis(Builder $query): Builder
-    {
-        return $query->where('needs_reanalysis', true);
-    }
-
-    /**
-     * Mark this property for re-analysis.
-     */
-    public function markForReanalysis(): void
-    {
-        $this->update(['needs_reanalysis' => true]);
-    }
-
-    /**
      * @return HasMany<PropertyVerification, $this>
      */
     public function verifications(): HasMany
@@ -127,6 +159,203 @@ class Property extends Model
     {
         return $this->belongsToMany(Publisher::class)->withTimestamps();
     }
+
+    // =========================================================================
+    // Scopes
+    // =========================================================================
+
+    /**
+     * Scope for properties that need AI re-analysis.
+     *
+     * @param  Builder<Property>  $query
+     * @return Builder<Property>
+     */
+    public function scopeNeedsReanalysis(Builder $query): Builder
+    {
+        return $query->where('needs_reanalysis', true);
+    }
+
+    /**
+     * Scope for scraped properties only.
+     *
+     * @param  Builder<Property>  $query
+     * @return Builder<Property>
+     */
+    public function scopeScraped(Builder $query): Builder
+    {
+        return $query->where('source_type', PropertySourceType::Scraped);
+    }
+
+    /**
+     * Scope for native (agent-uploaded) properties only.
+     *
+     * @param  Builder<Property>  $query
+     * @return Builder<Property>
+     */
+    public function scopeNative(Builder $query): Builder
+    {
+        return $query->where('source_type', PropertySourceType::Native);
+    }
+
+    /**
+     * Scope for properties owned by a specific user.
+     *
+     * @param  Builder<Property>  $query
+     * @return Builder<Property>
+     */
+    public function scopeOwnedBy(Builder $query, int $userId): Builder
+    {
+        return $query->where('user_id', $userId);
+    }
+
+    /**
+     * Scope for collaborative properties (visible to all agents).
+     *
+     * @param  Builder<Property>  $query
+     * @return Builder<Property>
+     */
+    public function scopeCollaborative(Builder $query): Builder
+    {
+        return $query->where('is_collaborative', true);
+    }
+
+    /**
+     * Scope for properties visible to a specific user in search.
+     * - All scraped properties (no owner)
+     * - Native + collaborative (visible to all)
+     * - Native + owned by user (always visible to owner)
+     *
+     * @param  Builder<Property>  $query
+     * @return Builder<Property>
+     */
+    public function scopeVisibleTo(Builder $query, int $userId): Builder
+    {
+        return $query->where(function (Builder $q) use ($userId) {
+            // All scraped properties
+            $q->where('source_type', PropertySourceType::Scraped)
+                // OR native + collaborative
+                ->orWhere(function (Builder $q) {
+                    $q->where('source_type', PropertySourceType::Native)
+                        ->where('is_collaborative', true);
+                })
+                // OR native + owned by current user
+                ->orWhere(function (Builder $q) use ($userId) {
+                    $q->where('source_type', PropertySourceType::Native)
+                        ->where('user_id', $userId);
+                });
+        });
+    }
+
+    /**
+     * Scope to filter by operation type (rent/sale).
+     * Handles both native and scraped properties.
+     *
+     * @param  Builder<Property>  $query
+     * @return Builder<Property>
+     */
+    public function scopeFilterByOperationType(Builder $query, string $operationType): Builder
+    {
+        return $query->where(function (Builder $q) use ($operationType) {
+            // Native properties: filter by direct operation_type field
+            $q->where(function (Builder $native) use ($operationType) {
+                $native->native()->where('operation_type', $operationType);
+            })
+            // Scraped properties: filter via listings JSON
+                ->orWhere(function (Builder $scraped) use ($operationType) {
+                    $scraped->scraped()->whereHas('listings', function (Builder $listing) use ($operationType) {
+                        $listing->whereJsonContains('operations', ['type' => $operationType]);
+                    });
+                });
+        });
+    }
+
+    /**
+     * Scope to filter by price range.
+     * Handles both native and scraped properties.
+     *
+     * @param  Builder<Property>  $query
+     * @return Builder<Property>
+     */
+    public function scopeFilterByPriceRange(Builder $query, ?int $minPrice = null, ?int $maxPrice = null, ?string $operationType = null): Builder
+    {
+        return $query->where(function (Builder $q) use ($minPrice, $maxPrice, $operationType) {
+            // Native properties: filter by direct price field
+            $q->where(function (Builder $native) use ($minPrice, $maxPrice, $operationType) {
+                $native->native()
+                    ->when($operationType, fn (Builder $q) => $q->where('operation_type', $operationType))
+                    ->when($minPrice !== null, fn (Builder $q) => $q->where('price', '>=', $minPrice))
+                    ->when($maxPrice !== null, fn (Builder $q) => $q->where('price', '<=', $maxPrice));
+            })
+            // Scraped properties: filter via listings JSON
+                ->orWhere(function (Builder $scraped) use ($minPrice, $maxPrice, $operationType) {
+                    $scraped->scraped()->whereHas('listings', function (Builder $listing) use ($minPrice, $maxPrice, $operationType) {
+                        $listing->when($operationType, fn (Builder $q) => $q->whereJsonContains('operations', ['type' => $operationType]));
+                        $listing->when($minPrice !== null, fn (Builder $q) => $q->whereRaw("JSON_EXTRACT(operations, '$[0].price') >= ?", [$minPrice]));
+                        $listing->when($maxPrice !== null, fn (Builder $q) => $q->whereRaw("JSON_EXTRACT(operations, '$[0].price') <= ?", [$maxPrice]));
+                    });
+                });
+        });
+    }
+
+    /**
+     * Scope to order by price.
+     * Handles both native and scraped properties using COALESCE.
+     *
+     * @param  Builder<Property>  $query
+     * @return Builder<Property>
+     */
+    public function scopeOrderByPrice(Builder $query, string $direction = 'asc'): Builder
+    {
+        $aggregate = $direction === 'asc' ? 'MIN' : 'MAX';
+
+        return $query->orderByRaw(
+            "COALESCE(properties.price, (SELECT {$aggregate}(JSON_EXTRACT(operations, \"$[0].price\")) FROM listings WHERE listings.property_id = properties.id)) {$direction}"
+        );
+    }
+
+    // =========================================================================
+    // Helper Methods
+    // =========================================================================
+
+    /**
+     * Check if this is a native (agent-uploaded) property.
+     */
+    public function isNative(): bool
+    {
+        return $this->source_type === PropertySourceType::Native;
+    }
+
+    /**
+     * Check if this is a scraped property.
+     */
+    public function isScraped(): bool
+    {
+        return $this->source_type === PropertySourceType::Scraped;
+    }
+
+    /**
+     * Check if the given user owns this property.
+     */
+    public function isOwnedBy(?User $user): bool
+    {
+        if (! $user || ! $this->user_id) {
+            return false;
+        }
+
+        return $this->user_id === $user->id;
+    }
+
+    /**
+     * Mark this property for re-analysis.
+     */
+    public function markForReanalysis(): void
+    {
+        $this->update(['needs_reanalysis' => true]);
+    }
+
+    // =========================================================================
+    // Accessors
+    // =========================================================================
 
     /**
      * Get unique platforms from all listings for this property.
@@ -180,11 +409,24 @@ class Property extends Model
 
     /**
      * Get the primary price for display.
+     * For native properties, uses direct price field.
+     * For scraped properties, uses listing operations.
      *
      * @return array{type: string, price: float, currency: string, maintenance_fee: float|null}|null
      */
     public function getPrimaryPriceAttribute(): ?array
     {
+        // Native properties: use direct price field
+        if ($this->isNative() && $this->price) {
+            return [
+                'type' => $this->operation_type?->value ?? 'unknown',
+                'price' => (float) $this->price,
+                'currency' => $this->price_currency ?? 'MXN',
+                'maintenance_fee' => null,
+            ];
+        }
+
+        // Scraped properties: get from listings
         foreach ($this->listings as $listing) {
             $operations = $listing->raw_data['operations'] ?? [];
             foreach ($operations as $op) {
@@ -230,12 +472,22 @@ class Property extends Model
     }
 
     /**
-     * Get images from the primary listing.
+     * Get images for display.
+     * For native properties, uses PropertyImages.
+     * For scraped properties, uses listing raw_data.
      *
      * @return array<string>
      */
     public function getImagesAttribute(): array
     {
+        // Native properties: use uploaded images
+        if ($this->isNative()) {
+            return $this->propertyImages
+                ->pluck('url')
+                ->toArray();
+        }
+
+        // Scraped properties: get from primary listing
         $listing = $this->primary_listing;
 
         if (! $listing) {
@@ -251,6 +503,23 @@ class Property extends Model
             )
             ->values()
             ->toArray();
+    }
+
+    /**
+     * Get the cover image URL.
+     */
+    public function getCoverImageAttribute(): ?string
+    {
+        // Native properties: find cover image
+        if ($this->isNative()) {
+            $cover = $this->propertyImages->firstWhere('is_cover', true)
+                ?? $this->propertyImages->first();
+
+            return $cover?->url;
+        }
+
+        // Scraped: first image
+        return $this->images[0] ?? null;
     }
 
     /**
@@ -349,6 +618,19 @@ class Property extends Model
             $this->city,
             $this->state,
             $this->postal_code,
+        ]);
+
+        return implode(', ', $parts);
+    }
+
+    /**
+     * Get the location display string (colonia, city).
+     */
+    public function getLocationDisplayAttribute(): string
+    {
+        $parts = array_filter([
+            $this->colonia,
+            $this->city,
         ]);
 
         return implode(', ', $parts);

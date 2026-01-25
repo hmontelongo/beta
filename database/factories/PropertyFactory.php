@@ -2,9 +2,12 @@
 
 namespace Database\Factories;
 
+use App\Enums\OperationType;
+use App\Enums\PropertySourceType;
 use App\Enums\PropertyStatus;
 use App\Enums\PropertySubtype;
 use App\Enums\PropertyType;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -60,6 +63,9 @@ class PropertyFactory extends Factory
         $city = fake()->randomElement(['Guadalajara', 'Guadalajara', 'Guadalajara', 'Zapopan', 'Tlaquepaque']);
 
         return [
+            // Source type defaults to scraped for backwards compatibility
+            'source_type' => PropertySourceType::Scraped,
+            'user_id' => null,
             'address' => fake()->streetAddress(),
             'interior_number' => fake()->optional(0.3)->randomElement(['101', '202', 'A', 'B', 'PH1', 'PH2', '1A', '3B']),
             'colonia' => fake()->randomElement($this->colonias),
@@ -82,6 +88,57 @@ class PropertyFactory extends Factory
             'confidence_score' => fake()->optional(0.3)->randomFloat(2, 0.5, 1.0),
             'listings_count' => 0,
         ];
+    }
+
+    /**
+     * Create a native (agent-uploaded) property.
+     */
+    public function native(?User $user = null): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'source_type' => PropertySourceType::Native,
+            'user_id' => $user?->id ?? User::factory(),
+            'operation_type' => fake()->randomElement(OperationType::cases()),
+            'price' => fake()->randomFloat(2, 500000, 50000000),
+            'price_currency' => 'MXN',
+            'is_collaborative' => false,
+            'commission_split' => null,
+            'description' => fake()->paragraph(3),
+            'original_description' => fake()->paragraph(2),
+        ]);
+    }
+
+    /**
+     * Create a native property that is open for collaboration.
+     */
+    public function collaborative(?User $user = null): static
+    {
+        return $this->native($user)->state(fn (array $attributes) => [
+            'is_collaborative' => true,
+            'commission_split' => fake()->randomElement([30.00, 40.00, 50.00]),
+        ]);
+    }
+
+    /**
+     * Create a native property for rent.
+     */
+    public function forRent(?User $user = null): static
+    {
+        return $this->native($user)->state(fn (array $attributes) => [
+            'operation_type' => OperationType::Rent,
+            'price' => fake()->randomFloat(2, 8000, 150000),
+        ]);
+    }
+
+    /**
+     * Create a native property for sale.
+     */
+    public function forSale(?User $user = null): static
+    {
+        return $this->native($user)->state(fn (array $attributes) => [
+            'operation_type' => OperationType::Sale,
+            'price' => fake()->randomFloat(2, 1000000, 50000000),
+        ]);
     }
 
     public function verified(): static

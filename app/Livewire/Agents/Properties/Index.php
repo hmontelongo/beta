@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Agents\Properties;
 
+use App\Enums\OperationType;
 use App\Enums\PropertyType;
 use App\Livewire\Concerns\HasActiveCollection;
 use App\Livewire\Concerns\ShowsWhatsAppTip;
@@ -520,10 +521,17 @@ class Index extends Component
             ->keys()
             ->first();
 
-        // Get operation type from first property's listing
-        $listing = $properties->first()->listings->first();
-        $opType = $listing?->operations[0]['type'] ?? null;
-        $opLabel = $opType === 'rent' ? 'Rentas' : 'Ventas';
+        // Get operation type from first property
+        $firstProperty = $properties->first();
+        if ($firstProperty->isNative()) {
+            // Native properties have operation_type directly on the model
+            $opLabel = $firstProperty->operation_type?->labelEsPlural() ?? 'Ventas';
+        } else {
+            // Scraped properties get operation type from listings
+            $listing = $firstProperty->listings->first();
+            $opType = $listing?->operations[0]['type'] ?? null;
+            $opLabel = $opType ? OperationType::from($opType)->labelEsPlural() : 'Ventas';
+        }
 
         return $location ? "{$opLabel} en {$location}" : 'Mi seleccion';
     }
@@ -533,6 +541,9 @@ class Index extends Component
      */
     protected function buildQuery(): Builder
     {
+        $minPrice = $this->minPrice !== '' ? (int) $this->minPrice : null;
+        $maxPrice = $this->maxPrice !== '' ? (int) $this->maxPrice : null;
+
         return Property::query()
             ->with(['listings.platform'])
             ->when($this->search, function ($query) {
@@ -560,23 +571,16 @@ class Index extends Component
                     $query->whereJsonContains('amenities', $amenity);
                 }
             })
-            ->when($this->operationType || $this->minPrice !== '' || $this->maxPrice !== '', function ($query) {
-                $query->whereHas('listings', function ($q) {
-                    $q->when($this->operationType, function ($subQ) {
-                        $subQ->whereJsonContains('operations', ['type' => $this->operationType]);
-                    });
-                    $q->when($this->minPrice !== '' || $this->maxPrice !== '', function ($subQ) {
-                        $subQ->whereRaw("JSON_EXTRACT(operations, '$[0].price') >= ?", [(int) ($this->minPrice ?: 0)])
-                            ->when($this->maxPrice !== '', function ($innerQ) {
-                                $innerQ->whereRaw("JSON_EXTRACT(operations, '$[0].price') <= ?", [(int) $this->maxPrice]);
-                            });
-                    });
-                });
-            })
+            // Operation type filter: when no price range, filter by type only.
+            // When price range is set, filterByPriceRange handles both price AND operation type
+            // because scraped properties store prices per-operation in listings JSON.
+            ->when($this->operationType && $minPrice === null && $maxPrice === null, fn ($query) => $query->filterByOperationType($this->operationType))
+            ->when($minPrice !== null || $maxPrice !== null, fn ($query) => $query->filterByPriceRange($minPrice, $maxPrice, $this->operationType ?: null))
+            // Sorting
             ->when($this->sortBy === 'newest', fn ($query) => $query->orderBy('created_at', 'desc'))
             ->when($this->sortBy === 'oldest', fn ($query) => $query->orderBy('created_at', 'asc'))
-            ->when($this->sortBy === 'price_low', fn ($query) => $query->orderByRaw('(SELECT MIN(JSON_EXTRACT(operations, "$[0].price")) FROM listings WHERE listings.property_id = properties.id) ASC'))
-            ->when($this->sortBy === 'price_high', fn ($query) => $query->orderByRaw('(SELECT MAX(JSON_EXTRACT(operations, "$[0].price")) FROM listings WHERE listings.property_id = properties.id) DESC'))
+            ->when($this->sortBy === 'price_low', fn ($query) => $query->orderByPrice('asc'))
+            ->when($this->sortBy === 'price_high', fn ($query) => $query->orderByPrice('desc'))
             ->when($this->sortBy === 'size', fn ($query) => $query->orderBy('built_size_m2', 'desc'));
     }
 

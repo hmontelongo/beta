@@ -28,3 +28,6 @@ Schedule::job(new ProcessDeduplicationBatchJob)->everyMinute()->withoutOverlappi
 
 // Step 3: Property Creation - runs at :00, :01, :02... (every minute, after dedup via queue priority)
 Schedule::job(new ProcessPropertyCreationBatchJob)->everyMinute()->withoutOverlapping();
+
+// Cleanup orphaned temp uploads daily at 3am
+Schedule::command('property:cleanup-uploads')->dailyAt('03:00');

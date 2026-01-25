@@ -17,6 +17,11 @@ use App\Livewire\Agents\Collections\Index as AgentCollectionsIndex;
 use App\Livewire\Agents\Collections\Show as AgentCollectionsShow;
 use App\Livewire\Agents\Properties\Index as AgentPropertiesIndex;
 use App\Livewire\Agents\Properties\Show as AgentPropertiesShow;
+use App\Livewire\Agents\Properties\Upload\Complete as UploadComplete;
+use App\Livewire\Agents\Properties\Upload\Describe as UploadDescribe;
+use App\Livewire\Agents\Properties\Upload\Photos as UploadPhotos;
+use App\Livewire\Agents\Properties\Upload\Review as UploadReview;
+use App\Livewire\Agents\Properties\Upload\Sharing as UploadSharing;
 use App\Livewire\Landing;
 use App\Livewire\Public\Collections\Show as PublicCollectionShow;
 use App\Livewire\Settings\Appearance;
@@ -93,6 +98,14 @@ Route::domain(config('domains.agents'))->group(function () {
         Route::redirect('/', '/properties');
 
         Route::livewire('properties', AgentPropertiesIndex::class)->name('agents.properties.index');
+
+        // Property Upload Flow (must be before {property} wildcard route)
+        Route::livewire('properties/new', UploadDescribe::class)->name('agents.properties.upload.describe');
+        Route::livewire('properties/new/review', UploadReview::class)->name('agents.properties.upload.review');
+        Route::livewire('properties/new/photos', UploadPhotos::class)->name('agents.properties.upload.photos');
+        Route::livewire('properties/new/sharing', UploadSharing::class)->name('agents.properties.upload.sharing');
+        Route::livewire('properties/new/complete', UploadComplete::class)->name('agents.properties.upload.complete');
+
         Route::livewire('properties/{property}', AgentPropertiesShow::class)->name('agents.properties.show');
         Route::livewire('clients', AgentClientsIndex::class)->name('agents.clients.index');
         Route::livewire('clients/{client}', AgentClientsShow::class)->name('agents.clients.show');
