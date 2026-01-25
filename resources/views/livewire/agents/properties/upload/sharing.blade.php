@@ -10,18 +10,18 @@
     <flux:card class="space-y-8">
         {{-- Sharing Options --}}
         <flux:radio.group
-            wire:model.live="isCollaborative"
+            wire:model.live="sharingOption"
             variant="cards"
             class="flex-col"
         >
             <flux:radio
-                value="0"
+                value="private"
                 icon="lock-closed"
                 label="Solo yo"
                 description="Solo tu podras compartir esta propiedad con clientes. Mantendras el control total."
             />
             <flux:radio
-                value="1"
+                value="collaborative"
                 icon="user-group"
                 label="Abierta a colaboracion"
                 description="Otros agentes podran incluirla en sus colecciones y compartirla con sus clientes."
@@ -29,7 +29,7 @@
         </flux:radio.group>
 
         {{-- Commission Split (only shown when collaborative) --}}
-        @if($isCollaborative)
+        @if($this->isCollaborative)
             <div
                 class="space-y-4"
                 x-data
@@ -85,7 +85,7 @@
         @endif
 
         {{-- Non-collaborative Benefits --}}
-        @unless($isCollaborative)
+        @unless($this->isCollaborative)
             <flux:callout icon="shield-check" class="bg-green-50 dark:bg-green-950/30">
                 <flux:callout.heading>Propiedad privada</flux:callout.heading>
                 <flux:callout.text>

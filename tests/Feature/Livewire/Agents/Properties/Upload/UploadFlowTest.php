@@ -184,6 +184,47 @@ describe('Photos Screen', function () {
             ->call('skip')
             ->assertRedirect(route('agents.properties.upload.sharing'));
     });
+
+    it('reorders photos and updates cover index', function () {
+        // Set up session with saved photos
+        session([
+            'property_upload.photos' => ['path/photo1.jpg', 'path/photo2.jpg', 'path/photo3.jpg'],
+            'property_upload.cover_index' => 0, // First photo is cover
+        ]);
+
+        $component = Livewire::test(Photos::class);
+
+        // Verify initial state
+        $component->assertSet('savedPhotoPaths', ['path/photo1.jpg', 'path/photo2.jpg', 'path/photo3.jpg'])
+            ->assertSet('coverIndex', 0);
+
+        // Reorder: move photo at index 0 to index 2
+        $component->call('reorderPhoto', 0, 2);
+
+        // Photo order should now be: photo2, photo3, photo1
+        $component->assertSet('savedPhotoPaths', ['path/photo2.jpg', 'path/photo3.jpg', 'path/photo1.jpg'])
+            ->assertSet('coverIndex', 2); // Cover index should follow the photo
+
+        // Verify session was updated
+        expect(session('property_upload.photos'))->toBe(['path/photo2.jpg', 'path/photo3.jpg', 'path/photo1.jpg']);
+        expect(session('property_upload.cover_index'))->toBe(2);
+    });
+
+    it('reorders photos without changing cover when cover is not moved', function () {
+        session([
+            'property_upload.photos' => ['path/photo1.jpg', 'path/photo2.jpg', 'path/photo3.jpg'],
+            'property_upload.cover_index' => 2, // Third photo is cover
+        ]);
+
+        $component = Livewire::test(Photos::class);
+
+        // Move photo 0 to position 1 (cover at position 2 should not be affected)
+        $component->call('reorderPhoto', 0, 1);
+
+        // Photo order should now be: photo2, photo1, photo3
+        $component->assertSet('savedPhotoPaths', ['path/photo2.jpg', 'path/photo1.jpg', 'path/photo3.jpg'])
+            ->assertSet('coverIndex', 2); // Cover index unchanged
+    });
 });
 
 describe('Sharing Screen', function () {
@@ -230,25 +271,25 @@ describe('Sharing Screen', function () {
 
     it('defaults to non-collaborative', function () {
         Livewire::test(Sharing::class)
-            ->assertSet('isCollaborative', false);
+            ->assertSet('sharingOption', 'private');
     });
 
     it('sets default commission when enabling collaboration', function () {
         Livewire::test(Sharing::class)
-            ->set('isCollaborative', true)
+            ->set('sharingOption', 'collaborative')
             ->assertSet('commissionSplit', 50.0);
     });
 
     it('allows setting commission preset', function () {
         Livewire::test(Sharing::class)
-            ->set('isCollaborative', true)
+            ->set('sharingOption', 'collaborative')
             ->call('setCommission', 30.0)
             ->assertSet('commissionSplit', 30.0);
     });
 
     it('creates property on publish', function () {
         Livewire::test(Sharing::class)
-            ->set('isCollaborative', false)
+            ->set('sharingOption', 'private')
             ->call('publish')
             ->assertRedirect(route('agents.properties.upload.complete'));
 
@@ -262,7 +303,7 @@ describe('Sharing Screen', function () {
 
     it('creates collaborative property with commission', function () {
         Livewire::test(Sharing::class)
-            ->set('isCollaborative', true)
+            ->set('sharingOption', 'collaborative')
             ->call('setCommission', 40.0)
             ->call('publish');
 
@@ -285,5 +326,124 @@ describe('Complete Screen', function () {
     it('redirects to describe if no completed property', function () {
         Livewire::test(Complete::class)
             ->assertRedirect(route('agents.properties.upload.describe'));
+    });
+});
+
+describe('Review Screen - Extraction Recovery', function () {
+    beforeEach(function () {
+        session(['property_upload.description' => 'Casa en Providencia, 4 recamaras, 3 banos, 350m2 en venta']);
+    });
+
+    it('recovers existing extraction on page reload', function () {
+        $extractionId = \Illuminate\Support\Str::uuid()->toString();
+        $cacheKey = \App\Jobs\ExtractPropertyDescriptionJob::getCacheKey($extractionId);
+
+        // Simulate an in-progress extraction
+        session([
+            'property_upload.extraction_id' => $extractionId,
+            'property_upload.extraction_started_at' => now()->timestamp,
+        ]);
+        \Illuminate\Support\Facades\Cache::put($cacheKey, [
+            'status' => 'processing',
+            'stage' => 'Analizando descripcion con IA...',
+            'progress' => 30,
+            'data' => null,
+            'error' => null,
+        ], now()->addHours(2));
+
+        // Mount the component (simulating a page reload)
+        Livewire::test(Review::class)
+            ->assertSet('extractionId', $extractionId)
+            ->assertSet('extractionStatus', 'processing')
+            ->assertSet('extractionProgress', 30);
+
+        // Verify no new extraction was started (extraction ID should be the same)
+        expect(session('property_upload.extraction_id'))->toBe($extractionId);
+    });
+
+    it('starts fresh extraction when cache expires', function () {
+        $oldExtractionId = \Illuminate\Support\Str::uuid()->toString();
+
+        // Simulate expired extraction (in session but not in cache)
+        session([
+            'property_upload.extraction_id' => $oldExtractionId,
+            'property_upload.extraction_started_at' => now()->subHours(3)->timestamp,
+        ]);
+        // Do NOT put anything in cache - simulating expiry
+
+        // Mount the component
+        $component = Livewire::test(Review::class);
+
+        // Should start a new extraction
+        expect($component->get('extractionId'))->not->toBe($oldExtractionId);
+        expect($component->get('extractionStatus'))->toBe('queued');
+    });
+
+    it('recovers completed extraction on page reload', function () {
+        $extractionId = \Illuminate\Support\Str::uuid()->toString();
+        $cacheKey = \App\Jobs\ExtractPropertyDescriptionJob::getCacheKey($extractionId);
+
+        $completedData = [
+            'property' => [
+                'property_type' => PropertyType::House->value,
+                'operation_type' => OperationType::Sale->value,
+                'colonia' => 'Providencia',
+                'city' => 'Guadalajara',
+                'state' => 'Jalisco',
+            ],
+            'pricing' => ['price' => 5000000, 'price_currency' => 'MXN'],
+            'amenities' => ['unit' => [], 'building' => [], 'services' => []],
+            'quality_score' => 75,
+        ];
+
+        // Simulate a completed extraction
+        session([
+            'property_upload.extraction_id' => $extractionId,
+            'property_upload.extraction_started_at' => now()->timestamp,
+        ]);
+        \Illuminate\Support\Facades\Cache::put($cacheKey, [
+            'status' => 'completed',
+            'stage' => 'Datos extraidos',
+            'progress' => 100,
+            'data' => $completedData,
+            'error' => null,
+        ], now()->addHours(2));
+
+        // Mount the component
+        Livewire::test(Review::class)
+            ->assertSet('extractionStatus', 'completed')
+            ->assertSet('extractedData.property.colonia', 'Providencia')
+            ->assertSet('qualityScore', 75);
+
+        // Cache should be cleaned up
+        expect(\Illuminate\Support\Facades\Cache::get($cacheKey))->toBeNull();
+    });
+
+    it('times out after max duration', function () {
+        $extractionId = \Illuminate\Support\Str::uuid()->toString();
+        $cacheKey = \App\Jobs\ExtractPropertyDescriptionJob::getCacheKey($extractionId);
+
+        // Simulate an extraction that started 6 minutes ago (beyond 5 min timeout)
+        session([
+            'property_upload.extraction_id' => $extractionId,
+            'property_upload.extraction_started_at' => now()->subSeconds(360)->timestamp,
+        ]);
+        \Illuminate\Support\Facades\Cache::put($cacheKey, [
+            'status' => 'processing',
+            'stage' => 'Analizando...',
+            'progress' => 50,
+            'data' => null,
+            'error' => null,
+        ], now()->addHours(2));
+
+        // Mount the component
+        $component = Livewire::test(Review::class)
+            ->assertSet('extractionId', $extractionId)
+            ->assertSet('extractionStatus', 'processing');
+
+        // Trigger a status check which should detect the timeout
+        $component->call('checkExtractionStatus')
+            ->assertSet('extractionStatus', 'failed')
+            ->assertSet('extractionError', 'El proceso tomo demasiado tiempo. Por favor intenta de nuevo.');
     });
 });

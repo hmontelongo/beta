@@ -176,7 +176,7 @@ class Collection extends Model
 
     public function getShareUrl(): string
     {
-        return route('collections.public.show', ['collection' => $this->share_token]);
+        return config('app.url').'/c/'.$this->share_token;
     }
 
     public function getWhatsAppShareUrl(): string

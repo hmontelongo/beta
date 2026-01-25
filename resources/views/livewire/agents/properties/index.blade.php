@@ -6,6 +6,40 @@
         <div class="mx-auto max-w-screen-2xl px-3 sm:px-6 lg:px-8">
             {{-- Single Row Filters --}}
             <div class="flex items-center gap-2 overflow-x-auto py-2.5 sm:gap-3">
+                {{-- Source Filter (All / My Properties) --}}
+                <div class="flex shrink-0 items-center rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800">
+                    <button
+                        wire:click="$set('source', '')"
+                        @class([
+                            'rounded-md px-3 py-1.5 text-xs font-semibold transition-all',
+                            'bg-white text-zinc-900 shadow-sm dark:bg-zinc-700 dark:text-zinc-100' => $source === '',
+                            'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100' => $source !== '',
+                        ])
+                    >
+                        Todas
+                    </button>
+                    <button
+                        wire:click="$set('source', 'mine')"
+                        @class([
+                            'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-all',
+                            'bg-emerald-500 text-white shadow-sm' => $source === 'mine',
+                            'text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100' => $source !== 'mine',
+                        ])
+                    >
+                        Mis propiedades
+                        @if($this->myPropertiesCount > 0)
+                            <span @class([
+                                'flex size-5 items-center justify-center rounded-full text-[10px] font-bold',
+                                'bg-white/20' => $source === 'mine',
+                                'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300' => $source !== 'mine',
+                            ])>{{ $this->myPropertiesCount }}</span>
+                        @endif
+                    </button>
+                </div>
+
+                {{-- Divider --}}
+                <div class="h-6 w-px shrink-0 bg-zinc-200 dark:bg-zinc-700"></div>
+
                 {{-- Operation Type Pills --}}
                 <div class="flex shrink-0 items-center rounded-lg bg-zinc-100 p-1 dark:bg-zinc-800">
                     @foreach(['' => 'Todas', 'sale' => 'Venta', 'rent' => 'Renta'] as $value => $label)
@@ -170,7 +204,7 @@
                 </div>
 
                 {{-- Clear Filters --}}
-                @if($operationType !== '' || $propertyType !== '' || !empty($zones) || $pricePreset !== '' || $bedrooms !== '' || $this->activeFilterCount > 0)
+                @if($source !== '' || $operationType !== '' || $propertyType !== '' || !empty($zones) || $pricePreset !== '' || $bedrooms !== '' || $this->activeFilterCount > 0)
                     <button wire:click="clearFilters" class="ml-auto text-xs font-semibold text-red-500 hover:text-red-600">
                         Limpiar
                     </button>
@@ -267,10 +301,10 @@
         {{-- Results Header --}}
         <div class="mb-4 flex items-center justify-between gap-3 sm:mb-6">
             <h2 class="flex items-center gap-2 text-base font-semibold text-zinc-900 dark:text-zinc-100 sm:text-lg">
-                <span wire:loading.class="opacity-50" wire:target="operationType,propertyType,zones,pricePreset,bedrooms,bathrooms,sortBy,search">
+                <span wire:loading.class="opacity-50" wire:target="source,operationType,propertyType,zones,pricePreset,bedrooms,bathrooms,sortBy,search">
                     {{ number_format($properties->total()) }} propiedades
                 </span>
-                <flux:icon.arrow-path wire:loading wire:target="operationType,propertyType,zones,pricePreset,bedrooms,bathrooms,sortBy,search" class="size-4 animate-spin text-zinc-400" />
+                <flux:icon.arrow-path wire:loading wire:target="source,operationType,propertyType,zones,pricePreset,bedrooms,bathrooms,sortBy,search" class="size-4 animate-spin text-zinc-400" />
             </h2>
         </div>
 
@@ -278,12 +312,14 @@
         <div wire:key="grid-{{ $this->gridKey }}" class="grid gap-3 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
             @forelse($properties as $property)
                 @php
-                    $listing = $property->listings->first();
-                    $images = $listing?->raw_data['images'] ?? [];
-                    $heroImage = $images[0] ?? null;
-                    $operations = $listing?->operations ?? [];
-                    $price = $operations[0]['price'] ?? null;
-                    $opType = $operations[0]['type'] ?? null;
+                    $heroImage = $property->cover_image;
+                    $primaryPrice = $property->primary_price;
+                    $opType = $primaryPrice['type'] ?? null;
+                    $price = $primaryPrice['price'] ?? null;
+                    $imageCount = $property->isNative()
+                        ? $property->propertyImages->count()
+                        : count($property->listings->first()?->raw_data['images'] ?? []);
+                    $isOwned = $property->isOwnedBy(auth()->user());
                 @endphp
                 <article wire:key="property-{{ $property->id }}" class="group relative">
                     {{-- Add to Collection Button (outside link, positioned over image) --}}
@@ -321,20 +357,28 @@
                                 </div>
                             @endif
 
-                            {{-- Operation Badge --}}
-                            @if($opType)
+                            {{-- Ownership Badge --}}
+                            @if($isOwned)
+                                <span class="absolute left-2 top-2 flex items-center gap-1 rounded-md bg-emerald-500 px-1.5 py-0.5 text-[10px] font-semibold text-white sm:left-3 sm:top-3 sm:px-2 sm:text-xs">
+                                    <svg class="size-2.5 sm:size-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+                                    </svg>
+                                    Mi propiedad
+                                </span>
+                            @elseif($opType)
+                                {{-- Operation Badge (only for non-owned) --}}
                                 <span class="absolute left-2 top-2 rounded-md px-1.5 py-0.5 text-[10px] font-semibold sm:left-3 sm:top-3 sm:px-2 sm:text-xs {{ $opType === 'rent' ? 'bg-blue-500 text-white' : 'bg-zinc-800 text-white' }}">
                                     {{ PropertyPresenter::operationTypeLabel($opType) }}
                                 </span>
                             @endif
 
                             {{-- Image Count --}}
-                            @if(count($images) > 1)
+                            @if($imageCount > 1)
                                 <span class="absolute right-2 top-2 flex items-center gap-1 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white backdrop-blur-sm sm:right-3 sm:top-3 sm:px-2 sm:text-xs">
                                     <svg class="size-2.5 sm:size-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
                                     </svg>
-                                    {{ count($images) }}
+                                    {{ $imageCount }}
                                 </span>
                             @endif
                         </div>
@@ -623,12 +667,10 @@
                     <div class="grid grid-cols-3 gap-3">
                         @foreach($this->collectionProperties as $property)
                             @php
-                                $listing = $property->listings->first();
-                                $images = $listing?->raw_data['images'] ?? [];
-                                $heroImage = $images[0] ?? null;
-                                $operations = $listing?->operations ?? [];
-                                $price = $operations[0]['price'] ?? null;
-                                $opType = $operations[0]['type'] ?? null;
+                                $heroImage = $property->cover_image;
+                                $primaryPrice = $property->primary_price;
+                                $price = $primaryPrice['price'] ?? null;
+                                $opType = $primaryPrice['type'] ?? $property->operation_type?->value;
                             @endphp
                             <div wire:key="collection-{{ $property->id }}" class="group relative overflow-hidden rounded-lg bg-zinc-100 dark:bg-zinc-800">
                                 <a href="{{ route('agents.properties.show', $property) }}" wire:navigate class="block">
@@ -677,7 +719,12 @@
                 {{-- Action Bar --}}
                 <div class="mt-4 flex items-center gap-2 border-t border-zinc-200 pt-4 dark:border-zinc-700">
                     {{-- Sharing Actions (left) --}}
-                    <flux:button wire:click="copyShareLink" variant="ghost" icon="link" size="sm">
+                    <flux:button
+                        x-on:click="navigator.clipboard.writeText('{{ $this->collectionShareUrl }}').catch(() => {}); $wire.copyShareLink();"
+                        variant="ghost"
+                        icon="link"
+                        size="sm"
+                    >
                         Copiar link
                     </flux:button>
                     <flux:button wire:click="shareViaWhatsApp" size="sm" class="!bg-green-600 !text-white hover:!bg-green-700">

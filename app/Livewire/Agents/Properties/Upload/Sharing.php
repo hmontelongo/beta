@@ -8,8 +8,11 @@ use App\Models\Property;
 use App\Models\PropertyImage;
 use Flux\Flux;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
+use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Validate;
@@ -19,7 +22,7 @@ use Livewire\Component;
 #[Title('Compartir propiedad')]
 class Sharing extends Component
 {
-    public bool $isCollaborative = false;
+    public string $sharingOption = 'private';
 
     #[Validate('nullable|numeric|min:1|max:100')]
     public ?float $commissionSplit = null;
@@ -29,6 +32,15 @@ class Sharing extends Component
     /** @var array<float> */
     public array $commissionPresets = [30.0, 40.0, 50.0];
 
+    /**
+     * Computed property for backward compatibility with blade templates.
+     */
+    #[Computed]
+    public function isCollaborative(): bool
+    {
+        return $this->sharingOption === 'collaborative';
+    }
+
     public function mount(): void
     {
         // Check if we have extracted data (required step)
@@ -37,9 +49,9 @@ class Sharing extends Component
         }
     }
 
-    public function updatedIsCollaborative(): void
+    public function updatedSharingOption(): void
     {
-        if ($this->isCollaborative && ! $this->commissionSplit) {
+        if ($this->sharingOption === 'collaborative' && ! $this->commissionSplit) {
             $this->commissionSplit = 50.0; // Default commission
         }
     }
@@ -65,8 +77,10 @@ class Sharing extends Component
 
     public function publish(): void
     {
+        $isCollaborative = $this->isCollaborative;
+
         // Validate commission split if collaborative
-        if ($this->isCollaborative) {
+        if ($isCollaborative) {
             $this->validate([
                 'commissionSplit' => ['required', 'numeric', 'min:1', 'max:100'],
             ]);
@@ -93,65 +107,85 @@ class Sharing extends Component
             $extractedData['amenities']['services'] ?? [],
         );
 
-        // Create the property
-        $newProperty = Property::create([
-            'user_id' => Auth::id(),
-            'source_type' => PropertySourceType::Native,
-            'operation_type' => $property['operation_type'],
-            'price' => $pricing['price'],
-            'price_currency' => $pricing['price_currency'] ?? 'MXN',
-            'is_collaborative' => $this->isCollaborative,
-            'commission_split' => $this->isCollaborative ? $this->commissionSplit : null,
-            'property_type' => $property['property_type'],
-            'colonia' => $property['colonia'],
-            'city' => $property['city'] ?? 'Guadalajara',
-            'state' => $property['state'] ?? 'Jalisco',
-            'address' => $property['address'] ?? '',
-            'bedrooms' => $property['bedrooms'],
-            'bathrooms' => $property['bathrooms'],
-            'half_bathrooms' => $property['half_bathrooms'],
-            'built_size_m2' => $property['built_size_m2'],
-            'lot_size_m2' => $property['lot_size_m2'],
-            'parking_spots' => $property['parking_spots'],
-            'age_years' => $property['age_years'],
-            'amenities' => $amenities,
-            'description' => $extractedData['description'] ?? '',
-            'original_description' => session('property_upload.description'),
-            // Store the full AI extracted data (terms, pricing details, etc.)
-            'ai_extracted_data' => $extractedData,
-        ]);
+        // Track temp files to clean up after successful transaction
+        $tempFilesToClean = [];
 
-        // Dispatch geocoding job to get lat/long from address/colonia
-        GeocodePropertyJob::dispatch($newProperty->id);
+        $commissionSplit = $this->commissionSplit;
 
-        // Move uploaded photos from temp to permanent storage
-        foreach ($photoPaths as $index => $tempPath) {
-            if (Storage::disk('local')->exists($tempPath)) {
-                $permanentPath = 'property-images/'.$newProperty->id.'/'.basename($tempPath);
-                Storage::disk('public')->put(
-                    $permanentPath,
-                    Storage::disk('local')->get($tempPath)
-                );
+        // Wrap property creation and photo saving in a transaction for atomicity
+        $newProperty = DB::transaction(function () use ($property, $pricing, $amenities, $extractedData, $photoPaths, $coverIndex, &$tempFilesToClean, $isCollaborative, $commissionSplit) {
+            // Create the property
+            $newProperty = Property::create([
+                'user_id' => Auth::id(),
+                'source_type' => PropertySourceType::Native,
+                'operation_type' => $property['operation_type'],
+                'price' => $pricing['price'],
+                'price_currency' => $pricing['price_currency'] ?? 'MXN',
+                'is_collaborative' => $isCollaborative,
+                'commission_split' => $isCollaborative ? $commissionSplit : null,
+                'property_type' => $property['property_type'],
+                'colonia' => $property['colonia'],
+                'city' => $property['city'] ?? 'Guadalajara',
+                'state' => $property['state'] ?? 'Jalisco',
+                'address' => $property['address'] ?? '',
+                'bedrooms' => $property['bedrooms'],
+                'bathrooms' => $property['bathrooms'],
+                'half_bathrooms' => $property['half_bathrooms'],
+                'built_size_m2' => $property['built_size_m2'],
+                'lot_size_m2' => $property['lot_size_m2'],
+                'parking_spots' => $property['parking_spots'],
+                'age_years' => $property['age_years'],
+                'amenities' => $amenities,
+                'description' => $extractedData['description'] ?? '',
+                'original_description' => session('property_upload.description'),
+                // Store the full AI extracted data (terms, pricing details, etc.)
+                'ai_extracted_data' => $extractedData,
+            ]);
 
-                PropertyImage::create([
-                    'property_id' => $newProperty->id,
-                    'path' => $permanentPath,
-                    'original_filename' => basename($tempPath),
-                    'size_bytes' => Storage::disk('public')->size($permanentPath),
-                    'position' => $index,
-                    'is_cover' => $index === $coverIndex,
-                ]);
+            // Move uploaded photos from temp to permanent storage
+            foreach ($photoPaths as $index => $tempPath) {
+                if (Storage::disk('local')->exists($tempPath)) {
+                    $permanentPath = 'property-images/'.$newProperty->id.'/'.basename($tempPath);
+                    Storage::disk('public')->put(
+                        $permanentPath,
+                        Storage::disk('local')->get($tempPath)
+                    );
 
-                // Clean up temp file
-                Storage::disk('local')->delete($tempPath);
+                    PropertyImage::create([
+                        'property_id' => $newProperty->id,
+                        'path' => $permanentPath,
+                        'original_filename' => basename($tempPath),
+                        'size_bytes' => Storage::disk('public')->size($permanentPath),
+                        'position' => $index,
+                        'is_cover' => $index === $coverIndex,
+                    ]);
+
+                    // Track temp file for cleanup after transaction commits
+                    $tempFilesToClean[] = $tempPath;
+                }
             }
+
+            return $newProperty;
+        });
+
+        // Clean up temp files only after successful transaction
+        foreach ($tempFilesToClean as $tempPath) {
+            Storage::disk('local')->delete($tempPath);
         }
+
+        // Clear cached property count
+        Cache::forget('user.'.Auth::id().'.my_properties_count');
+
+        // Dispatch geocoding job (outside transaction - async job)
+        GeocodePropertyJob::dispatch($newProperty->id);
 
         // Clear session data
         session()->forget([
             'property_upload.description',
             'property_upload.extracted_data',
             'property_upload.quality_score',
+            'property_upload.extraction_id',
+            'property_upload.extraction_started_at',
             'property_upload.photos',
             'property_upload.cover_index',
         ]);

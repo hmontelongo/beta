@@ -1,4 +1,36 @@
-<div class="mx-auto max-w-3xl px-4 py-8">
+<div
+    class="mx-auto max-w-3xl px-4 py-8"
+    x-data="{
+        dragging: null,
+        dragOver: null,
+        handleDragStart(e, index) {
+            this.dragging = index;
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', index);
+        },
+        handleDragOver(e, index) {
+            e.preventDefault();
+            e.dataTransfer.dropEffect = 'move';
+            this.dragOver = index;
+        },
+        handleDragLeave(e) {
+            this.dragOver = null;
+        },
+        handleDrop(e, toIndex) {
+            e.preventDefault();
+            const fromIndex = parseInt(e.dataTransfer.getData('text/plain'));
+            if (fromIndex !== toIndex) {
+                $wire.reorderPhoto(fromIndex, toIndex);
+            }
+            this.dragging = null;
+            this.dragOver = null;
+        },
+        handleDragEnd() {
+            this.dragging = null;
+            this.dragOver = null;
+        }
+    }"
+>
     {{-- Header --}}
     <div class="mb-8">
         <flux:heading size="xl" class="mb-2">Agrega fotos de la propiedad</flux:heading>
@@ -18,49 +50,37 @@
         </flux:file-upload>
 
         {{-- Photo Preview Grid --}}
-        @if(count($photos) > 0)
+        @if(count($savedPhotoPaths) > 0)
             <div>
                 <flux:heading size="sm" class="mb-4">
-                    {{ count($photos) }} {{ count($photos) === 1 ? 'foto' : 'fotos' }}
+                    {{ count($savedPhotoPaths) }} {{ count($savedPhotoPaths) === 1 ? 'foto' : 'fotos' }}
                 </flux:heading>
 
-                <div
-                    class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4"
-                    x-data="{
-                        dragging: null,
-                        dragOver: null,
-                        reorder(from, to) {
-                            if (from === to || from === null) return;
-                            const order = [...Array({{ count($photos) }}).keys()];
-                            const [item] = order.splice(from, 1);
-                            order.splice(to, 0, item);
-                            $wire.reorder(order);
-                            this.dragging = null;
-                            this.dragOver = null;
-                        }
-                    }"
-                >
-                    @foreach($photos as $index => $photo)
+                <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+                    @foreach($savedPhotoPaths as $index => $path)
                         <div
-                            wire:key="photo-{{ $photo->getFilename() }}"
-                            class="group relative aspect-square overflow-hidden rounded-lg border-2 transition-all
-                                {{ $index === $coverIndex ? 'border-blue-500 ring-2 ring-blue-500/30' : 'border-zinc-200 dark:border-zinc-700' }}"
-                            :class="{ 'scale-95 opacity-50': dragging === {{ $index }}, 'ring-2 ring-blue-400': dragOver === {{ $index }} && dragging !== {{ $index }} }"
+                            wire:key="photo-{{ $index }}"
                             draggable="true"
-                            x-on:dragstart="dragging = {{ $index }}; $event.dataTransfer.effectAllowed = 'move'"
-                            x-on:dragend="dragging = null; dragOver = null"
-                            x-on:dragover.prevent="dragOver = {{ $index }}"
-                            x-on:dragleave="if (dragOver === {{ $index }}) dragOver = null"
-                            x-on:drop.prevent="reorder(dragging, {{ $index }})"
+                            x-on:dragstart="handleDragStart($event, {{ $index }})"
+                            x-on:dragover="handleDragOver($event, {{ $index }})"
+                            x-on:dragleave="handleDragLeave($event)"
+                            x-on:drop="handleDrop($event, {{ $index }})"
+                            x-on:dragend="handleDragEnd()"
+                            class="group relative aspect-square overflow-hidden rounded-lg border-2 transition-all cursor-grab active:cursor-grabbing
+                                {{ $index === $coverIndex ? 'border-blue-500 ring-2 ring-blue-500/30' : 'border-zinc-200 dark:border-zinc-700' }}"
+                            :class="{
+                                'opacity-50 scale-95': dragging === {{ $index }},
+                                'ring-2 ring-blue-400 border-blue-400': dragOver === {{ $index }} && dragging !== {{ $index }}
+                            }"
                         >
                             {{-- Image --}}
                             <img
-                                src="{{ $photo->temporaryUrl() }}"
+                                src="{{ $this->getSavedPhotoUrl($path) }}"
                                 alt="Foto {{ $index + 1 }}"
-                                class="h-full w-full object-cover"
+                                class="h-full w-full object-cover pointer-events-none"
                             >
 
-                            {{-- Cover Badge - More visible --}}
+                            {{-- Cover Badge --}}
                             @if($index === $coverIndex)
                                 <div class="absolute left-2 top-2 rounded bg-black/70 px-2 py-1 text-xs font-medium text-white shadow-lg">
                                     <span class="flex items-center gap-1">
@@ -76,35 +96,32 @@
                             </div>
 
                             {{-- Hover Actions --}}
-                            <div class="absolute inset-0 flex items-center justify-center gap-2 bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+                            <div class="absolute inset-0 flex items-center justify-center gap-3 bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
                                 @if($index !== $coverIndex)
-                                    <flux:button
-                                        size="sm"
-                                        variant="filled"
+                                    <button
+                                        type="button"
                                         wire:click="setCover({{ $index }})"
-                                        icon="star"
+                                        class="flex size-10 items-center justify-center rounded-full bg-white text-zinc-700 shadow-lg transition hover:bg-amber-100 hover:text-amber-600"
                                         title="Establecer como portada"
-                                    />
+                                    >
+                                        <flux:icon name="star" class="size-5" />
+                                    </button>
                                 @endif
-                                <flux:button
-                                    size="sm"
-                                    variant="danger"
+                                <button
+                                    type="button"
                                     wire:click="removePhoto({{ $index }})"
-                                    icon="trash"
+                                    class="flex size-10 items-center justify-center rounded-full bg-white text-zinc-700 shadow-lg transition hover:bg-red-100 hover:text-red-600"
                                     title="Eliminar foto"
-                                />
-                            </div>
-
-                            {{-- Drag Handle --}}
-                            <div class="absolute bottom-2 right-2 cursor-move rounded bg-black/60 p-1 opacity-0 transition-opacity group-hover:opacity-100">
-                                <flux:icon name="bars-3" class="size-4 text-white" />
+                                >
+                                    <flux:icon name="trash" class="size-5" />
+                                </button>
                             </div>
                         </div>
                     @endforeach
                 </div>
 
                 <flux:text size="sm" class="mt-3 text-zinc-500 dark:text-zinc-400">
-                    Arrastra para reordenar. La primera foto sera la portada por defecto.
+                    Arrastra las fotos para reordenarlas. Haz clic en la estrella para establecer la foto de portada.
                 </flux:text>
             </div>
         @endif
@@ -147,7 +164,7 @@
                     wire:click="continue"
                     variant="primary"
                     icon:trailing="arrow-right"
-                    :disabled="count($photos) === 0"
+                    :disabled="count($savedPhotoPaths) === 0"
                 >
                     Continuar
                 </flux:button>

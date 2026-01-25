@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Agents\Properties\Upload;
 
+use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -24,70 +25,98 @@ class Photos extends Component
 
     public int $coverIndex = 0;
 
+    /**
+     * Paths of previously uploaded photos stored in session.
+     *
+     * @var array<string>
+     */
+    public array $savedPhotoPaths = [];
+
     public function mount(): void
     {
         // Check if we have extracted data (required step)
         if (! session('property_upload.extracted_data')) {
             $this->redirectRoute('agents.properties.upload.describe', navigate: true);
+
+            return;
         }
+
+        // Restore previously uploaded photos from session (back navigation)
+        $this->savedPhotoPaths = session('property_upload.photos', []);
+        $this->coverIndex = session('property_upload.cover_index', 0);
     }
 
     public function updatedPhotos(): void
     {
         $this->validateOnly('photos.*');
+
+        // Immediately persist new uploads to simplify reordering
+        foreach ($this->photos as $photo) {
+            $this->savedPhotoPaths[] = $photo->store('temp-property-uploads', 'local');
+        }
+
+        // Clear the temporary uploads array
+        $this->photos = [];
+
+        // Update session with new paths
+        session(['property_upload.photos' => $this->savedPhotoPaths]);
     }
 
     public function removePhoto(int $index): void
     {
-        if (isset($this->photos[$index])) {
-            $this->photos[$index]->delete();
-            unset($this->photos[$index]);
-            $this->photos = array_values($this->photos);
+        if (isset($this->savedPhotoPaths[$index])) {
+            Storage::disk('local')->delete($this->savedPhotoPaths[$index]);
+            unset($this->savedPhotoPaths[$index]);
+            $this->savedPhotoPaths = array_values($this->savedPhotoPaths);
 
             // Adjust cover index if needed
-            if ($this->coverIndex >= count($this->photos)) {
-                $this->coverIndex = max(0, count($this->photos) - 1);
+            $count = count($this->savedPhotoPaths);
+            if ($this->coverIndex >= $count) {
+                $this->coverIndex = max(0, $count - 1);
             }
+
+            session(['property_upload.photos' => $this->savedPhotoPaths]);
+            session(['property_upload.cover_index' => $this->coverIndex]);
         }
     }
 
     public function setCover(int $index): void
     {
-        if (isset($this->photos[$index])) {
+        if ($index >= 0 && $index < count($this->savedPhotoPaths)) {
             $this->coverIndex = $index;
+            session(['property_upload.cover_index' => $this->coverIndex]);
         }
     }
 
-    public function reorder(array $order): void
+    /**
+     * Reorder a photo from one position to another.
+     */
+    public function reorderPhoto(int $fromIndex, int $toIndex): void
     {
-        // Get the filename of the current cover photo to track it
-        $coverFilename = isset($this->photos[$this->coverIndex])
-            ? $this->photos[$this->coverIndex]->getFilename()
-            : null;
+        $count = count($this->savedPhotoPaths);
 
-        // Reorder photos based on the new order
-        $reordered = [];
-        foreach ($order as $index) {
-            if (isset($this->photos[$index])) {
-                $reordered[] = $this->photos[$index];
-            }
+        // Validate indices
+        if ($fromIndex < 0 || $fromIndex >= $count || $toIndex < 0 || $toIndex >= $count) {
+            return;
         }
 
-        $this->photos = $reordered;
+        // Perform the reorder
+        $item = $this->savedPhotoPaths[$fromIndex];
+        array_splice($this->savedPhotoPaths, $fromIndex, 1);
+        array_splice($this->savedPhotoPaths, $toIndex, 0, [$item]);
 
-        // Update cover index to match new position of the cover photo
-        if ($coverFilename) {
-            foreach ($this->photos as $i => $photo) {
-                if ($photo->getFilename() === $coverFilename) {
-                    $this->coverIndex = $i;
-
-                    return;
-                }
-            }
+        // Update cover index to follow the photo that was marked as cover
+        if ($this->coverIndex === $fromIndex) {
+            $this->coverIndex = $toIndex;
+        } elseif ($fromIndex < $this->coverIndex && $toIndex >= $this->coverIndex) {
+            $this->coverIndex--;
+        } elseif ($fromIndex > $this->coverIndex && $toIndex <= $this->coverIndex) {
+            $this->coverIndex++;
         }
 
-        // Fallback: if cover photo not found, set to first photo
-        $this->coverIndex = 0;
+        // Update session with new order
+        session(['property_upload.photos' => $this->savedPhotoPaths]);
+        session(['property_upload.cover_index' => $this->coverIndex]);
     }
 
     public function back(): void
@@ -97,6 +126,10 @@ class Photos extends Component
 
     public function skip(): void
     {
+        // Clear photos when skipping
+        foreach ($this->savedPhotoPaths as $path) {
+            Storage::disk('local')->delete($path);
+        }
         session(['property_upload.photos' => []]);
         session(['property_upload.cover_index' => 0]);
 
@@ -105,16 +138,30 @@ class Photos extends Component
 
     public function continue(): void
     {
-        // Store photo paths temporarily (will be moved to permanent storage on final save)
-        $photoPaths = [];
-        foreach ($this->photos as $photo) {
-            $photoPaths[] = $photo->store('temp-property-uploads', 'local');
+        $this->redirectRoute('agents.properties.upload.sharing', navigate: true);
+    }
+
+    /**
+     * Get total count of all photos.
+     */
+    public function getTotalPhotoCount(): int
+    {
+        return count($this->savedPhotoPaths);
+    }
+
+    /**
+     * Get base64 data URL for a saved photo.
+     */
+    public function getSavedPhotoUrl(string $path): string
+    {
+        if (! Storage::disk('local')->exists($path)) {
+            return '';
         }
 
-        session(['property_upload.photos' => $photoPaths]);
-        session(['property_upload.cover_index' => $this->coverIndex]);
+        $contents = Storage::disk('local')->get($path);
+        $mimeType = Storage::disk('local')->mimeType($path) ?: 'image/jpeg';
 
-        $this->redirectRoute('agents.properties.upload.sharing', navigate: true);
+        return 'data:'.$mimeType.';base64,'.base64_encode($contents);
     }
 
     public function render(): View

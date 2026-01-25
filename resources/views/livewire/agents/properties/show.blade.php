@@ -11,7 +11,7 @@
 
             {{-- Desktop Actions --}}
             <div class="hidden items-center gap-2 lg:flex">
-                <flux:button variant="ghost" size="sm" icon="share">
+                <flux:button variant="ghost" size="sm" icon="share" disabled>
                     Compartir
                 </flux:button>
                 <flux:button
@@ -26,7 +26,7 @@
 
             {{-- Mobile: Just icons --}}
             <div class="flex items-center gap-1 lg:hidden">
-                <flux:button variant="ghost" size="sm" icon="share" />
+                <flux:button variant="ghost" size="sm" icon="share" disabled />
             </div>
         </div>
     </div>
@@ -379,7 +379,7 @@
             >
                 {{ $this->isInCollection() ? 'En tu coleccion' : 'Agregar a coleccion' }}
             </flux:button>
-            <flux:button variant="outline" icon="share">
+            <flux:button variant="outline" icon="share" disabled>
                 Compartir
             </flux:button>
         </div>

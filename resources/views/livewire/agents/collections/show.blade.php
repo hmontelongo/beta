@@ -45,7 +45,10 @@
                             Compartir
                         </flux:button>
                         <flux:menu>
-                            <flux:menu.item wire:click="copyShareLink" icon="link">
+                            <flux:menu.item
+                                x-on:click="navigator.clipboard.writeText('{{ $collection->getShareUrl() }}').catch(() => {}); $wire.copyShareLink();"
+                                icon="link"
+                            >
                                 Copiar enlace
                             </flux:menu.item>
                             <flux:menu.item wire:click="previewCollection" icon="eye">
@@ -74,7 +77,7 @@
                                 Descargar PDF
                             </flux:menu.item>
                             <flux:menu.item
-                                wire:click="copyShareLink"
+                                x-on:click="navigator.clipboard.writeText('{{ $collection->getShareUrl() }}').catch(() => {}); $wire.copyShareLink();"
                                 icon="link"
                                 class="sm:hidden"
                             >
@@ -212,12 +215,10 @@
             >
                 @foreach($collection->properties as $property)
                     @php
-                        $listing = $property->listings->first();
-                        $images = $listing?->raw_data['images'] ?? [];
-                        $heroImage = $images[0] ?? null;
-                        $operations = $listing?->operations ?? [];
-                        $price = $operations[0]['price'] ?? null;
-                        $opType = $operations[0]['type'] ?? null;
+                        $heroImage = $property->cover_image;
+                        $primaryPrice = $property->primary_price;
+                        $price = $primaryPrice['price'] ?? null;
+                        $opType = $primaryPrice['type'] ?? $property->operation_type?->value;
                     @endphp
                     <div
                         wire:key="property-{{ $property->id }}"

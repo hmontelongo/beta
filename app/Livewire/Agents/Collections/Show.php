@@ -44,7 +44,7 @@ class Show extends Component
     {
         abort_unless($collection->user_id === auth()->id(), 404);
 
-        $this->collection = $collection->load(['properties.listings', 'client']);
+        $this->collection = $collection->load(['properties.listings', 'properties.propertyImages', 'client']);
         $this->name = $collection->name;
         $this->clientId = $collection->client_id;
     }
@@ -131,7 +131,7 @@ class Show extends Component
             'position' => $position,
         ]);
 
-        $this->collection->load('properties.listings');
+        $this->collection->load(['properties.listings', 'properties.propertyImages']);
     }
 
     public function removeProperty(int $propertyId): void
@@ -140,7 +140,7 @@ class Show extends Component
         abort_unless($this->collection->user_id === auth()->id(), 403);
 
         $this->collection->properties()->detach($propertyId);
-        $this->collection->load('properties.listings');
+        $this->collection->load(['properties.listings', 'properties.propertyImages']);
 
         Flux::toast(
             text: 'Propiedad removida',
@@ -157,11 +157,13 @@ class Show extends Component
         $this->showWhatsAppTipIfNeeded();
     }
 
+    /**
+     * Copy share link to clipboard and mark as shared.
+     * Called synchronously - clipboard copy happens in Alpine (fire-and-forget).
+     */
     public function copyShareLink(): void
     {
         $this->collection->markAsShared();
-
-        $this->dispatch('copy-to-clipboard', text: $this->collection->getShareUrl());
 
         Flux::toast(
             heading: 'Link copiado',

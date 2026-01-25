@@ -35,6 +35,13 @@ class Review extends Component
 
     public int $qualityScore = 0;
 
+    public ?int $extractionStartedAt = null;
+
+    /**
+     * Maximum time to wait for extraction before timing out (5 minutes).
+     */
+    protected const EXTRACTION_TIMEOUT_SECONDS = 300;
+
     public function mount(): void
     {
         $this->originalDescription = session('property_upload.description', '');
@@ -52,10 +59,45 @@ class Review extends Component
             $this->extractedData = $savedData;
             $this->qualityScore = session('property_upload.quality_score', 0);
             $this->extractionStatus = 'completed';
-        } else {
-            // Start extraction job
-            $this->startExtraction();
+
+            return;
         }
+
+        // Check for in-progress extraction (page reload recovery)
+        $existingExtractionId = session('property_upload.extraction_id');
+
+        if ($existingExtractionId) {
+            $cacheKey = ExtractPropertyDescriptionJob::getCacheKey($existingExtractionId);
+            $status = Cache::get($cacheKey);
+
+            if ($status) {
+                // Recovery: resume polling existing job
+                $this->extractionId = $existingExtractionId;
+                $this->extractionStatus = $status['status'];
+                $this->extractionStage = $status['stage'] ?? '';
+                $this->extractionProgress = $status['progress'] ?? 0;
+                $this->extractionError = $status['error'] ?? null;
+                $this->extractionStartedAt = session('property_upload.extraction_started_at');
+
+                if ($status['status'] === 'completed' && $status['data']) {
+                    $this->extractedData = $status['data'];
+                    $this->qualityScore = $status['data']['quality_score'] ?? 0;
+                    $this->cleanupExtraction();
+                } elseif ($status['status'] === 'failed') {
+                    $this->extractedData = $this->getEmptyStructure();
+                    $this->qualityScore = 0;
+                    $this->cleanupExtraction();
+                }
+
+                return;
+            }
+
+            // Cache expired - clear stale session data and start fresh
+            session()->forget(['property_upload.extraction_id', 'property_upload.extraction_started_at']);
+        }
+
+        // No existing job, start new extraction
+        $this->startExtraction();
     }
 
     protected function startExtraction(): void
@@ -64,6 +106,7 @@ class Review extends Component
         $this->extractionStatus = 'queued';
         $this->extractionStage = 'Preparando analisis...';
         $this->extractionProgress = 5;
+        $this->extractionStartedAt = now()->timestamp;
 
         // Initialize status in cache
         ExtractPropertyDescriptionJob::initializeStatus($this->extractionId);
@@ -72,8 +115,11 @@ class Review extends Component
         ExtractPropertyDescriptionJob::dispatch($this->extractionId, $this->originalDescription)
             ->onQueue('ai-enrichment');
 
-        // Store extraction ID in session for recovery
-        session(['property_upload.extraction_id' => $this->extractionId]);
+        // Store extraction ID and start time in session for recovery
+        session([
+            'property_upload.extraction_id' => $this->extractionId,
+            'property_upload.extraction_started_at' => $this->extractionStartedAt,
+        ]);
     }
 
     /**
@@ -81,7 +127,18 @@ class Review extends Component
      */
     public function checkExtractionStatus(): void
     {
-        if ($this->extractionStatus === 'completed' || ! $this->extractionId) {
+        if ($this->extractionStatus === 'completed' || $this->extractionStatus === 'failed' || ! $this->extractionId) {
+            return;
+        }
+
+        // Check for timeout
+        if ($this->extractionStartedAt && (now()->timestamp - $this->extractionStartedAt) > self::EXTRACTION_TIMEOUT_SECONDS) {
+            $this->extractionStatus = 'failed';
+            $this->extractionError = 'El proceso tomo demasiado tiempo. Por favor intenta de nuevo.';
+            $this->extractedData = $this->getEmptyStructure();
+            $this->qualityScore = 0;
+            $this->cleanupExtraction();
+
             return;
         }
 
@@ -100,17 +157,22 @@ class Review extends Component
         if ($status['status'] === 'completed' && $status['data']) {
             $this->extractedData = $status['data'];
             $this->qualityScore = $status['data']['quality_score'] ?? 0;
-
-            // Clean up cache
-            Cache::forget($cacheKey);
+            $this->cleanupExtraction();
         } elseif ($status['status'] === 'failed') {
-            // Use empty structure on failure
             $this->extractedData = $this->getEmptyStructure();
             $this->qualityScore = 0;
-
-            // Clean up cache
-            Cache::forget($cacheKey);
+            $this->cleanupExtraction();
         }
+    }
+
+    /**
+     * Clean up extraction cache and session data.
+     */
+    protected function cleanupExtraction(): void
+    {
+        $cacheKey = ExtractPropertyDescriptionJob::getCacheKey($this->extractionId);
+        Cache::forget($cacheKey);
+        session()->forget(['property_upload.extraction_id', 'property_upload.extraction_started_at']);
     }
 
     #[Computed]

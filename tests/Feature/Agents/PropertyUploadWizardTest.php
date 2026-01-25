@@ -174,13 +174,13 @@ describe('Sharing step', function () {
 
     it('sets default commission when collaborative is enabled', function () {
         Livewire::test(Sharing::class)
-            ->set('isCollaborative', true)
+            ->set('sharingOption', 'collaborative')
             ->assertSet('commissionSplit', 50.0);
     });
 
     it('validates commission split when collaborative', function () {
         Livewire::test(Sharing::class)
-            ->set('isCollaborative', true)
+            ->set('sharingOption', 'collaborative')
             ->set('commissionSplit', null)
             ->call('publish')
             ->assertHasErrors(['commissionSplit']);
@@ -188,7 +188,7 @@ describe('Sharing step', function () {
 
     it('validates commission split must be between 1 and 100', function () {
         Livewire::test(Sharing::class)
-            ->set('isCollaborative', true)
+            ->set('sharingOption', 'collaborative')
             ->set('commissionSplit', 150)
             ->call('publish')
             ->assertHasErrors(['commissionSplit']);
@@ -198,7 +198,7 @@ describe('Sharing step', function () {
         Queue::fake();
 
         Livewire::test(Sharing::class)
-            ->set('isCollaborative', false)
+            ->set('sharingOption', 'private')
             ->call('publish')
             ->assertRedirect(route('agents.properties.upload.complete'));
 
@@ -220,7 +220,7 @@ describe('Sharing step', function () {
         Queue::fake();
 
         Livewire::test(Sharing::class)
-            ->set('isCollaborative', true)
+            ->set('sharingOption', 'collaborative')
             ->set('commissionSplit', 40.0)
             ->call('publish')
             ->assertRedirect(route('agents.properties.upload.complete'));

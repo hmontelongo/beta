@@ -36,11 +36,17 @@
             <h3 class="mb-3 text-sm font-semibold uppercase tracking-wide text-zinc-500">Cerca de aqui</h3>
             <div class="flex flex-wrap gap-2">
                 @foreach ($buildingInfo['nearby'] as $landmark)
+                    @php
+                        // Handle both string and array formats for nearby landmarks
+                        $landmarkName = is_array($landmark) ? ($landmark['name'] ?? '') : $landmark;
+                        $landmarkType = is_array($landmark) ? ($landmark['type'] ?? 'default') : 'default';
+                        $landmarkDistance = is_array($landmark) ? ($landmark['distance'] ?? null) : null;
+                    @endphp
                     <span class="inline-flex items-center gap-1.5 rounded-full bg-zinc-100 px-3 py-1.5 text-sm dark:bg-zinc-800">
-                        <span>{{ PropertyPresenter::getLandmarkIcon($landmark['type'] ?? 'default') }}</span>
-                        <span class="text-zinc-700 dark:text-zinc-300">{{ $landmark['name'] }}</span>
-                        @if (! empty($landmark['distance']))
-                            <span class="text-zinc-400">{{ $landmark['distance'] }}</span>
+                        <span>{{ PropertyPresenter::getLandmarkIcon($landmarkType) }}</span>
+                        <span class="text-zinc-700 dark:text-zinc-300">{{ $landmarkName }}</span>
+                        @if (! empty($landmarkDistance))
+                            <span class="text-zinc-400">{{ $landmarkDistance }}</span>
                         @endif
                     </span>
                 @endforeach

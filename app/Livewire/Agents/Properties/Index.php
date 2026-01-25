@@ -11,6 +11,7 @@ use App\Models\Property;
 use Flux\Flux;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection as SupportCollection;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\View\View;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
@@ -27,6 +28,9 @@ class Index extends Component
     use HasActiveCollection;
     use ShowsWhatsAppTip;
     use WithPagination;
+
+    #[Url]
+    public string $source = '';
 
     #[Url]
     public string $search = '';
@@ -140,6 +144,11 @@ class Index extends Component
         $this->initializeActiveCollection();
     }
 
+    public function updatedSource(): void
+    {
+        $this->resetPage();
+    }
+
     public function updatedSearch(): void
     {
         $this->resetPage();
@@ -209,7 +218,7 @@ class Index extends Component
     public function clearFilters(): void
     {
         $this->reset([
-            'search', 'operationType', 'propertyType', 'zones', 'pricePreset',
+            'source', 'search', 'operationType', 'propertyType', 'zones', 'pricePreset',
             'minPrice', 'maxPrice', 'bedrooms', 'bathrooms', 'minSize', 'maxSize',
             'parking', 'amenities',
         ]);
@@ -226,6 +235,15 @@ class Index extends Component
     }
 
     /**
+     * Get the share URL for the active collection.
+     */
+    #[Computed]
+    public function collectionShareUrl(): ?string
+    {
+        return $this->activeCollection?->getShareUrl();
+    }
+
+    /**
      * Clear all collection-related computed property caches.
      */
     protected function clearCollectionCaches(): void
@@ -233,6 +251,7 @@ class Index extends Component
         unset($this->collectionPropertyIds);
         unset($this->collectionProperties);
         unset($this->activeCollection);
+        unset($this->collectionShareUrl);
         unset($this->suggestedName);
     }
 
@@ -347,7 +366,8 @@ class Index extends Component
     }
 
     /**
-     * Copy collection share link.
+     * Copy share link to clipboard and mark as shared.
+     * Called synchronously - clipboard copy happens in Alpine (fire-and-forget).
      */
     public function copyShareLink(): void
     {
@@ -359,8 +379,6 @@ class Index extends Component
 
         $this->saveNameIfChanged($collection);
         $collection->markAsShared();
-
-        $this->dispatch('copy-to-clipboard', text: $collection->getShareUrl());
 
         Flux::toast(
             heading: 'Link copiado',
@@ -435,6 +453,20 @@ class Index extends Component
     }
 
     /**
+     * Count of properties owned by the current user.
+     * Cached for 5 minutes to reduce database queries on page navigation.
+     */
+    #[Computed]
+    public function myPropertiesCount(): int
+    {
+        return Cache::remember(
+            'user.'.auth()->id().'.my_properties_count',
+            now()->addMinutes(5),
+            fn () => Property::native()->ownedBy(auth()->id())->count()
+        );
+    }
+
+    /**
      * Get the count of active filters.
      */
     #[Computed]
@@ -469,6 +501,7 @@ class Index extends Component
     public function gridKey(): string
     {
         return md5(serialize([
+            $this->source,
             $this->operationType,
             $this->propertyType,
             $this->zones,
@@ -500,7 +533,7 @@ class Index extends Component
             return collect();
         }
 
-        return $collection->properties()->with(['listings'])->get();
+        return $collection->properties()->with(['listings', 'propertyImages'])->get();
     }
 
     /**
@@ -545,7 +578,8 @@ class Index extends Component
         $maxPrice = $this->maxPrice !== '' ? (int) $this->maxPrice : null;
 
         return Property::query()
-            ->with(['listings.platform'])
+            ->with(['listings.platform', 'propertyImages'])
+            ->when($this->source === 'mine', fn ($q) => $q->native()->ownedBy(auth()->id()))
             ->when($this->search, function ($query) {
                 $query->where(function ($q) {
                     $q->where('address', 'like', "%{$this->search}%")

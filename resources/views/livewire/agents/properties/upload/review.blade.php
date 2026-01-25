@@ -24,7 +24,7 @@
 
     {{-- Loading State with Stages --}}
     @if ($this->isExtracting)
-        <div wire:poll.500ms="checkExtractionStatus" class="flex flex-col items-center justify-center py-16">
+        <div wire:poll.1s="checkExtractionStatus" class="flex flex-col items-center justify-center py-16">
             {{-- Animated Icon --}}
             <div class="relative">
                 <div class="absolute inset-0 animate-ping rounded-full bg-zinc-200 opacity-75 dark:bg-zinc-700"></div>
@@ -42,12 +42,9 @@
             {{-- Status Text --}}
             <p class="mt-6 text-base font-medium text-zinc-900 dark:text-zinc-100">{{ $extractionStage }}</p>
 
-            {{-- Progress Bar --}}
+            {{-- Indeterminate Progress Animation --}}
             <div class="mt-4 h-1.5 w-64 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-700">
-                <div
-                    class="h-full rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-500"
-                    style="width: {{ $extractionProgress }}%"
-                ></div>
+                <div class="h-full w-1/3 animate-[shimmer_1.5s_ease-in-out_infinite] rounded-full bg-gradient-to-r from-transparent via-blue-500 to-transparent"></div>
             </div>
 
             {{-- Stage Indicators --}}
