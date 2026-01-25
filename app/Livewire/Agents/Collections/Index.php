@@ -33,7 +33,7 @@ class Index extends Component
     {
         return auth()->user()
             ->collections()
-            ->with(['client', 'properties.listings'])
+            ->with(['client', 'properties.listings', 'properties.propertyImages'])
             ->where('name', '!=', Collection::DRAFT_NAME)
             ->withCount('properties')
             ->when($this->search, fn ($q) => $q->where(function ($query) {
@@ -70,7 +70,7 @@ class Index extends Component
         $this->dispatch('open-url', url: $collection->getWhatsAppShareUrl());
     }
 
-    public function copyShareLink(int $id): void
+    public function onLinkCopied(int $id): void
     {
         $collection = auth()->user()->collections()->findOrFail($id);
 
@@ -78,8 +78,6 @@ class Index extends Component
             'is_public' => true,
             'shared_at' => now(),
         ]);
-
-        $this->dispatch('copy-to-clipboard', text: $collection->getShareUrl());
 
         Flux::toast(
             heading: 'Link copiado',

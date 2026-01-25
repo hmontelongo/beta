@@ -132,13 +132,17 @@ class Show extends Component
 
     /**
      * Get categorized amenities from AI extraction.
+     * Supports both 'amenities_categorized' (scraped) and 'amenities' (native) keys.
      *
      * @return array{in_unit?: array, building?: array, services?: array, available_extra?: array}|null
      */
     #[Computed]
     public function categorizedAmenities(): ?array
     {
-        return $this->extractedData['amenities_categorized'] ?? null;
+        // Native properties store under 'amenities', scraped may use 'amenities_categorized'
+        return $this->extractedData['amenities_categorized']
+            ?? $this->extractedData['amenities']
+            ?? null;
     }
 
     /**

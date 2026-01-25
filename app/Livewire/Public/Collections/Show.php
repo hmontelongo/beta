@@ -25,7 +25,7 @@ class Show extends Component
             throw new NotFoundHttpException('Collection not found or not accessible.');
         }
 
-        $this->collection = $collection->load(['properties.listings', 'user', 'client']);
+        $this->collection = $collection->load(['properties.listings', 'properties.propertyImages', 'user', 'client']);
 
         $this->trackView();
     }

@@ -15,6 +15,7 @@ use App\Livewire\Agents\Clients\Index as AgentClientsIndex;
 use App\Livewire\Agents\Clients\Show as AgentClientsShow;
 use App\Livewire\Agents\Collections\Index as AgentCollectionsIndex;
 use App\Livewire\Agents\Collections\Show as AgentCollectionsShow;
+use App\Livewire\Agents\Properties\Edit as AgentPropertiesEdit;
 use App\Livewire\Agents\Properties\Index as AgentPropertiesIndex;
 use App\Livewire\Agents\Properties\Show as AgentPropertiesShow;
 use App\Livewire\Agents\Properties\Upload\Complete as UploadComplete;
@@ -106,6 +107,7 @@ Route::domain(config('domains.agents'))->group(function () {
         Route::livewire('properties/new/sharing', UploadSharing::class)->name('agents.properties.upload.sharing');
         Route::livewire('properties/new/complete', UploadComplete::class)->name('agents.properties.upload.complete');
 
+        Route::livewire('properties/{property}/edit', AgentPropertiesEdit::class)->name('agents.properties.edit');
         Route::livewire('properties/{property}', AgentPropertiesShow::class)->name('agents.properties.show');
         Route::livewire('clients', AgentClientsIndex::class)->name('agents.clients.index');
         Route::livewire('clients/{client}', AgentClientsShow::class)->name('agents.clients.show');

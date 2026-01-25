@@ -3,20 +3,13 @@
         {{-- Header --}}
         <div class="mb-6 flex items-center justify-between gap-4">
             <div class="min-w-0">
-                <h1 class="text-2xl font-bold text-zinc-900 dark:text-zinc-100">Mis Colecciones</h1>
-                <p class="mt-1 text-sm text-zinc-500">Administra tus colecciones de propiedades</p>
+                <flux:heading size="xl">Mis Colecciones</flux:heading>
+                <flux:subheading>Administra tus colecciones de propiedades</flux:subheading>
             </div>
-            <a
-                href="{{ route('agents.properties.index') }}"
-                wire:navigate
-                class="inline-flex shrink-0 items-center gap-2 rounded-lg bg-blue-500 px-4 py-2.5 text-sm font-semibold text-white shadow-md transition-all hover:bg-blue-600"
-            >
-                <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                </svg>
+            <flux:button :href="route('agents.properties.index')" variant="primary" icon="plus" wire:navigate>
                 <span class="hidden sm:inline">Nueva coleccion</span>
                 <span class="sm:hidden">Nueva</span>
-            </a>
+            </flux:button>
         </div>
 
         {{-- Filters --}}
@@ -36,34 +29,20 @@
         @if($collections->isEmpty())
             <div class="flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-300 py-16 dark:border-zinc-700">
                 <div class="flex size-16 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800">
-                    <svg class="size-8 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" />
-                    </svg>
+                    <flux:icon.folder class="size-8 text-zinc-400" />
                 </div>
-                <h3 class="mt-4 text-lg font-semibold text-zinc-900 dark:text-zinc-100">No tienes colecciones</h3>
-                <p class="mt-1 text-sm text-zinc-500">Crea tu primera coleccion agregando propiedades</p>
-                <a
-                    href="{{ route('agents.properties.index') }}"
-                    wire:navigate
-                    class="mt-4 inline-flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600"
-                >
-                    <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                    </svg>
+                <flux:heading size="lg" class="mt-4">No tienes colecciones</flux:heading>
+                <flux:subheading>Crea tu primera coleccion agregando propiedades</flux:subheading>
+                <flux:button :href="route('agents.properties.index')" variant="primary" icon="plus" class="mt-4" wire:navigate>
                     Buscar propiedades
-                </a>
+                </flux:button>
             </div>
         @else
             <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 @foreach($collections as $collection)
                     @php
-                        // Get up to 3 property thumbnail images
-                        $thumbnails = $collection->properties->take(3)->map(function ($property) {
-                            $images = collect($property->listings->first()?->raw_data['images'] ?? [])
-                                ->map(fn ($img) => is_array($img) ? $img['url'] : $img)
-                                ->filter(fn ($url) => !str_contains($url, '.svg') && !str_contains($url, 'placeholder'));
-                            return $images->first();
-                        })->filter();
+                        // Get up to 3 property thumbnail images (works for both native and scraped properties)
+                        $thumbnails = $collection->properties->take(3)->map(fn ($property) => $property->cover_image)->filter();
                     @endphp
                     <div
                         wire:key="collection-{{ $collection->id }}"
@@ -144,7 +123,7 @@
                             </flux:tooltip>
                             <flux:tooltip content="Copiar link">
                                 <button
-                                    wire:click="copyShareLink({{ $collection->id }})"
+                                    x-on:click="navigator.clipboard.writeText('{{ $collection->getShareUrl() }}').then(() => $wire.onLinkCopied({{ $collection->id }}))"
                                     class="flex size-8 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
                                 >
                                     <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">

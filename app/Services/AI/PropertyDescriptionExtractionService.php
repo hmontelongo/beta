@@ -475,12 +475,43 @@ PROMPT;
     {
         $empty = $this->getEmptyStructure();
 
+        // Flatten included_services from objects [{service, details}] to strings
+        $includedServices = collect($result['pricing']['included_services'] ?? [])
+            ->map(fn ($item) => is_array($item)
+                ? (! empty($item['details']) ? "{$item['service']}: {$item['details']}" : ($item['service'] ?? ''))
+                : $item
+            )
+            ->filter()
+            ->values()
+            ->all();
+
+        // Flatten extra_costs from objects [{item, price, period}] to strings
+        $extraCosts = collect($result['pricing']['extra_costs'] ?? [])
+            ->map(fn ($item) => is_array($item) ? ($item['item'] ?? '') : $item)
+            ->filter()
+            ->values()
+            ->all();
+
+        // Flatten nearby locations from objects [{name, type}] to strings
+        $nearby = collect($result['location']['nearby'] ?? [])
+            ->map(fn ($item) => is_array($item) ? ($item['name'] ?? '') : $item)
+            ->filter()
+            ->values()
+            ->all();
+
+        $pricing = array_merge($empty['pricing'], $result['pricing'] ?? []);
+        $pricing['included_services'] = $includedServices;
+        $pricing['extra_costs'] = $extraCosts;
+
+        $location = array_merge($empty['location'], $result['location'] ?? []);
+        $location['nearby'] = $nearby;
+
         return [
             'property' => array_merge($empty['property'], $result['property'] ?? []),
-            'pricing' => array_merge($empty['pricing'], $result['pricing'] ?? []),
+            'pricing' => $pricing,
             'terms' => array_merge($empty['terms'], $result['terms'] ?? []),
             'amenities' => array_merge($empty['amenities'], $result['amenities'] ?? []),
-            'location' => array_merge($empty['location'], $result['location'] ?? []),
+            'location' => $location,
             'inferred' => array_merge($empty['inferred'], $result['inferred'] ?? []),
             'description' => $result['description'] ?? '',
             'quality_score' => $result['quality_score'] ?? 0,

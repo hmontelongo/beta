@@ -5,23 +5,7 @@
     </head>
     <body
         class="min-h-screen bg-zinc-50 antialiased dark:bg-zinc-950"
-        x-data="{
-            copyToClipboard(text) {
-                if (navigator.clipboard && window.isSecureContext) {
-                    navigator.clipboard.writeText(text);
-                } else {
-                    const textarea = document.createElement('textarea');
-                    textarea.value = text;
-                    textarea.style.position = 'fixed';
-                    textarea.style.left = '-9999px';
-                    document.body.appendChild(textarea);
-                    textarea.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(textarea);
-                }
-            }
-        }"
-        @copy-to-clipboard.window="copyToClipboard($event.detail.text)"
+        x-data
         @open-url.window="window.open($event.detail.url, '_blank')"
     >
         {{-- Minimal Header --}}

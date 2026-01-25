@@ -5,6 +5,7 @@ namespace App\Livewire\Agents\Properties\Upload;
 use App\Enums\OperationType;
 use App\Enums\PropertyType;
 use App\Jobs\ExtractPropertyDescriptionJob;
+use App\Livewire\Concerns\HasNestedData;
 use App\Services\AI\PropertyDescriptionExtractionService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
@@ -18,6 +19,13 @@ use Livewire\Component;
 #[Title('Revisar datos')]
 class Review extends Component
 {
+    use HasNestedData;
+
+    protected function nestedDataProperty(): string
+    {
+        return 'extractedData';
+    }
+
     /** @var array<string, mixed> */
     public array $extractedData = [];
 
@@ -188,72 +196,6 @@ class Review extends Component
         $this->qualityScore = 0;
         $this->extractionError = null;
         $this->startExtraction();
-    }
-
-    /**
-     * Update a nested value in the extracted data.
-     */
-    public function updateValue(string $path, mixed $value): void
-    {
-        $keys = explode('.', $path);
-        $data = &$this->extractedData;
-
-        foreach ($keys as $i => $key) {
-            if ($i === count($keys) - 1) {
-                // Convert empty strings to null for optional fields
-                $data[$key] = $value === '' ? null : $value;
-            } else {
-                if (! isset($data[$key]) || ! is_array($data[$key])) {
-                    $data[$key] = [];
-                }
-                $data = &$data[$key];
-            }
-        }
-    }
-
-    /**
-     * Add an item to an array field.
-     */
-    public function addToArray(string $path, string $value): void
-    {
-        if (trim($value) === '') {
-            return;
-        }
-
-        $keys = explode('.', $path);
-        $data = &$this->extractedData;
-
-        foreach ($keys as $key) {
-            if (! isset($data[$key])) {
-                $data[$key] = [];
-            }
-            $data = &$data[$key];
-        }
-
-        if (is_array($data) && ! in_array($value, $data, true)) {
-            $data[] = $value;
-        }
-    }
-
-    /**
-     * Remove an item from an array field.
-     */
-    public function removeFromArray(string $path, int $index): void
-    {
-        $keys = explode('.', $path);
-        $data = &$this->extractedData;
-
-        foreach ($keys as $key) {
-            if (! isset($data[$key])) {
-                return;
-            }
-            $data = &$data[$key];
-        }
-
-        if (is_array($data) && isset($data[$index])) {
-            unset($data[$index]);
-            $data = array_values($data);
-        }
     }
 
     public function back(): void

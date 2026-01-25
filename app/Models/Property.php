@@ -160,6 +160,18 @@ class Property extends Model
         return $this->belongsToMany(Publisher::class)->withTimestamps();
     }
 
+    /**
+     * Collections that include this property.
+     *
+     * @return BelongsToMany<\App\Models\Collection, $this>
+     */
+    public function collections(): BelongsToMany
+    {
+        return $this->belongsToMany(\App\Models\Collection::class)
+            ->withPivot('position')
+            ->withTimestamps();
+    }
+
     // =========================================================================
     // Scopes
     // =========================================================================
@@ -418,11 +430,14 @@ class Property extends Model
     {
         // Native properties: use direct price field
         if ($this->isNative() && $this->price) {
+            // Get maintenance fee from ai_extracted_data for native properties
+            $maintenanceFee = $this->ai_extracted_data['pricing']['maintenance_fee'] ?? null;
+
             return [
                 'type' => $this->operation_type?->value ?? 'unknown',
                 'price' => (float) $this->price,
                 'currency' => $this->price_currency ?? 'MXN',
-                'maintenance_fee' => null,
+                'maintenance_fee' => $maintenanceFee,
             ];
         }
 

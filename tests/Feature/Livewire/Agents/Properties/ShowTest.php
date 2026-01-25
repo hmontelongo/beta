@@ -149,6 +149,48 @@ describe('hasRentalTermsData', function () {
     });
 });
 
+describe('categorizedAmenities', function () {
+    it('returns amenities from amenities_categorized for scraped properties', function () {
+        $property = Property::factory()->create([
+            'ai_extracted_data' => [
+                'amenities_categorized' => [
+                    'unit' => ['ac', 'washing_machine'],
+                    'building' => ['gym', 'pool'],
+                ],
+            ],
+        ]);
+
+        $component = Livewire::test(Show::class, ['property' => $property]);
+        $instance = $component->instance();
+
+        expect($instance->categorizedAmenities)->toBe([
+            'unit' => ['ac', 'washing_machine'],
+            'building' => ['gym', 'pool'],
+        ]);
+    });
+
+    it('returns amenities from amenities key for native properties', function () {
+        $property = Property::factory()->native()->create([
+            'ai_extracted_data' => [
+                'amenities' => [
+                    'unit' => ['closet', 'balcony'],
+                    'building' => ['rooftop'],
+                    'services' => ['internet'],
+                ],
+            ],
+        ]);
+
+        $component = Livewire::test(Show::class, ['property' => $property]);
+        $instance = $component->instance();
+
+        expect($instance->categorizedAmenities)->toBe([
+            'unit' => ['closet', 'balcony'],
+            'building' => ['rooftop'],
+            'services' => ['internet'],
+        ]);
+    });
+});
+
 describe('renders correctly', function () {
     it('renders the property show page', function () {
         $property = Property::factory()->create([

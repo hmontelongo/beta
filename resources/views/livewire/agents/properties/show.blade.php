@@ -11,6 +11,11 @@
 
             {{-- Desktop Actions --}}
             <div class="hidden items-center gap-2 lg:flex">
+                @can('update', $property)
+                    <flux:button :href="route('agents.properties.edit', $property)" variant="ghost" size="sm" icon="pencil" wire:navigate>
+                        Editar
+                    </flux:button>
+                @endcan
                 <flux:button variant="ghost" size="sm" icon="share" disabled>
                     Compartir
                 </flux:button>
@@ -26,6 +31,9 @@
 
             {{-- Mobile: Just icons --}}
             <div class="flex items-center gap-1 lg:hidden">
+                @can('update', $property)
+                    <flux:button :href="route('agents.properties.edit', $property)" variant="ghost" size="sm" icon="pencil" wire:navigate />
+                @endcan
                 <flux:button variant="ghost" size="sm" icon="share" disabled />
             </div>
         </div>
@@ -371,6 +379,11 @@
     {{-- Sticky Bottom Action Bar (Mobile Only) --}}
     <div class="fixed bottom-0 left-0 right-0 z-50 border-t border-zinc-200 bg-white/95 px-4 py-3 backdrop-blur-sm dark:border-zinc-800 dark:bg-zinc-900/95 lg:hidden">
         <div class="flex gap-3">
+            @can('update', $property)
+                <flux:button :href="route('agents.properties.edit', $property)" variant="outline" icon="pencil" wire:navigate>
+                    Editar
+                </flux:button>
+            @endcan
             <flux:button
                 wire:click="toggleCollection"
                 :variant="$this->isInCollection() ? 'primary' : 'filled'"
