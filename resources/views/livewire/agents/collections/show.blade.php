@@ -36,16 +36,18 @@
 
                 {{-- Right: Share Actions --}}
                 <div class="flex shrink-0 items-center gap-2">
-                    <flux:button wire:click="downloadPdf" variant="ghost" icon="document-arrow-down" size="sm">
+                    {{-- PDF & Copy - Hidden on mobile, shown on sm+ --}}
+                    <flux:button wire:click="downloadPdf" variant="ghost" icon="document-arrow-down" size="sm" class="hidden sm:inline-flex">
                         PDF
                     </flux:button>
-                    <flux:button wire:click="copyShareLink" variant="ghost" icon="link" size="sm">
+                    <flux:button wire:click="copyShareLink" variant="ghost" icon="link" size="sm" class="hidden sm:inline-flex">
                         Copiar
                     </flux:button>
+                    {{-- WhatsApp - Always visible --}}
                     <flux:button wire:click="shareViaWhatsApp" size="sm" class="!bg-green-600 !text-white hover:!bg-green-700 dark:!bg-green-600 dark:hover:!bg-green-700">
                         <span class="flex items-center gap-1.5">
                             <x-icons.whatsapp class="size-4" />
-                            WhatsApp
+                            <span class="hidden sm:inline">WhatsApp</span>
                         </span>
                     </flux:button>
 
@@ -53,6 +55,23 @@
                     <flux:dropdown position="bottom" align="end">
                         <flux:button variant="ghost" icon="ellipsis-vertical" size="sm" />
                         <flux:menu>
+                            {{-- Mobile-only items --}}
+                            <flux:menu.item
+                                wire:click="downloadPdf"
+                                icon="document-arrow-down"
+                                class="sm:hidden"
+                            >
+                                Descargar PDF
+                            </flux:menu.item>
+                            <flux:menu.item
+                                wire:click="copyShareLink"
+                                icon="link"
+                                class="sm:hidden"
+                            >
+                                Copiar enlace
+                            </flux:menu.item>
+                            <flux:menu.separator class="sm:hidden" />
+                            {{-- Always visible --}}
                             <flux:menu.item
                                 x-on:click="$flux.modal('delete-collection').show()"
                                 icon="trash"
@@ -230,7 +249,7 @@
                                 {{-- Operation Badge --}}
                                 @if($opType)
                                     <div class="absolute bottom-2 left-2">
-                                        <flux:badge size="sm" :color="PropertyPresenter::operationTypeBadgeColor($opType)">
+                                        <flux:badge size="sm" variant="solid" :color="PropertyPresenter::operationTypeBadgeColor($opType)">
                                             {{ PropertyPresenter::operationTypeLabel($opType) }}
                                         </flux:badge>
                                     </div>

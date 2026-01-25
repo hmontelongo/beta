@@ -24,15 +24,15 @@
             </div>
 
             {{-- Right side actions --}}
-            <div class="flex items-center gap-2">
+            <div class="flex items-center gap-2" x-data>
                 {{-- Theme Toggle --}}
                 <button
-                    @click="darkMode = !darkMode"
+                    @click="$flux.dark = !$flux.dark"
                     class="flex size-9 items-center justify-center rounded-lg text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-white/10 dark:hover:text-white"
                     aria-label="Toggle theme"
                 >
-                    <flux:icon.sun x-show="darkMode" x-cloak class="size-5" />
-                    <flux:icon.moon x-show="!darkMode" x-cloak class="size-5" />
+                    <flux:icon.sun x-show="$flux.dark" x-cloak class="size-5" />
+                    <flux:icon.moon x-show="!$flux.dark" x-cloak class="size-5" />
                 </button>
 
                 {{-- Desktop auth links --}}

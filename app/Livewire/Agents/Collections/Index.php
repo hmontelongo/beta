@@ -19,14 +19,7 @@ class Index extends Component
 
     public string $search = '';
 
-    public string $filter = 'all'; // all, public, private
-
     public function updatedSearch(): void
-    {
-        $this->resetPage();
-    }
-
-    public function updatedFilter(): void
     {
         $this->resetPage();
     }
@@ -48,8 +41,6 @@ class Index extends Component
                     ->orWhere('client_name', 'like', "%{$this->search}%")
                     ->orWhereHas('client', fn ($q) => $q->where('name', 'like', "%{$this->search}%"));
             }))
-            ->when($this->filter === 'public', fn ($q) => $q->where('is_public', true))
-            ->when($this->filter === 'private', fn ($q) => $q->where('is_public', false))
             ->orderByDesc('updated_at')
             ->paginate(12);
     }

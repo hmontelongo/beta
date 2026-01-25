@@ -27,10 +27,49 @@
         {{-- Minimal Header --}}
         <header class="sticky top-0 z-50 border-b border-zinc-200/80 bg-white/95 backdrop-blur-sm supports-[backdrop-filter]:bg-white/80 dark:border-zinc-800 dark:bg-zinc-900/95 dark:supports-[backdrop-filter]:bg-zinc-900/80">
             <div class="mx-auto flex h-14 max-w-screen-2xl items-center justify-between px-4 sm:px-6 lg:px-8">
-                {{-- Logo --}}
-                <a href="{{ route('agents.properties.index') }}" class="flex items-center gap-2" wire:navigate>
-                    <x-app-logo class="h-7" />
-                </a>
+                {{-- Logo + Nav --}}
+                <div class="flex items-center gap-6">
+                    <a href="{{ route('agents.properties.index') }}" class="flex items-center gap-2" wire:navigate>
+                        <x-app-logo class="h-7" />
+                    </a>
+
+                    {{-- Navigation Links --}}
+                    <nav class="hidden items-center gap-1 sm:flex">
+                        <a
+                            href="{{ route('agents.properties.index') }}"
+                            wire:navigate
+                            @class([
+                                'rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
+                                'bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100' => request()->routeIs('agents.properties.*'),
+                                'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100' => !request()->routeIs('agents.properties.*'),
+                            ])
+                        >
+                            Propiedades
+                        </a>
+                        <a
+                            href="{{ route('agents.clients.index') }}"
+                            wire:navigate
+                            @class([
+                                'rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
+                                'bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100' => request()->routeIs('agents.clients.*'),
+                                'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100' => !request()->routeIs('agents.clients.*'),
+                            ])
+                        >
+                            Clientes
+                        </a>
+                        <a
+                            href="{{ route('agents.collections.index') }}"
+                            wire:navigate
+                            @class([
+                                'rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
+                                'bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100' => request()->routeIs('agents.collections.*'),
+                                'text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100' => !request()->routeIs('agents.collections.*'),
+                            ])
+                        >
+                            Colecciones
+                        </a>
+                    </nav>
+                </div>
 
                 {{-- Right Side: Collection + Profile --}}
                 <div class="flex items-center gap-2">
@@ -53,6 +92,9 @@
 
                             <flux:menu.separator />
 
+                            <flux:menu.item :href="route('agents.clients.index')" icon="users" wire:navigate>
+                                Mis Clientes
+                            </flux:menu.item>
                             <flux:menu.item :href="route('agents.collections.index')" icon="folder" wire:navigate>
                                 Mis Colecciones
                             </flux:menu.item>

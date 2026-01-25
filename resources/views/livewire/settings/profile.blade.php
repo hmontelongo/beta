@@ -5,23 +5,22 @@
         @if ($user->isAgent())
             {{-- Avatar Section for Agents --}}
             <div class="my-6 flex items-center gap-6">
-                <div class="relative shrink-0">
-                    @if ($avatar && $avatar->isPreviewable())
-                        <img
-                            src="{{ $avatar->temporaryUrl() }}"
-                            alt="Preview"
-                            class="size-20 rounded-full object-cover ring-2 ring-zinc-200 dark:ring-zinc-700"
-                        />
-                    @elseif ($user->avatar_url)
-                        <img
-                            src="{{ $user->avatar_url }}"
-                            alt="{{ $user->name }}"
-                            class="size-20 rounded-full object-cover ring-2 ring-zinc-200 dark:ring-zinc-700"
-                        />
-                    @else
-                        <flux:avatar :name="$user->name" size="xl" />
-                    @endif
-                </div>
+                <flux:file-upload wire:model="avatar" accept="image/*">
+                    <div class="relative flex size-20 cursor-pointer items-center justify-center rounded-full border border-zinc-200 bg-zinc-100 transition-colors hover:border-zinc-300 hover:bg-zinc-200 in-data-dragging:border-blue-400 in-data-dragging:bg-blue-50 dark:border-white/10 dark:bg-white/10 dark:hover:border-white/20 dark:hover:bg-white/15 dark:in-data-dragging:border-blue-500 dark:in-data-dragging:bg-blue-900/20">
+                        @if ($avatar && $avatar->isPreviewable())
+                            <img src="{{ $avatar->temporaryUrl() }}" alt="Preview" class="size-full rounded-full object-cover" />
+                        @elseif ($user->avatar_url)
+                            <img src="{{ $user->avatar_url }}" alt="{{ $user->name }}" class="size-full rounded-full object-cover" />
+                        @else
+                            <flux:icon name="user" variant="solid" class="size-8 text-zinc-400 dark:text-zinc-500" />
+                        @endif
+
+                        {{-- Upload indicator --}}
+                        <div class="absolute -bottom-1 -right-1 flex size-7 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-zinc-200 dark:bg-zinc-800 dark:ring-zinc-700">
+                            <flux:icon name="camera" variant="solid" class="size-4 text-zinc-500 dark:text-zinc-400" />
+                        </div>
+                    </div>
+                </flux:file-upload>
 
                 <div class="flex flex-col gap-2">
                     @if ($avatar)
@@ -34,23 +33,20 @@
                             </flux:button>
                         </div>
                     @else
-                        <div class="flex gap-2">
-                            <flux:button as="label" size="sm" variant="subtle">
-                                <input type="file" wire:model="avatar" accept="image/*" class="hidden" />
-                                {{ $user->avatar_url ? __('Change photo') : __('Upload photo') }}
+                        @if ($user->avatar_url)
+                            <flux:button
+                                wire:click="deleteAvatar"
+                                wire:confirm="{{ __('Are you sure you want to remove your profile photo?') }}"
+                                size="sm"
+                                variant="subtle"
+                                icon="trash"
+                                class="text-red-600 hover:text-red-700"
+                            >
+                                {{ __('Remove photo') }}
                             </flux:button>
-                            @if ($user->avatar_url)
-                                <flux:button
-                                    wire:click="deleteAvatar"
-                                    wire:confirm="{{ __('Are you sure you want to remove your profile photo?') }}"
-                                    size="sm"
-                                    variant="ghost"
-                                    class="text-red-600"
-                                >
-                                    {{ __('Remove') }}
-                                </flux:button>
-                            @endif
-                        </div>
+                        @else
+                            <flux:text size="sm" class="font-medium text-zinc-700 dark:text-zinc-300">{{ __('Click to upload') }}</flux:text>
+                        @endif
                     @endif
                     <flux:text size="sm" class="text-zinc-500">{{ __('JPG, PNG. Max 2MB.') }}</flux:text>
                     <flux:error name="avatar" />
@@ -127,13 +123,59 @@
 
                 <flux:field>
                     <flux:label>{{ __('Brand color') }}</flux:label>
-                    <div class="flex items-center gap-3">
-                        <flux:input wire:model="brandColor" type="text" placeholder="#3B82F6" class="w-32" />
-                        @if ($brandColor && preg_match('/^#[0-9A-Fa-f]{6}$/', $brandColor))
-                            <div class="size-8 rounded-lg ring-1 ring-zinc-200 dark:ring-zinc-700" style="background-color: {{ $brandColor }}"></div>
-                        @endif
+                    <div class="space-y-3">
+                        {{-- Color picker and input --}}
+                        <div class="flex items-center gap-3">
+                            <label class="relative cursor-pointer">
+                                <input
+                                    type="color"
+                                    wire:model.live="brandColor"
+                                    class="absolute inset-0 size-10 cursor-pointer opacity-0"
+                                />
+                                <div
+                                    class="flex size-10 items-center justify-center rounded-lg ring-1 ring-zinc-200 transition-shadow hover:ring-2 hover:ring-zinc-400 dark:ring-zinc-700 dark:hover:ring-zinc-500"
+                                    style="background-color: {{ $brandColor && preg_match('/^#[0-9A-Fa-f]{6}$/', $brandColor) ? $brandColor : '#3B82F6' }}"
+                                >
+                                    <svg class="size-5 text-white drop-shadow-sm" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.042 21.672 13.684 16.6m0 0-2.51 2.225.569-9.47 5.227 7.917-3.286-.672ZM12 2.25V4.5m5.834.166-1.591 1.591M20.25 10.5H18M7.757 14.743l-1.59 1.59M6 10.5H3.75m4.007-4.243-1.59-1.59" />
+                                    </svg>
+                                </div>
+                            </label>
+                            <flux:input wire:model.live="brandColor" type="text" placeholder="#3B82F6" class="w-28 font-mono text-sm" />
+                        </div>
+
+                        {{-- Preset colors --}}
+                        <div class="flex flex-wrap gap-2">
+                            @php
+                                $presetColors = [
+                                    '#3B82F6' => 'Azul',
+                                    '#10B981' => 'Verde',
+                                    '#8B5CF6' => 'Morado',
+                                    '#F59E0B' => 'Naranja',
+                                    '#EF4444' => 'Rojo',
+                                    '#EC4899' => 'Rosa',
+                                    '#06B6D4' => 'Cyan',
+                                    '#6366F1' => 'Indigo',
+                                    '#84CC16' => 'Lima',
+                                    '#14B8A6' => 'Teal',
+                                ];
+                            @endphp
+                            @foreach ($presetColors as $color => $name)
+                                <button
+                                    wire:key="color-{{ $color }}"
+                                    type="button"
+                                    wire:click="$set('brandColor', '{{ $color }}')"
+                                    title="{{ $name }}"
+                                    @class([
+                                        'size-7 rounded-md transition-all hover:scale-110',
+                                        'ring-2 ring-offset-2 ring-zinc-900 dark:ring-white dark:ring-offset-zinc-900' => strtoupper($brandColor) === $color,
+                                    ])
+                                    style="background-color: {{ $color }}"
+                                ></button>
+                            @endforeach
+                        </div>
                     </div>
-                    <flux:description>{{ __('Hex color for accents in PDFs and shared pages') }}</flux:description>
+                    <flux:description class="mt-2">{{ __('Hex color for accents in PDFs and shared pages') }}</flux:description>
                     <flux:error name="brandColor" />
                 </flux:field>
 

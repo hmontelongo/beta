@@ -30,27 +30,6 @@
                 />
             </div>
 
-            {{-- Filter Pills --}}
-            <div class="flex gap-2">
-                <button
-                    wire:click="$set('filter', 'all')"
-                    class="rounded-full px-4 py-1.5 text-sm font-medium transition-all {{ $filter === 'all' ? 'bg-blue-500 text-white' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700' }}"
-                >
-                    Todas
-                </button>
-                <button
-                    wire:click="$set('filter', 'public')"
-                    class="rounded-full px-4 py-1.5 text-sm font-medium transition-all {{ $filter === 'public' ? 'bg-blue-500 text-white' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700' }}"
-                >
-                    Publicas
-                </button>
-                <button
-                    wire:click="$set('filter', 'private')"
-                    class="rounded-full px-4 py-1.5 text-sm font-medium transition-all {{ $filter === 'private' ? 'bg-blue-500 text-white' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700' }}"
-                >
-                    Privadas
-                </button>
-            </div>
         </div>
 
         {{-- Collections Grid --}}

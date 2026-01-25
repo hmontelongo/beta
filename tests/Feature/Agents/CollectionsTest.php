@@ -325,18 +325,6 @@ describe('Collections Management Page', function () {
             ->assertStatus(200);
     });
 
-    it('can filter by public collections', function () {
-        $this->actingAs($this->agent);
-
-        Collection::factory()->for($this->agent)->public()->create(['name' => 'Public One']);
-        Collection::factory()->for($this->agent)->create(['name' => 'Private One', 'is_public' => false]);
-
-        Livewire::test(\App\Livewire\Agents\Collections\Index::class)
-            ->set('filter', 'public')
-            ->assertSee('Public One')
-            ->assertDontSee('Private One');
-    });
-
     it('can delete collection', function () {
         $this->actingAs($this->agent);
 
