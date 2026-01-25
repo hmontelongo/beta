@@ -18,7 +18,7 @@
     };
 @endphp
 
-<span {{ $attributes->merge(['class' => 'flex items-center gap-1']) }}>
+<span {{ $attributes->merge(['class' => 'flex items-center gap-1 text-zinc-600 dark:text-zinc-400']) }}>
     @if($icon)
         <flux:icon :name="$icon" :class="$iconSize" />
     @endif

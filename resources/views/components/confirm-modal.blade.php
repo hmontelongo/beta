@@ -5,7 +5,7 @@
     'cancelText' => 'Cancelar',
 ])
 
-<flux:modal :name="$name" class="min-w-[22rem]">
+<flux:modal :name="$name" class="w-full max-w-sm">
     <div class="space-y-6">
         <div>
             <flux:heading size="lg">{{ $title }}</flux:heading>

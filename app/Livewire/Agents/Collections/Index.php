@@ -62,10 +62,7 @@ class Index extends Component
     {
         $collection = auth()->user()->collections()->findOrFail($id);
 
-        $collection->update([
-            'is_public' => true,
-            'shared_at' => now(),
-        ]);
+        $collection->markAsShared();
 
         $this->dispatch('open-url', url: $collection->getWhatsAppShareUrl());
     }
@@ -74,10 +71,7 @@ class Index extends Component
     {
         $collection = auth()->user()->collections()->findOrFail($id);
 
-        $collection->update([
-            'is_public' => true,
-            'shared_at' => now(),
-        ]);
+        $collection->markAsShared();
 
         Flux::toast(
             heading: 'Link copiado',
