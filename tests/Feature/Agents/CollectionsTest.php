@@ -608,7 +608,7 @@ describe('Collection Detail View', function () {
         ]);
 
         Livewire::test(CollectionShowPage::class, ['collection' => $collection])
-            ->call('copyShareLink');
+            ->call('onLinkCopied');
 
         $collection->refresh();
         expect($collection->shared_at)->not->toBeNull();
@@ -635,7 +635,7 @@ describe('Collection Detail View', function () {
         $collection = Collection::factory()->for($this->agent)->create(['is_public' => true]);
 
         Livewire::test(CollectionShowPage::class, ['collection' => $collection])
-            ->call('copyShareLink');
+            ->call('onLinkCopied');
 
         $collection->refresh();
         expect($collection->shared_at)->not->toBeNull();
@@ -663,7 +663,7 @@ describe('Collection Detail View', function () {
         $collection = Collection::factory()->for($this->agent)->create(['is_public' => true]);
 
         Livewire::test(CollectionShowPage::class, ['collection' => $collection])
-            ->call('copyShareLink');
+            ->call('onLinkCopied');
 
         $collection->refresh();
         expect($collection->shared_at)->not->toBeNull();

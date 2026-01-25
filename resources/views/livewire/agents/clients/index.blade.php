@@ -25,16 +25,15 @@
 
         {{-- Clients Grid --}}
         @if($clients->isEmpty())
-            <div class="flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-300 py-16 dark:border-zinc-700">
-                <div class="flex size-16 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800">
-                    <flux:icon.users class="size-8 text-zinc-400" />
-                </div>
-                <flux:heading size="lg" class="mt-4">No tienes clientes</flux:heading>
-                <flux:subheading>Agrega tu primer cliente para comenzar</flux:subheading>
-                <flux:button wire:click="openCreateModal" variant="primary" icon="plus" class="mt-4">
+            <x-empty-state
+                icon="users"
+                title="No tienes clientes"
+                subtitle="Agrega tu primer cliente para comenzar"
+            >
+                <flux:button wire:click="openCreateModal" variant="primary" icon="plus">
                     Agregar cliente
                 </flux:button>
-            </div>
+            </x-empty-state>
         @else
             <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 @foreach($clients as $client)
@@ -82,14 +81,8 @@
 
                             {{-- Stats Row --}}
                             <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-zinc-500">
-                                <span class="flex items-center gap-1">
-                                    <flux:icon.folder class="size-4" />
-                                    {{ $client->collections_count }} {{ $client->collections_count === 1 ? 'coleccion' : 'colecciones' }}
-                                </span>
-                                <span class="flex items-center gap-1">
-                                    <flux:icon.eye class="size-4" />
-                                    {{ $client->total_views }} {{ $client->total_views === 1 ? 'vista' : 'vistas' }}
-                                </span>
+                                <x-stat icon="folder" :count="$client->collections_count" singular="coleccion" plural="colecciones" />
+                                <x-stat icon="eye" :count="$client->total_views" singular="vista" plural="vistas" />
                             </div>
 
                             {{-- Last Activity --}}

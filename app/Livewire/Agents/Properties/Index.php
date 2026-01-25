@@ -366,10 +366,10 @@ class Index extends Component
     }
 
     /**
-     * Copy share link to clipboard and mark as shared.
-     * Called synchronously - clipboard copy happens in Alpine (fire-and-forget).
+     * Handle link copied event - mark as shared and show toast.
+     * Called after clipboard copy happens in Alpine.
      */
-    public function copyShareLink(): void
+    public function onLinkCopied(): void
     {
         $collection = $this->activeCollection;
 

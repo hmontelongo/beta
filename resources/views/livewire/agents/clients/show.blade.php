@@ -198,11 +198,8 @@
                                             {{ $collection->name }}
                                         </h3>
                                         <div class="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-zinc-500">
-                                            <span>{{ $collection->properties_count }} {{ $collection->properties_count === 1 ? 'propiedad' : 'propiedades' }}</span>
-                                            <span class="flex items-center gap-1">
-                                                <flux:icon.eye class="size-3.5" />
-                                                {{ $collection->view_count ?? 0 }} vistas
-                                            </span>
+                                            <x-stat :count="$collection->properties_count" singular="propiedad" plural="propiedades" />
+                                            <x-stat icon="eye" :count="$collection->view_count ?? 0" plural="vistas" size="xs" />
                                         </div>
                                     </div>
 

@@ -107,9 +107,7 @@
                         'bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400' => !$hasActiveFilters,
                     ])
                 >
-                    <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75" />
-                    </svg>
+                    <flux:icon.adjustments-horizontal class="size-4" />
                     @if($hasActiveFilters)
                         <span class="flex size-5 items-center justify-center rounded-full bg-blue-500 text-[10px] font-bold text-white">{{ $totalFilters }}</span>
                     @endif
@@ -118,9 +116,7 @@
                 {{-- Sort --}}
                 <flux:dropdown class="shrink-0">
                     <flux:button variant="ghost" size="sm" class="!px-2.5">
-                        <svg class="size-4 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 7.5 7.5 3m0 0L12 7.5M7.5 3v13.5m13.5 0L16.5 21m0 0L12 16.5m4.5 4.5V7.5" />
-                        </svg>
+                        <flux:icon.arrows-up-down class="size-4 text-zinc-500" />
                         <span class="hidden text-zinc-700 dark:text-zinc-300 sm:inline">Ordenar</span>
                     </flux:button>
                     <flux:menu>
@@ -142,9 +138,7 @@
                             'bg-zinc-100 text-zinc-500 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700' => count($this->collectionPropertyIds) === 0,
                         ])
                     >
-                        <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" />
-                        </svg>
+                        <flux:icon.folder class="size-4" />
                         <span class="hidden sm:inline">Coleccion</span>
                         @if(count($this->collectionPropertyIds) > 0)
                             <span class="flex size-5 items-center justify-center rounded-full bg-blue-500 text-[10px] font-bold text-white">{{ count($this->collectionPropertyIds) }}</span>
@@ -160,9 +154,7 @@
                         ])
                         title="Ver todas mis colecciones"
                     >
-                        <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
-                        </svg>
+                        <flux:icon.arrow-top-right-on-square class="size-4" />
                     </a>
                 </div>
             </div>
@@ -218,9 +210,7 @@
                         <span class="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 sm:text-xs">
                             {{ $zone }}
                             <button wire:click="$set('zones', {{ json_encode(array_values(array_filter($zones, fn($z) => $z !== $zone))) }})" class="hover:text-blue-900 dark:hover:text-blue-200">
-                                <svg class="size-2.5 sm:size-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-                                </svg>
+                                <flux:icon.x-mark class="size-2.5 sm:size-3" />
                             </button>
                         </span>
                     @endforeach
@@ -235,9 +225,7 @@
                                 Hasta ${{ number_format((int)$maxPrice) }}
                             @endif
                             <button wire:click="$set('minPrice', ''); $set('maxPrice', '')" class="hover:text-emerald-900 dark:hover:text-emerald-200">
-                                <svg class="size-2.5 sm:size-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-                                </svg>
+                                <flux:icon.x-mark class="size-2.5 sm:size-3" />
                             </button>
                         </span>
                     @endif
@@ -246,9 +234,7 @@
                         <span class="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-[10px] font-medium text-violet-700 dark:bg-violet-900/30 dark:text-violet-400 sm:text-xs">
                             {{ $bathrooms }}+ {{ __('property.specs.bathrooms', [], 'es') }}
                             <button wire:click="$set('bathrooms', '')" class="hover:text-violet-900 dark:hover:text-violet-200">
-                                <svg class="size-2.5 sm:size-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-                                </svg>
+                                <flux:icon.x-mark class="size-2.5 sm:size-3" />
                             </button>
                         </span>
                     @endif
@@ -263,9 +249,7 @@
                                 Max {{ $maxSize }} m²
                             @endif
                             <button wire:click="$set('minSize', ''); $set('maxSize', '')" class="hover:text-orange-900 dark:hover:text-orange-200">
-                                <svg class="size-2.5 sm:size-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-                                </svg>
+                                <flux:icon.x-mark class="size-2.5 sm:size-3" />
                             </button>
                         </span>
                     @endif
@@ -274,9 +258,7 @@
                         <span class="inline-flex items-center gap-1 rounded-full bg-cyan-50 px-2 py-0.5 text-[10px] font-medium text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400 sm:text-xs">
                             {{ $parking }}+ estac.
                             <button wire:click="$set('parking', '')" class="hover:text-cyan-900 dark:hover:text-cyan-200">
-                                <svg class="size-2.5 sm:size-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-                                </svg>
+                                <flux:icon.x-mark class="size-2.5 sm:size-3" />
                             </button>
                         </span>
                     @endif
@@ -285,9 +267,7 @@
                         <span class="inline-flex items-center gap-1 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 sm:text-xs">
                             {{ $availableAmenities[$amenity] ?? $amenity }}
                             <button wire:click="$set('amenities', {{ json_encode(array_values(array_filter($amenities, fn($a) => $a !== $amenity))) }})" class="hover:text-blue-900 dark:hover:text-blue-200">
-                                <svg class="size-2.5 sm:size-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-                                </svg>
+                                <flux:icon.x-mark class="size-2.5 sm:size-3" />
                             </button>
                         </span>
                     @endforeach
@@ -330,9 +310,7 @@
                             class="absolute left-2 top-[calc(75%-theme(spacing.2)-theme(spacing.8))] z-10 flex size-8 items-center justify-center rounded-full bg-white/90 text-zinc-600 shadow-md opacity-0 transition-all duration-150 hover:bg-emerald-500 hover:text-white group-hover:opacity-100 sm:left-3 sm:top-[calc(75%-theme(spacing.3)-theme(spacing.9))] sm:size-9"
                             title="Editar propiedad"
                         >
-                            <svg class="size-4 sm:size-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
-                            </svg>
+                            <flux:icon.pencil-square class="size-4 sm:size-5" />
                         </a>
                     @endif
 
@@ -343,13 +321,9 @@
                         title="{{ $this->isInCollection($property->id) ? 'Quitar de coleccion' : 'Agregar a coleccion' }}"
                     >
                         @if($this->isInCollection($property->id))
-                            <svg class="size-4 sm:size-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-                            </svg>
+                            <flux:icon.check class="size-4 sm:size-5" />
                         @else
-                            <svg class="size-4 sm:size-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                            </svg>
+                            <flux:icon.plus class="size-4 sm:size-5" />
                         @endif
                     </button>
 
@@ -365,18 +339,14 @@
                                 />
                             @else
                                 <div class="flex h-full w-full items-center justify-center">
-                                    <svg class="size-10 text-zinc-300 dark:text-zinc-700" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
-                                    </svg>
+                                    <flux:icon.photo class="size-10 text-zinc-300 dark:text-zinc-700" />
                                 </div>
                             @endif
 
                             {{-- Ownership Badge --}}
                             @if($isOwned)
                                 <span class="absolute left-2 top-2 flex items-center gap-1 rounded-md bg-emerald-500 px-1.5 py-0.5 text-[10px] font-semibold text-white sm:left-3 sm:top-3 sm:px-2 sm:text-xs">
-                                    <svg class="size-2.5 sm:size-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
-                                    </svg>
+                                    <flux:icon.user class="size-2.5 sm:size-3" />
                                     Mi propiedad
                                 </span>
                             @elseif($opType)
@@ -389,9 +359,7 @@
                             {{-- Image Count --}}
                             @if($imageCount > 1)
                                 <span class="absolute right-2 top-2 flex items-center gap-1 rounded-md bg-black/60 px-1.5 py-0.5 text-[10px] font-medium text-white backdrop-blur-sm sm:right-3 sm:top-3 sm:px-2 sm:text-xs">
-                                    <svg class="size-2.5 sm:size-3" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
-                                    </svg>
+                                    <flux:icon.photo class="size-2.5 sm:size-3" />
                                     {{ $imageCount }}
                                 </span>
                             @endif
@@ -449,21 +417,16 @@
                 </article>
             @empty
                 {{-- Empty State --}}
-                <div class="col-span-full py-12 text-center sm:py-16">
-                    <div class="mx-auto mb-4 flex size-14 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800 sm:size-16">
-                        <svg class="size-7 text-zinc-400 sm:size-8" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
-                        </svg>
-                    </div>
-                    <h3 class="text-base font-semibold text-zinc-900 dark:text-zinc-100 sm:text-lg">No se encontraron propiedades</h3>
-                    <p class="mt-1 text-xs text-zinc-500 sm:text-sm">Intenta ajustar los filtros para ver mas resultados.</p>
-                    <button
-                        wire:click="clearFilters"
-                        class="mt-4 inline-flex items-center gap-2 rounded-lg bg-zinc-900 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-zinc-800 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-200 sm:px-4 sm:text-sm"
-                    >
+                <x-empty-state
+                    icon="magnifying-glass"
+                    title="No se encontraron propiedades"
+                    subtitle="Intenta ajustar los filtros para ver mas resultados."
+                    layout="grid"
+                >
+                    <flux:button wire:click="clearFilters" variant="primary">
                         Limpiar filtros
-                    </button>
-                </div>
+                    </flux:button>
+                </x-empty-state>
             @endforelse
         </div>
 
@@ -693,9 +656,7 @@
                                             <img src="{{ $heroImage }}" alt="" class="h-full w-full object-cover" />
                                         @else
                                             <div class="flex h-full w-full items-center justify-center">
-                                                <svg class="size-6 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
-                                                </svg>
+                                                <flux:icon.photo class="size-6 text-zinc-400" />
                                             </div>
                                         @endif
                                     </div>
@@ -721,9 +682,7 @@
                                     class="absolute right-1.5 top-1.5 flex size-6 items-center justify-center rounded-full bg-black/60 text-white transition-all hover:bg-red-500"
                                     title="Quitar de seleccion"
                                 >
-                                    <svg class="size-3.5" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-                                    </svg>
+                                    <flux:icon.x-mark class="size-3.5" />
                                 </button>
                             </div>
                         @endforeach
@@ -734,7 +693,7 @@
                 <div class="mt-4 flex items-center gap-2 border-t border-zinc-200 pt-4 dark:border-zinc-700">
                     {{-- Sharing Actions (left) --}}
                     <flux:button
-                        x-on:click="navigator.clipboard.writeText('{{ $this->collectionShareUrl }}').catch(() => {}); $wire.copyShareLink();"
+                        x-on:click="navigator.clipboard.writeText('{{ $this->collectionShareUrl }}').then(() => $wire.onLinkCopied())"
                         variant="ghost"
                         icon="link"
                         size="sm"
@@ -770,20 +729,16 @@
                 <div class="flex flex-1 flex-col items-center justify-center py-12 text-center">
                     <div class="relative mb-4">
                         <div class="flex size-20 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30">
-                            <svg class="size-10 text-blue-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" />
-                            </svg>
+                            <flux:icon.folder class="size-10 text-blue-500" />
                         </div>
                         <div class="absolute -right-1 -top-1 flex size-7 items-center justify-center rounded-full bg-white shadow-md dark:bg-zinc-800">
-                            <svg class="size-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                            </svg>
+                            <flux:icon.plus class="size-4 text-blue-500" />
                         </div>
                     </div>
-                    <h4 class="font-bold text-zinc-900 dark:text-zinc-100">Tu seleccion esta vacia</h4>
-                    <p class="mt-2 max-w-[220px] text-sm text-zinc-500">
+                    <flux:heading>Tu seleccion esta vacia</flux:heading>
+                    <flux:subheading class="mt-2 max-w-[220px]">
                         Toca el boton <span class="inline-flex size-5 items-center justify-center rounded-full bg-blue-100 text-blue-600">+</span> en las propiedades para agregarlas.
-                    </p>
+                    </flux:subheading>
                     <a
                         href="{{ route('agents.collections.index') }}"
                         wire:navigate

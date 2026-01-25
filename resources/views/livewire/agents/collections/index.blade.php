@@ -27,16 +27,15 @@
 
         {{-- Collections Grid --}}
         @if($collections->isEmpty())
-            <div class="flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-300 py-16 dark:border-zinc-700">
-                <div class="flex size-16 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800">
-                    <flux:icon.folder class="size-8 text-zinc-400" />
-                </div>
-                <flux:heading size="lg" class="mt-4">No tienes colecciones</flux:heading>
-                <flux:subheading>Crea tu primera coleccion agregando propiedades</flux:subheading>
-                <flux:button :href="route('agents.properties.index')" variant="primary" icon="plus" class="mt-4" wire:navigate>
+            <x-empty-state
+                icon="folder"
+                title="No tienes colecciones"
+                subtitle="Crea tu primera coleccion agregando propiedades"
+            >
+                <flux:button :href="route('agents.properties.index')" variant="primary" icon="plus" wire:navigate>
                     Buscar propiedades
                 </flux:button>
-            </div>
+            </x-empty-state>
         @else
             <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 @foreach($collections as $collection)
@@ -63,9 +62,7 @@
                                     @if($collection->client_name_display)
                                         <p class="mt-0.5 truncate text-sm text-zinc-500">
                                             <span class="inline-flex items-center gap-1">
-                                                <svg class="size-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
-                                                </svg>
+                                                <flux:icon.user class="size-3.5" />
                                                 {{ $collection->client_name_display }}
                                             </span>
                                         </p>
@@ -99,12 +96,7 @@
 
                             {{-- Stats --}}
                             <div class="flex items-center gap-4 text-sm text-zinc-500">
-                                <span class="flex items-center gap-1">
-                                    <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
-                                    </svg>
-                                    {{ $collection->properties_count }} {{ $collection->properties_count === 1 ? 'propiedad' : 'propiedades' }}
-                                </span>
+                                <x-stat icon="home" :count="$collection->properties_count" singular="propiedad" plural="propiedades" />
                                 <span class="text-xs text-zinc-400">
                                     {{ $collection->updated_at->diffForHumans() }}
                                 </span>
@@ -126,9 +118,7 @@
                                     x-on:click="navigator.clipboard.writeText('{{ $collection->getShareUrl() }}').then(() => $wire.onLinkCopied({{ $collection->id }}))"
                                     class="flex size-8 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-700 dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
                                 >
-                                    <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 0 1 1.242 7.244l-4.5 4.5a4.5 4.5 0 0 1-6.364-6.364l1.757-1.757m13.35-.622 1.757-1.757a4.5 4.5 0 0 0-6.364-6.364l-4.5 4.5a4.5 4.5 0 0 0 1.242 7.244" />
-                                    </svg>
+                                    <flux:icon.link class="size-4" />
                                 </button>
                             </flux:tooltip>
                             <div class="flex-1"></div>

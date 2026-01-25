@@ -12,9 +12,7 @@
                         wire:navigate
                         class="shrink-0 rounded-lg p-1.5 text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:hover:bg-zinc-800 dark:hover:text-zinc-100"
                     >
-                        <svg class="size-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5 3 12m0 0 7.5-7.5M3 12h18" />
-                        </svg>
+                        <flux:icon.arrow-left class="size-5" />
                     </a>
                     <div class="min-w-0 flex-1">
                         <div class="flex items-center gap-2">
@@ -46,7 +44,7 @@
                         </flux:button>
                         <flux:menu>
                             <flux:menu.item
-                                x-on:click="navigator.clipboard.writeText('{{ $collection->getShareUrl() }}').catch(() => {}); $wire.copyShareLink();"
+                                x-on:click="navigator.clipboard.writeText('{{ $collection->getShareUrl() }}').then(() => $wire.onLinkCopied())"
                                 icon="link"
                             >
                                 Copiar enlace
@@ -77,7 +75,7 @@
                                 Descargar PDF
                             </flux:menu.item>
                             <flux:menu.item
-                                x-on:click="navigator.clipboard.writeText('{{ $collection->getShareUrl() }}').catch(() => {}); $wire.copyShareLink();"
+                                x-on:click="navigator.clipboard.writeText('{{ $collection->getShareUrl() }}').then(() => $wire.onLinkCopied())"
                                 icon="link"
                                 class="sm:hidden"
                             >
@@ -149,9 +147,7 @@
                                 href="mailto:{{ $collection->client->email }}"
                                 class="flex items-center gap-1 text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300"
                             >
-                                <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 0 1-2.25 2.25h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0v.243a2.25 2.25 0 0 1-1.07 1.916l-7.5 4.615a2.25 2.25 0 0 1-2.36 0L3.32 8.91a2.25 2.25 0 0 1-1.07-1.916V6.75" />
-                                </svg>
+                                <flux:icon.envelope class="size-4" />
                                 {{ $collection->client->email }}
                             </a>
                         @endif
@@ -180,24 +176,15 @@
         {{-- Properties Section --}}
         @if($collection->properties->isEmpty())
             {{-- Empty State --}}
-            <div class="flex flex-col items-center justify-center rounded-xl border border-dashed border-zinc-300 py-16 dark:border-zinc-700">
-                <div class="flex size-16 items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800">
-                    <svg class="size-8 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
-                    </svg>
-                </div>
-                <h3 class="mt-4 text-lg font-semibold text-zinc-900 dark:text-zinc-100">Sin propiedades</h3>
-                <p class="mt-1 text-sm text-zinc-500">Agrega propiedades desde la busqueda</p>
-                <button
-                    wire:click="addProperties"
-                    class="mt-4 inline-flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2 text-sm font-medium text-white hover:bg-blue-600"
-                >
-                    <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                    </svg>
+            <x-empty-state
+                icon="home"
+                title="Sin propiedades"
+                subtitle="Agrega propiedades desde la busqueda"
+            >
+                <flux:button wire:click="addProperties" variant="primary" icon="plus">
                     Buscar propiedades
-                </button>
-            </div>
+                </flux:button>
+            </x-empty-state>
         @else
             {{-- Property Count --}}
             <p class="mb-4 text-sm text-zinc-500">
@@ -230,9 +217,7 @@
                             wire:sort:handle
                             class="absolute left-2 top-2 z-10 flex size-8 cursor-grab items-center justify-center rounded-lg bg-white/90 text-zinc-400 shadow-sm backdrop-blur-sm transition-colors hover:text-zinc-600 dark:bg-zinc-800/90"
                         >
-                            <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-                            </svg>
+                            <flux:icon.bars-3 class="size-4" />
                         </div>
 
                         {{-- Remove Button --}}
@@ -241,9 +226,7 @@
                             class="absolute right-2 top-2 z-10 flex size-8 items-center justify-center rounded-lg bg-white/90 text-zinc-400 shadow-sm backdrop-blur-sm transition-all hover:bg-red-500 hover:text-white dark:bg-zinc-800/90"
                             title="Quitar de coleccion"
                         >
-                            <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-                            </svg>
+                            <flux:icon.x-mark class="size-4" />
                         </button>
 
                         <a href="{{ route('agents.properties.show', $property) }}" wire:navigate class="block">
@@ -258,9 +241,7 @@
                                     />
                                 @else
                                     <div class="flex h-full w-full items-center justify-center">
-                                        <svg class="size-10 text-zinc-300 dark:text-zinc-700" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="m2.25 15.75 5.159-5.159a2.25 2.25 0 0 1 3.182 0l5.159 5.159m-1.5-1.5 1.409-1.409a2.25 2.25 0 0 1 3.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 0 0 1.5-1.5V6a1.5 1.5 0 0 0-1.5-1.5H3.75A1.5 1.5 0 0 0 2.25 6v12a1.5 1.5 0 0 0 1.5 1.5Zm10.5-11.25h.008v.008h-.008V8.25Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
-                                        </svg>
+                                        <flux:icon.photo class="size-10 text-zinc-300 dark:text-zinc-700" />
                                     </div>
                                 @endif
 
@@ -325,15 +306,9 @@
         {{-- Add More Properties Link (only when collection has properties) --}}
         @if($collection->properties->isNotEmpty())
             <div class="mt-6">
-                <button
-                    wire:click="addProperties"
-                    class="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400"
-                >
-                    <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                    </svg>
+                <flux:button wire:click="addProperties" variant="ghost" icon="plus">
                     Agregar mas propiedades
-                </button>
+                </flux:button>
             </div>
         @endif
     </div>
