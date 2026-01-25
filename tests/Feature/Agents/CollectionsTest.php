@@ -215,6 +215,21 @@ describe('Public Collection Display', function () {
             ->assertStatus(200)
             ->assertSee('Providencia');
     });
+
+    it('allows selecting different images for a property', function () {
+        $property = Property::factory()->create();
+        $collection = Collection::factory()
+            ->public()
+            ->hasAttached($property)
+            ->create();
+
+        Livewire::test(PublicCollectionShow::class, ['collection' => $collection])
+            ->assertSet('selectedImages', [])
+            ->call('selectImage', $property->id, 2)
+            ->assertSet('selectedImages', [$property->id => 2])
+            ->call('selectImage', $property->id, 0)
+            ->assertSet('selectedImages', [$property->id => 0]);
+    });
 });
 
 describe('User Collection Relationship', function () {

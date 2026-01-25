@@ -16,6 +16,9 @@ class Show extends Component
 {
     public Collection $collection;
 
+    /** @var array<int, int> Track selected image index per property ID */
+    public array $selectedImages = [];
+
     public function mount(Collection $collection): void
     {
         if (! $collection->isAccessible()) {
@@ -38,6 +41,14 @@ class Show extends Component
         $presenter = new CollectionPropertyPresenter;
 
         return $presenter->prepareProperties($this->collection->properties);
+    }
+
+    /**
+     * Select an image for a property to display as the main image.
+     */
+    public function selectImage(int $propertyId, int $index): void
+    {
+        $this->selectedImages[$propertyId] = $index;
     }
 
     /**

@@ -200,14 +200,19 @@
 
                         <div class="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-zinc-200/50 dark:bg-zinc-900 dark:ring-zinc-800">
                             {{-- Image Section --}}
+                            @php
+                                $selectedIndex = $selectedImages[$prop['id']] ?? 0;
+                                $mainImage = $prop['images'][$selectedIndex] ?? $prop['images'][0] ?? null;
+                            @endphp
                             <div class="pdf-image-section relative">
                                 @if(count($prop['images']) > 0)
                                     {{-- Main Image --}}
-                                    <div class="relative aspect-[16/9] w-full overflow-hidden bg-zinc-100 dark:bg-zinc-800">
+                                    <div class="relative aspect-[16/9] w-full overflow-hidden bg-black">
                                         <img
-                                            src="{{ $prop['images'][0] }}"
+                                            src="{{ $mainImage }}"
                                             alt="{{ $prop['colonia'] }}"
                                             class="size-full object-cover"
+                                            wire:key="main-image-{{ $prop['id'] }}-{{ $selectedIndex }}"
                                         />
                                         {{-- Gradient overlay --}}
                                         <div class="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
@@ -234,21 +239,28 @@
                                                 </span>
                                             @endif
                                         </div>
+
+                                        {{-- Image Counter --}}
+                                        @if(count($prop['images']) > 1)
+                                            <div class="absolute right-4 top-4 rounded-full bg-black/50 px-3 py-1 text-sm font-medium text-white backdrop-blur-sm">
+                                                {{ $selectedIndex + 1 }} / {{ min(count($prop['images']), 4) }}
+                                            </div>
+                                        @endif
                                     </div>
 
                                     {{-- Thumbnail Strip --}}
                                     @if(count($prop['images']) > 1)
-                                        <div class="grid grid-cols-4 gap-1 bg-zinc-50 p-2 print:bg-white print:gap-0.5 print:p-1 dark:bg-zinc-800/50">
-                                            @foreach(array_slice($prop['images'], 1, 4) as $thumb)
-                                                <div class="aspect-[4/3] overflow-hidden rounded-lg print:rounded-sm">
+                                        <div class="grid grid-cols-4 gap-1 bg-zinc-50 p-2 print:gap-0.5 print:bg-white print:p-1 dark:bg-zinc-800/50">
+                                            @foreach(array_slice($prop['images'], 0, 4) as $index => $thumb)
+                                                <button
+                                                    wire:click="selectImage({{ $prop['id'] }}, {{ $index }})"
+                                                    class="aspect-[4/3] overflow-hidden rounded-lg print:rounded-sm {{ $selectedIndex === $index ? 'ring-2 ring-offset-1' : 'opacity-80 hover:opacity-100' }}"
+                                                    style="{{ $selectedIndex === $index ? '--tw-ring-color: ' . $brandColor . ';' : '' }}"
+                                                    title="Ver imagen {{ $index + 1 }}"
+                                                >
                                                     <img src="{{ $thumb }}" alt="" class="size-full object-cover" />
-                                                </div>
+                                                </button>
                                             @endforeach
-                                            @if(count($prop['images']) > 5)
-                                                <div class="flex aspect-[4/3] items-center justify-center rounded-lg bg-zinc-200 text-sm font-medium text-zinc-500 print:rounded-sm dark:bg-zinc-700 dark:text-zinc-400">
-                                                    +{{ count($prop['images']) - 5 }}
-                                                </div>
-                                            @endif
                                         </div>
                                     @endif
                                 @else
