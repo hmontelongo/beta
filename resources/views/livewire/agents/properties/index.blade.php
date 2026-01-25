@@ -266,22 +266,16 @@
     <div class="mx-auto max-w-screen-2xl px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
         {{-- Results Header --}}
         <div class="mb-4 flex items-center justify-between gap-3 sm:mb-6">
-            <h2 class="text-base font-semibold text-zinc-900 dark:text-zinc-100 sm:text-lg">
-                <span wire:loading.remove wire:target="operationType,propertyType,zones,pricePreset,bedrooms,bathrooms,sortBy,search">
+            <h2 class="flex items-center gap-2 text-base font-semibold text-zinc-900 dark:text-zinc-100 sm:text-lg">
+                <span wire:loading.class="opacity-50" wire:target="operationType,propertyType,zones,pricePreset,bedrooms,bathrooms,sortBy,search">
                     {{ number_format($properties->total()) }} propiedades
                 </span>
-                <span wire:loading wire:target="operationType,propertyType,zones,pricePreset,bedrooms,bathrooms,sortBy,search" class="inline-flex items-center gap-2">
-                    <svg class="size-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    Buscando...
-                </span>
+                <flux:icon.arrow-path wire:loading wire:target="operationType,propertyType,zones,pricePreset,bedrooms,bathrooms,sortBy,search" class="size-4 animate-spin text-zinc-400" />
             </h2>
         </div>
 
         {{-- Property Grid --}}
-        <div wire:key="grid-{{ $this->gridKey }}" class="animate-stagger grid gap-3 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4" wire:loading.class="opacity-60" wire:target="operationType,propertyType,zones,pricePreset,bedrooms,bathrooms,sortBy,search">
+        <div wire:key="grid-{{ $this->gridKey }}" class="grid gap-3 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3 xl:grid-cols-4">
             @forelse($properties as $property)
                 @php
                     $listing = $property->listings->first();
@@ -291,7 +285,7 @@
                     $price = $operations[0]['price'] ?? null;
                     $opType = $operations[0]['type'] ?? null;
                 @endphp
-                <article wire:key="property-{{ $property->id }}" class="animate-card-enter group relative">
+                <article wire:key="property-{{ $property->id }}" class="group relative">
                     {{-- Add to Collection Button (outside link, positioned over image) --}}
                     <button
                         wire:click="toggleCollection({{ $property->id }})"
