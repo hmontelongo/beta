@@ -172,6 +172,13 @@ class Show extends Component
         $this->showWhatsAppTipIfNeeded();
     }
 
+    public function previewCollection(): void
+    {
+        $this->collection->markAsShared();
+
+        $this->dispatch('open-url', url: $this->collection->getShareUrl());
+    }
+
     /**
      * Download collection as PDF using dedicated PDF template.
      */

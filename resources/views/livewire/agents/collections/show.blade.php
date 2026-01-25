@@ -40,9 +40,19 @@
                     <flux:button wire:click="downloadPdf" variant="ghost" icon="document-arrow-down" size="sm" class="hidden sm:inline-flex">
                         PDF
                     </flux:button>
-                    <flux:button wire:click="copyShareLink" variant="ghost" icon="link" size="sm" class="hidden sm:inline-flex">
-                        Copiar
-                    </flux:button>
+                    <flux:dropdown position="bottom" align="start" class="hidden sm:block">
+                        <flux:button variant="ghost" icon="share" size="sm">
+                            Compartir
+                        </flux:button>
+                        <flux:menu>
+                            <flux:menu.item wire:click="copyShareLink" icon="link">
+                                Copiar enlace
+                            </flux:menu.item>
+                            <flux:menu.item wire:click="previewCollection" icon="eye">
+                                Vista previa
+                            </flux:menu.item>
+                        </flux:menu>
+                    </flux:dropdown>
                     {{-- WhatsApp - Always visible --}}
                     <flux:button wire:click="shareViaWhatsApp" size="sm" class="!bg-green-600 !text-white hover:!bg-green-700 dark:!bg-green-600 dark:hover:!bg-green-700">
                         <span class="flex items-center gap-1.5">
@@ -69,6 +79,13 @@
                                 class="sm:hidden"
                             >
                                 Copiar enlace
+                            </flux:menu.item>
+                            <flux:menu.item
+                                wire:click="previewCollection"
+                                icon="eye"
+                                class="sm:hidden"
+                            >
+                                Vista previa
                             </flux:menu.item>
                             <flux:menu.separator class="sm:hidden" />
                             {{-- Always visible --}}

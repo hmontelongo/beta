@@ -656,6 +656,22 @@ describe('Collection Detail View', function () {
         expect($collection->shared_at)->not->toBeNull();
     });
 
+    it('previewCollection marks as shared and opens public URL', function () {
+        $this->actingAs($this->agent);
+
+        $collection = Collection::factory()->for($this->agent)->create([
+            'is_public' => true,
+            'shared_at' => null,
+        ]);
+
+        Livewire::test(CollectionShowPage::class, ['collection' => $collection])
+            ->call('previewCollection')
+            ->assertDispatched('open-url', url: $collection->getShareUrl());
+
+        $collection->refresh();
+        expect($collection->shared_at)->not->toBeNull();
+    });
+
     it('addProperties sets session and redirects to search', function () {
         $this->actingAs($this->agent);
 
