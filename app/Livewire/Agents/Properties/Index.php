@@ -19,7 +19,6 @@ use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
-use Livewire\WithPagination;
 
 #[Layout('components.layouts.agent')]
 #[Title('Propiedades')]
@@ -27,7 +26,17 @@ class Index extends Component
 {
     use HasActiveCollection;
     use ShowsWhatsAppTip;
-    use WithPagination;
+
+    /** @var array<int, Property> */
+    public array $properties = [];
+
+    public int $page = 1;
+
+    public int $perPage = 12;
+
+    public bool $hasMorePages = true;
+
+    public int $totalCount = 0;
 
     #[Url]
     public string $source = '';
@@ -142,16 +151,74 @@ class Index extends Component
     public function mount(): void
     {
         $this->initializeActiveCollection();
+        $this->loadProperties();
+    }
+
+    /**
+     * Load more properties when scrolling (infinite scroll).
+     */
+    public function loadMore(): void
+    {
+        if (! $this->hasMorePages) {
+            return;
+        }
+
+        $this->page++;
+        $this->loadProperties(append: true);
+    }
+
+    /**
+     * Load properties from the database.
+     */
+    protected function loadProperties(bool $append = false): void
+    {
+        $query = $this->buildQuery();
+
+        // Only recalculate count on first load (not when appending)
+        if (! $append) {
+            $this->totalCount = $query->count();
+        }
+
+        $newProperties = $query
+            ->skip(($this->page - 1) * $this->perPage)
+            ->take($this->perPage)
+            ->get();
+
+        if ($append) {
+            $this->properties = array_merge($this->properties, $newProperties->all());
+        } else {
+            $this->properties = $newProperties->all();
+        }
+
+        $this->hasMorePages = count($this->properties) < $this->totalCount;
+    }
+
+    /**
+     * Reset pagination and reload properties (called when filters change).
+     */
+    protected function resetAndReload(): void
+    {
+        $hadScrolled = $this->page > 1;
+
+        $this->page = 1;
+        $this->properties = [];
+        $this->hasMorePages = true;
+        $this->loadProperties();
+
+        // Only scroll to top if user had scrolled down
+        if ($hadScrolled) {
+            $this->dispatch('scroll-to-results');
+        }
     }
 
     public function updatedSource(): void
     {
-        $this->resetPage();
+        $this->resetAndReload();
     }
 
     public function updatedSearch(): void
     {
-        $this->resetPage();
+        $this->resetAndReload();
     }
 
     public function updatedOperationType(): void
@@ -160,17 +227,17 @@ class Index extends Component
         $this->pricePreset = '';
         $this->minPrice = '';
         $this->maxPrice = '';
-        $this->resetPage();
+        $this->resetAndReload();
     }
 
     public function updatedPropertyType(): void
     {
-        $this->resetPage();
+        $this->resetAndReload();
     }
 
     public function updatedZones(): void
     {
-        $this->resetPage();
+        $this->resetAndReload();
     }
 
     public function updatedPricePreset(): void
@@ -184,35 +251,35 @@ class Index extends Component
             $this->minPrice = '';
             $this->maxPrice = '';
         }
-        $this->resetPage();
+        $this->resetAndReload();
     }
 
     public function updatedMinPrice(): void
     {
         $this->pricePreset = '';
-        $this->resetPage();
+        $this->resetAndReload();
     }
 
     public function updatedMaxPrice(): void
     {
         $this->pricePreset = '';
-        $this->resetPage();
+        $this->resetAndReload();
     }
 
     public function updatedBedrooms(): void
     {
-        $this->resetPage();
+        $this->resetAndReload();
     }
 
     public function updatedSortBy(): void
     {
-        $this->resetPage();
+        $this->resetAndReload();
     }
 
     public function applyFilters(): void
     {
         $this->showFiltersModal = false;
-        $this->resetPage();
+        $this->resetAndReload();
     }
 
     public function clearFilters(): void
@@ -222,7 +289,7 @@ class Index extends Component
             'minPrice', 'maxPrice', 'bedrooms', 'bathrooms', 'minSize', 'maxSize',
             'parking', 'amenities',
         ]);
-        $this->resetPage();
+        $this->resetAndReload();
     }
 
     /**
@@ -620,10 +687,7 @@ class Index extends Component
 
     public function render(): View
     {
-        $properties = $this->buildQuery()->paginate(12);
-
         return view('livewire.agents.properties.index', [
-            'properties' => $properties,
             'propertyTypes' => PropertyType::cases(),
         ]);
     }

@@ -50,10 +50,10 @@ describe('source filter', function () {
         $component = Livewire::test(Index::class)
             ->set('source', 'mine');
 
-        // Check the query returns only my property
-        $properties = $component->viewData('properties');
-        expect($properties->total())->toBe(1)
-            ->and($properties->first()->id)->toBe($myProperty->id);
+        // Check the properties array contains only my property
+        expect($component->get('totalCount'))->toBe(1)
+            ->and($component->get('properties'))->toHaveCount(1)
+            ->and($component->get('properties')[0]->id)->toBe($myProperty->id);
     });
 
     it('computes my properties count correctly', function () {
@@ -76,14 +76,14 @@ describe('source filter', function () {
         // Create enough properties to have multiple pages
         Property::factory()->native($this->user)->count(15)->create();
 
-        // Simulate being on page 2, then changing source
+        // Simulate loading more properties (page 2), then changing source
         $component = Livewire::test(Index::class)
-            ->call('gotoPage', 2)
+            ->call('loadMore')
+            ->assertSet('page', 2)
             ->set('source', 'mine');
 
         // After changing source, the component resets to page 1
-        $properties = $component->viewData('properties');
-        expect($properties->currentPage())->toBe(1);
+        expect($component->get('page'))->toBe(1);
     });
 
     it('includes source in grid key for re-rendering', function () {
@@ -161,5 +161,72 @@ describe('eager loading', function () {
 
         // No N+1 - if this test runs without additional queries for images, eager loading works
         expect(true)->toBeTrue();
+    });
+});
+
+describe('infinite scroll', function () {
+    it('loads initial properties on mount', function () {
+        Property::factory()->count(20)->create();
+
+        $component = Livewire::test(Index::class);
+
+        expect($component->get('properties'))->toHaveCount(12)
+            ->and($component->get('hasMorePages'))->toBeTrue()
+            ->and($component->get('page'))->toBe(1)
+            ->and($component->get('totalCount'))->toBe(20);
+    });
+
+    it('loads more properties on loadMore', function () {
+        Property::factory()->count(20)->create();
+
+        $component = Livewire::test(Index::class)
+            ->call('loadMore');
+
+        expect($component->get('properties'))->toHaveCount(20)
+            ->and($component->get('hasMorePages'))->toBeFalse()
+            ->and($component->get('page'))->toBe(2);
+    });
+
+    it('does not load more when no more pages', function () {
+        Property::factory()->count(5)->create();
+
+        $component = Livewire::test(Index::class);
+
+        expect($component->get('hasMorePages'))->toBeFalse()
+            ->and($component->get('properties'))->toHaveCount(5);
+
+        // Calling loadMore should not change anything
+        $component->call('loadMore');
+
+        expect($component->get('page'))->toBe(1)
+            ->and($component->get('properties'))->toHaveCount(5);
+    });
+
+    it('resets and reloads when filter changes', function () {
+        Property::factory()->count(20)->create();
+
+        $component = Livewire::test(Index::class)
+            ->call('loadMore') // Load 2 pages
+            ->assertCount('properties', 20)
+            ->assertSet('page', 2)
+            ->set('bedrooms', '2'); // Change filter (bedrooms filter doesn't eliminate all results)
+
+        // Should reset to page 1
+        expect($component->get('page'))->toBe(1);
+    });
+
+    it('dispatches scroll-to-results event only when user has scrolled', function () {
+        Property::factory()->count(20)->create();
+
+        // Should NOT dispatch when user hasn't scrolled (page 1)
+        Livewire::test(Index::class)
+            ->set('operationType', 'rent')
+            ->assertNotDispatched('scroll-to-results');
+
+        // Should dispatch when user has scrolled (page > 1)
+        Livewire::test(Index::class)
+            ->call('loadMore') // Now on page 2
+            ->set('bedrooms', '2') // Change filter
+            ->assertDispatched('scroll-to-results');
     });
 });

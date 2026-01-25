@@ -1,6 +1,9 @@
 @use('App\Services\PropertyPresenter')
 
-<div>
+<div
+    x-data
+    x-on:scroll-to-results.window="$el.querySelector('#results-top')?.scrollIntoView({ behavior: 'smooth' })"
+>
     {{-- Compact Sticky Filter Bar --}}
     <div class="sticky top-14 z-40 border-b border-zinc-200/80 bg-white dark:border-zinc-800 dark:bg-zinc-900">
         <div class="mx-auto max-w-screen-2xl px-3 sm:px-6 lg:px-8">
@@ -278,11 +281,14 @@
 
     {{-- Results Section --}}
     <div class="mx-auto max-w-screen-2xl px-3 py-4 sm:px-6 sm:py-6 lg:px-8">
+        {{-- Anchor for scroll-to-results --}}
+        <div id="results-top"></div>
+
         {{-- Results Header --}}
         <div class="mb-4 flex items-center justify-between gap-3 sm:mb-6">
             <h2 class="flex items-center gap-2 text-base font-semibold text-zinc-900 dark:text-zinc-100 sm:text-lg">
-                <span wire:loading.class="opacity-50" wire:target="source,operationType,propertyType,zones,pricePreset,bedrooms,bathrooms,sortBy,search">
-                    {{ number_format($properties->total()) }} propiedades
+                <span wire:loading.class="opacity-50" wire:target="loadMore,source,operationType,propertyType,zones,pricePreset,bedrooms,bathrooms,sortBy,search">
+                    {{ number_format($totalCount) }} propiedades
                 </span>
                 <flux:icon.arrow-path wire:loading wire:target="source,operationType,propertyType,zones,pricePreset,bedrooms,bathrooms,sortBy,search" class="size-4 animate-spin text-zinc-400" />
             </h2>
@@ -430,10 +436,24 @@
             @endforelse
         </div>
 
-        {{-- Pagination --}}
-        @if($properties->hasPages())
-            <div class="mt-6 border-t border-zinc-200 pt-4 dark:border-zinc-800 sm:mt-8 sm:pt-6">
-                {{ $properties->links() }}
+        {{-- Infinite Scroll Loader --}}
+        @if($hasMorePages)
+            <div
+                wire:key="scroll-sentinel-{{ $this->gridKey }}"
+                wire:intersect.margin.200px="loadMore"
+                wire:loading.class="opacity-100"
+                wire:loading.class.remove="opacity-0"
+                wire:target="loadMore"
+                class="mt-8 flex justify-center py-8 opacity-0 transition-opacity"
+            >
+                <div class="flex items-center gap-3 text-zinc-500 dark:text-zinc-400">
+                    <flux:icon.arrow-path class="size-5 animate-spin" />
+                    <span class="text-sm font-medium">Cargando mas propiedades...</span>
+                </div>
+            </div>
+        @elseif(count($properties) > 0)
+            <div class="mt-8 py-4 text-center">
+                <p class="text-sm text-zinc-500 dark:text-zinc-400">Has visto todas las propiedades</p>
             </div>
         @endif
     </div>
