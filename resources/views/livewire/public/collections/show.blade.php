@@ -395,11 +395,17 @@
                                             @if(!empty($prop['buildingInfo']['nearby']))
                                                 <div class="mt-4 flex flex-wrap gap-2">
                                                     @foreach($prop['buildingInfo']['nearby'] as $landmark)
+                                                        @php
+                                                            // Handle both string and array formats
+                                                            $landmarkName = is_array($landmark) ? ($landmark['name'] ?? '') : $landmark;
+                                                            $landmarkType = is_array($landmark) ? ($landmark['type'] ?? 'default') : 'default';
+                                                            $landmarkDistance = is_array($landmark) ? ($landmark['distance'] ?? null) : null;
+                                                        @endphp
                                                         <span class="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-sm text-zinc-600 ring-1 ring-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:ring-zinc-700">
-                                                            <span>{{ PropertyPresenter::getLandmarkIcon($landmark['type'] ?? '') }}</span>
-                                                            {{ $landmark['name'] ?? '' }}
-                                                            @if(!empty($landmark['distance']))
-                                                                <span class="text-zinc-400">· {{ $landmark['distance'] }}</span>
+                                                            <span>{{ PropertyPresenter::getLandmarkIcon($landmarkType) }}</span>
+                                                            {{ $landmarkName }}
+                                                            @if(!empty($landmarkDistance))
+                                                                <span class="text-zinc-400">· {{ $landmarkDistance }}</span>
                                                             @endif
                                                         </span>
                                                     @endforeach
@@ -487,8 +493,14 @@
                                                     </p>
                                                     <ul class="space-y-2">
                                                         @foreach($prop['pricingDetails']['included_services'] as $service)
+                                                            @php
+                                                                // Handle both string and array formats
+                                                                $serviceLabel = is_array($service)
+                                                                    ? ($service['details'] ?? ucfirst($service['service'] ?? ''))
+                                                                    : PropertyPresenter::humanizeAmenity($service);
+                                                            @endphp
                                                             <li class="text-sm text-emerald-800 dark:text-emerald-300">
-                                                                {{ $service['details'] ?? ucfirst($service['service'] ?? '') }}
+                                                                {{ $serviceLabel }}
                                                             </li>
                                                         @endforeach
                                                     </ul>
@@ -502,10 +514,25 @@
                                                     </p>
                                                     <ul class="space-y-2">
                                                         @foreach($prop['pricingDetails']['extra_costs'] as $cost)
+                                                            @php
+                                                                // Handle both string and array formats
+                                                                if (is_array($cost)) {
+                                                                    $costLabel = ucfirst($cost['item'] ?? '');
+                                                                    $costPrice = $cost['price'] ?? null;
+                                                                    $costPeriod = $cost['period'] ?? null;
+                                                                } else {
+                                                                    $costLabel = PropertyPresenter::humanizeAmenity($cost);
+                                                                    $costPrice = null;
+                                                                    $costPeriod = null;
+                                                                }
+                                                            @endphp
                                                             <li class="text-sm text-amber-800 dark:text-amber-300">
-                                                                {{ ucfirst($cost['item'] ?? '') }}: ${{ number_format($cost['price'] ?? 0) }}
-                                                                @if(!empty($cost['period']))
-                                                                    /{{ $cost['period'] === 'monthly' ? 'mes' : $cost['period'] }}
+                                                                {{ $costLabel }}
+                                                                @if($costPrice)
+                                                                    : ${{ number_format($costPrice) }}
+                                                                    @if(!empty($costPeriod))
+                                                                        /{{ $costPeriod === 'monthly' ? 'mes' : $costPeriod }}
+                                                                    @endif
                                                                 @endif
                                                             </li>
                                                         @endforeach
