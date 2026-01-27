@@ -29,6 +29,23 @@ function createMockUsageTracker(): ApiUsageTracker
 }
 
 /**
+ * Helper to create a mock ClaudeClient with response.
+ * Handles the withTracking() chain.
+ */
+function createMockClaudeClient(array $mockResponse, ?array $toolResult = null, ?array $usage = null): ClaudeClient
+{
+    $mockClaude = Mockery::mock(ClaudeClient::class);
+
+    // withTracking returns self, allowing chained method calls
+    $mockClaude->shouldReceive('withTracking')->andReturnSelf();
+    $mockClaude->shouldReceive('message')->andReturn($mockResponse);
+    $mockClaude->shouldReceive('extractToolUse')->andReturn($toolResult);
+    $mockClaude->shouldReceive('getUsage')->andReturn($usage ?? ['input_tokens' => 1000, 'output_tokens' => 500]);
+
+    return $mockClaude;
+}
+
+/**
  * Helper to create a mock AI response.
  */
 function createMockAiResponse(array $toolInput): array
@@ -97,6 +114,7 @@ describe('createPropertyFromGroup', function () {
         ]);
 
         $mockClaude = Mockery::mock(ClaudeClient::class);
+        $mockClaude->shouldReceive('withTracking')->andReturnSelf();
         $mockClaude->shouldReceive('message')
             ->once()
             ->andReturn(createMockAiResponse(createValidToolInput()));
@@ -145,6 +163,7 @@ describe('createPropertyFromGroup', function () {
         ]);
 
         $mockClaude = Mockery::mock(ClaudeClient::class);
+        $mockClaude->shouldReceive('withTracking')->andReturnSelf();
         $mockClaude->shouldReceive('message')->andReturn(createMockAiResponse(createValidToolInput()));
         $mockClaude->shouldReceive('extractToolUse')->andReturn(createValidToolInput());
         $mockClaude->shouldReceive('getUsage')->andReturn(['input_tokens' => 1500, 'output_tokens' => 800]);
@@ -219,6 +238,7 @@ describe('AI response validation', function () {
         ]);
 
         $mockClaude = Mockery::mock(ClaudeClient::class);
+        $mockClaude->shouldReceive('withTracking')->andReturnSelf();
         $mockClaude->shouldReceive('message')->andReturn([
             'content' => [['type' => 'text', 'text' => 'Sorry, I cannot help with that.']],
             'usage' => ['input_tokens' => 100, 'output_tokens' => 50],
@@ -249,6 +269,7 @@ describe('AI response validation', function () {
         ];
 
         $mockClaude = Mockery::mock(ClaudeClient::class);
+        $mockClaude->shouldReceive('withTracking')->andReturnSelf();
         $mockClaude->shouldReceive('message')->andReturn(createMockAiResponse($invalidToolInput));
         $mockClaude->shouldReceive('extractToolUse')->andReturn($invalidToolInput);
         $mockClaude->shouldReceive('getUsage')->andReturn(['input_tokens' => 100, 'output_tokens' => 50]);
@@ -276,6 +297,7 @@ describe('AI response validation', function () {
         ];
 
         $mockClaude = Mockery::mock(ClaudeClient::class);
+        $mockClaude->shouldReceive('withTracking')->andReturnSelf();
         $mockClaude->shouldReceive('message')->andReturn(createMockAiResponse($invalidToolInput));
         $mockClaude->shouldReceive('extractToolUse')->andReturn($invalidToolInput);
         $mockClaude->shouldReceive('getUsage')->andReturn(['input_tokens' => 100, 'output_tokens' => 50]);
@@ -303,6 +325,7 @@ describe('AI response validation', function () {
         ];
 
         $mockClaude = Mockery::mock(ClaudeClient::class);
+        $mockClaude->shouldReceive('withTracking')->andReturnSelf();
         $mockClaude->shouldReceive('message')->andReturn(createMockAiResponse($invalidToolInput));
         $mockClaude->shouldReceive('extractToolUse')->andReturn($invalidToolInput);
         $mockClaude->shouldReceive('getUsage')->andReturn(['input_tokens' => 100, 'output_tokens' => 50]);
@@ -326,6 +349,7 @@ describe('error handling', function () {
         ]);
 
         $mockClaude = Mockery::mock(ClaudeClient::class);
+        $mockClaude->shouldReceive('withTracking')->andReturnSelf();
         $mockClaude->shouldReceive('message')
             ->andThrow(new RuntimeException('Error: 429 Too Many Requests'));
 
@@ -349,6 +373,7 @@ describe('error handling', function () {
         ]);
 
         $mockClaude = Mockery::mock(ClaudeClient::class);
+        $mockClaude->shouldReceive('withTracking')->andReturnSelf();
         $mockClaude->shouldReceive('message')
             ->andThrow(new RuntimeException('Connection timeout'));
 
@@ -387,6 +412,7 @@ describe('enum sanitization', function () {
         ]);
 
         $mockClaude = Mockery::mock(ClaudeClient::class);
+        $mockClaude->shouldReceive('withTracking')->andReturnSelf();
         $mockClaude->shouldReceive('message')->andReturn(createMockAiResponse($toolInput));
         $mockClaude->shouldReceive('extractToolUse')->andReturn($toolInput);
         $mockClaude->shouldReceive('getUsage')->andReturn(['input_tokens' => 1500, 'output_tokens' => 800]);
@@ -421,6 +447,7 @@ describe('enum sanitization', function () {
         ]);
 
         $mockClaude = Mockery::mock(ClaudeClient::class);
+        $mockClaude->shouldReceive('withTracking')->andReturnSelf();
         $mockClaude->shouldReceive('message')->andReturn(createMockAiResponse($toolInput));
         $mockClaude->shouldReceive('extractToolUse')->andReturn($toolInput);
         $mockClaude->shouldReceive('getUsage')->andReturn(['input_tokens' => 1500, 'output_tokens' => 800]);
@@ -449,6 +476,7 @@ describe('geocoding', function () {
         ]);
 
         $mockClaude = Mockery::mock(ClaudeClient::class);
+        $mockClaude->shouldReceive('withTracking')->andReturnSelf();
         $mockClaude->shouldReceive('message')->andReturn(createMockAiResponse($toolInput));
         $mockClaude->shouldReceive('extractToolUse')->andReturn($toolInput);
         $mockClaude->shouldReceive('getUsage')->andReturn(['input_tokens' => 1500, 'output_tokens' => 800]);
@@ -492,6 +520,7 @@ describe('geocoding', function () {
         ]);
 
         $mockClaude = Mockery::mock(ClaudeClient::class);
+        $mockClaude->shouldReceive('withTracking')->andReturnSelf();
         $mockClaude->shouldReceive('message')->andReturn(createMockAiResponse($toolInput));
         $mockClaude->shouldReceive('extractToolUse')->andReturn($toolInput);
         $mockClaude->shouldReceive('getUsage')->andReturn(['input_tokens' => 1500, 'output_tokens' => 800]);
@@ -535,6 +564,7 @@ describe('AI metadata', function () {
         ]);
 
         $mockClaude = Mockery::mock(ClaudeClient::class);
+        $mockClaude->shouldReceive('withTracking')->andReturnSelf();
         $mockClaude->shouldReceive('message')->andReturn(createMockAiResponse($toolInput));
         $mockClaude->shouldReceive('extractToolUse')->andReturn($toolInput);
         $mockClaude->shouldReceive('getUsage')->andReturn(['input_tokens' => 1500, 'output_tokens' => 800]);
@@ -585,6 +615,7 @@ describe('multiple listings unification', function () {
         ]);
 
         $mockClaude = Mockery::mock(ClaudeClient::class);
+        $mockClaude->shouldReceive('withTracking')->andReturnSelf();
         $mockClaude->shouldReceive('message')
             ->once()
             ->andReturn(createMockAiResponse(createValidToolInput()));

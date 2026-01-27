@@ -148,11 +148,23 @@ class Index extends Component
     {
         $result = app(JobCancellationService::class)->cancelPropertyCreationJobs();
 
+        $parts = [];
+        if ($result['reset'] > 0) {
+            $parts[] = "{$result['reset']} groups rejected";
+        }
+        if ($result['unique_listings'] > 0) {
+            $parts[] = "{$result['unique_listings']} unique listings failed";
+        }
+        $text = implode(', ', $parts) ?: 'Queue cleared';
+
         Flux::toast(
             heading: 'Property Creation Cancelled',
-            text: "{$result['reset']} groups reset to pending, queue cleared",
+            text: $text,
             variant: 'warning',
         );
+
+        // Force stats refresh
+        unset($this->stats, $this->pipelineStats);
     }
 
     /**
@@ -190,21 +202,25 @@ class Index extends Component
      */
     public function resetStuckJobs(): void
     {
+        // Get counts before reset for feedback
         $staleThreshold = now()->subMinutes(5);
 
         $dedupCount = Listing::where('dedup_status', DedupStatus::Processing)
             ->where('updated_at', '<', $staleThreshold)
-            ->update(['dedup_status' => DedupStatus::Pending]);
+            ->count();
 
         $aiCount = ListingGroup::where('status', ListingGroupStatus::ProcessingAi)
             ->where('updated_at', '<', $staleThreshold)
-            ->update(['status' => ListingGroupStatus::PendingAi]);
+            ->count();
 
-        if ($aiCount === 0 && $dedupCount === 0) {
+        if ($dedupCount === 0 && $aiCount === 0) {
             Flux::toast(text: 'No stuck jobs to reset', variant: 'info');
 
             return;
         }
+
+        // Perform the actual reset
+        $this->resetStaleProcessingJobs();
 
         Flux::toast(
             heading: 'Stuck Jobs Reset',

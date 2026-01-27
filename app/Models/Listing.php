@@ -45,9 +45,13 @@ class Listing extends Model
      */
     public function getPipelineStatusAttribute(): ListingPipelineStatus
     {
-        // Failed takes precedence
+        // Terminal states take precedence
         if ($this->dedup_status === DedupStatus::Failed) {
             return ListingPipelineStatus::Failed;
+        }
+
+        if ($this->dedup_status === DedupStatus::Cancelled) {
+            return ListingPipelineStatus::Cancelled;
         }
 
         // Completed - has property

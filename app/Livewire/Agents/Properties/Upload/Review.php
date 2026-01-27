@@ -90,6 +90,7 @@ class Review extends Component
                 if ($status['status'] === 'completed' && $status['data']) {
                     $this->extractedData = $status['data'];
                     $this->qualityScore = $status['data']['quality_score'] ?? 0;
+                    $this->saveToSession();
                     $this->cleanupExtraction();
                 } elseif ($status['status'] === 'failed') {
                     $this->extractedData = $this->getEmptyStructure();
@@ -165,6 +166,7 @@ class Review extends Component
         if ($status['status'] === 'completed' && $status['data']) {
             $this->extractedData = $status['data'];
             $this->qualityScore = $status['data']['quality_score'] ?? 0;
+            $this->saveToSession();
             $this->cleanupExtraction();
         } elseif ($status['status'] === 'failed') {
             $this->extractedData = $this->getEmptyStructure();

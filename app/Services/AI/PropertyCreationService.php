@@ -2,12 +2,13 @@
 
 namespace App\Services\AI;
 
-use App\Enums\ApiOperation;
 use App\Enums\DedupStatus;
 use App\Enums\ListingGroupStatus;
 use App\Enums\PropertyStatus;
 use App\Enums\PropertySubtype;
 use App\Enums\PropertyType;
+use App\Jobs\CreatePropertyFromListingJob;
+use App\Jobs\CreatePropertyFromListingsJob;
 use App\Models\Listing;
 use App\Models\ListingGroup;
 use App\Models\Property;
@@ -56,16 +57,18 @@ class PropertyCreationService
         $group->refresh();
 
         try {
-            $response = $this->claude->message(
-                messages: $this->buildMessages($listings),
-                tools: [$this->getPropertyCreationToolSchema()],
-                system: $this->getSystemPrompt($listings->count() > 1)
-            );
+            $context = ClaudeCallContext::forListingGroup($group->id, CreatePropertyFromListingsJob::class);
+
+            $response = $this->claude
+                ->withTracking($this->usageTracker, $context)
+                ->message(
+                    messages: $this->buildMessages($listings),
+                    tools: [$this->getPropertyCreationToolSchema()],
+                    system: $this->getSystemPrompt($listings->count() > 1)
+                );
 
             $toolResult = $this->claude->extractToolUse($response, 'create_property');
             $usage = $this->claude->getUsage($response);
-
-            $this->usageTracker->logClaudeUsage(ApiOperation::PropertyCreation, $usage);
 
             if (! $toolResult) {
                 throw new \RuntimeException('AI did not return structured property data');
@@ -209,16 +212,18 @@ class PropertyCreationService
         $listing->refresh();
 
         try {
-            $response = $this->claude->message(
-                messages: $this->buildMessages($listings),
-                tools: [$this->getPropertyCreationToolSchema()],
-                system: $this->getSystemPrompt(false) // Single listing, not multiple
-            );
+            $context = ClaudeCallContext::forListing($listing->id, CreatePropertyFromListingJob::class);
+
+            $response = $this->claude
+                ->withTracking($this->usageTracker, $context)
+                ->message(
+                    messages: $this->buildMessages($listings),
+                    tools: [$this->getPropertyCreationToolSchema()],
+                    system: $this->getSystemPrompt(false) // Single listing, not multiple
+                );
 
             $toolResult = $this->claude->extractToolUse($response, 'create_property');
             $usage = $this->claude->getUsage($response);
-
-            $this->usageTracker->logClaudeUsage(ApiOperation::PropertyCreation, $usage);
 
             if (! $toolResult) {
                 throw new \RuntimeException('AI did not return structured property data');
@@ -375,6 +380,17 @@ class PropertyCreationService
         foreach ($allowedFields as $field) {
             if (isset($unifiedFields[$field]) && $unifiedFields[$field] !== null) {
                 $data[$field] = $unifiedFields[$field];
+            }
+        }
+
+        // Fallback: if no address from AI, try geocoded_formatted_address from listings
+        if (empty($data['address'])) {
+            foreach ($listings as $listing) {
+                $geocodedAddress = $listing->raw_data['geocoded_formatted_address'] ?? null;
+                if ($geocodedAddress) {
+                    $data['address'] = $geocodedAddress;
+                    break;
+                }
             }
         }
 

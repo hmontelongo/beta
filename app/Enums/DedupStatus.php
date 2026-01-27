@@ -11,6 +11,7 @@ enum DedupStatus: string
     case Unique = 'unique';
     case Completed = 'completed';
     case Failed = 'failed';
+    case Cancelled = 'cancelled';
 
     public function color(): string
     {
@@ -22,6 +23,7 @@ enum DedupStatus: string
             self::Unique => 'amber',
             self::Completed => 'green',
             self::Failed => 'red',
+            self::Cancelled => 'zinc',
         };
     }
 
@@ -35,6 +37,7 @@ enum DedupStatus: string
             self::Unique => 'sparkles',
             self::Completed => 'check-circle',
             self::Failed => 'x-mark',
+            self::Cancelled => 'no-symbol',
         };
     }
 
@@ -48,6 +51,7 @@ enum DedupStatus: string
             self::Unique => 'Unique',
             self::Completed => 'Completed',
             self::Failed => 'Failed',
+            self::Cancelled => 'Cancelled',
         };
     }
 

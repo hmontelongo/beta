@@ -18,29 +18,53 @@ use Illuminate\Support\Facades\Redis;
 class JobCancellationService
 {
     /**
-     * Cancel property creation jobs and reset listing groups to pending.
+     * Cancel property creation jobs and reject listing groups.
      *
-     * @return array{cancelled: int, reset: int}
+     * Groups are rejected and unique listings are marked as failed
+     * so they don't get auto-requeued. Re-scrape to process again if needed.
+     *
+     * @return array{cancelled: int, reset: int, unique_listings: int}
      */
     public function cancelPropertyCreationJobs(): array
     {
+        // Count groups that will be affected (both queued and processing)
+        $pendingAiCount = ListingGroup::where('status', ListingGroupStatus::PendingAi)->count();
         $processingCount = ListingGroup::where('status', ListingGroupStatus::ProcessingAi)->count();
+
+        // Count unique listings without property (these also get queued)
+        $uniqueListingsCount = Listing::where('dedup_status', DedupStatus::Unique)
+            ->whereNull('property_id')
+            ->count();
 
         // Clear the property creation queue
         $this->clearQueue('property-creation');
 
-        // Reset all processing groups to pending AI
-        $resetCount = ListingGroup::where('status', ListingGroupStatus::ProcessingAi)
-            ->update(['status' => ListingGroupStatus::PendingAi]);
+        // Reject both PendingAi and ProcessingAi groups
+        $groupsReset = ListingGroup::whereIn('status', [
+            ListingGroupStatus::PendingAi,
+            ListingGroupStatus::ProcessingAi,
+        ])->update([
+            'status' => ListingGroupStatus::Rejected,
+            'rejection_reason' => 'Cancelled by user',
+        ]);
+
+        // Mark unique listings as cancelled so they don't get requeued
+        $uniqueListingsReset = Listing::where('dedup_status', DedupStatus::Unique)
+            ->whereNull('property_id')
+            ->update(['dedup_status' => DedupStatus::Cancelled]);
 
         Log::info('Property creation jobs cancelled', [
             'queue_cleared' => 'property-creation',
-            'groups_reset' => $resetCount,
+            'groups_reset' => $groupsReset,
+            'unique_listings_reset' => $uniqueListingsReset,
+            'were_pending_ai' => $pendingAiCount,
+            'were_processing' => $processingCount,
         ]);
 
         return [
-            'cancelled' => $processingCount,
-            'reset' => $resetCount,
+            'cancelled' => $pendingAiCount + $processingCount + $uniqueListingsCount,
+            'reset' => $groupsReset,
+            'unique_listings' => $uniqueListingsReset,
         ];
     }
 

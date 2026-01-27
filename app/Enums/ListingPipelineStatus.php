@@ -13,6 +13,7 @@ enum ListingPipelineStatus: string
     case ProcessingAi = 'processing_ai';
     case Completed = 'completed';
     case Failed = 'failed';
+    case Cancelled = 'cancelled';
 
     public function label(): string
     {
@@ -26,6 +27,7 @@ enum ListingPipelineStatus: string
             self::ProcessingAi => 'AI Processing',
             self::Completed => 'Completed',
             self::Failed => 'Failed',
+            self::Cancelled => 'Cancelled',
         };
     }
 
@@ -39,6 +41,7 @@ enum ListingPipelineStatus: string
             self::QueuedForAi, self::ProcessingAi => 'purple',
             self::Completed => 'green',
             self::Failed => 'red',
+            self::Cancelled => 'zinc',
         };
     }
 
@@ -54,6 +57,7 @@ enum ListingPipelineStatus: string
             self::ProcessingAi => 'cog-6-tooth',
             self::Completed => 'check-circle',
             self::Failed => 'x-circle',
+            self::Cancelled => 'no-symbol',
         };
     }
 

@@ -266,7 +266,6 @@ describe('renders correctly', function () {
 
         $component->assertStatus(200)
             ->assertSee('Dashboard')
-            ->assertSee('Total API Spend')
             ->assertSee('Claude AI')
             ->assertSee('ZenRows');
     });

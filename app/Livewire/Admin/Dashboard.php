@@ -38,7 +38,13 @@ class Dashboard extends Component
     }
 
     /**
-     * @return array{total_cost_cents: int, claude_cost_cents: int, zenrows_credits: int, claude_requests: int, zenrows_requests: int, total_tokens: int}
+     * Estimated cost per ZenRows request in cents.
+     * Based on observed data: ~$0.00323 per request (0.323 cents).
+     */
+    private const ZENROWS_COST_PER_REQUEST_CENTS = 0.323;
+
+    /**
+     * @return array{total_cost_cents: int, claude_cost_cents: int, zenrows_credits: int, claude_requests: int, claude_failed: int, zenrows_requests: int, zenrows_failed: int, total_tokens: int}
      */
     #[Computed]
     public function costStats(): array
@@ -46,17 +52,37 @@ class Dashboard extends Component
         $days = $this->getPeriodDays();
         $since = now()->subDays($days);
 
-        $logs = ApiUsageLog::where('created_at', '>=', $since)->get();
-        $claudeLogs = $logs->where('service', ApiService::Claude);
-        $zenrowsLogs = $logs->where('service', ApiService::ZenRows);
+        // Use DB aggregation instead of loading all records into memory
+        // Note: Use 'tokens_sum' alias to avoid conflict with model's getTotalTokensAttribute accessor
+        $claudeStats = ApiUsageLog::where('created_at', '>=', $since)
+            ->where('service', ApiService::Claude)
+            ->selectRaw('COALESCE(SUM(cost_cents), 0) as cost_cents')
+            ->selectRaw('COUNT(*) as requests')
+            ->selectRaw('SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) as failed')
+            ->selectRaw('COALESCE(SUM(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens), 0) as tokens_sum')
+            ->first();
+
+        $zenrowsStats = ApiUsageLog::where('created_at', '>=', $since)
+            ->where('service', ApiService::ZenRows)
+            ->selectRaw('COUNT(*) as requests')
+            ->selectRaw('SUM(CASE WHEN success = 0 THEN 1 ELSE 0 END) as failed')
+            ->selectRaw('COALESCE(SUM(credits_used), 0) as credits')
+            ->first();
+
+        $claudeCost = (int) $claudeStats->cost_cents;
+        $zenrowsRequests = (int) $zenrowsStats->requests;
+        $zenrowsCostCents = (int) round($zenrowsRequests * self::ZENROWS_COST_PER_REQUEST_CENTS);
 
         return [
-            'total_cost_cents' => (int) $logs->sum('cost_cents'),
-            'claude_cost_cents' => (int) $claudeLogs->sum('cost_cents'),
-            'zenrows_credits' => (int) $zenrowsLogs->sum('credits_used'),
-            'claude_requests' => $claudeLogs->count(),
-            'zenrows_requests' => $zenrowsLogs->count(),
-            'total_tokens' => (int) $claudeLogs->sum('total_tokens'),
+            'total_cost_cents' => $claudeCost,
+            'claude_cost_cents' => $claudeCost,
+            'zenrows_credits' => (int) $zenrowsStats->credits,
+            'zenrows_cost_cents' => $zenrowsCostCents,
+            'claude_requests' => (int) $claudeStats->requests,
+            'claude_failed' => (int) $claudeStats->failed,
+            'zenrows_requests' => $zenrowsRequests,
+            'zenrows_failed' => (int) $zenrowsStats->failed,
+            'total_tokens' => (int) $claudeStats->tokens_sum,
         ];
     }
 
