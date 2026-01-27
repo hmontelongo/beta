@@ -459,6 +459,74 @@ class PropertyPresenter
     }
 
     /**
+     * Get Heroicon name for an amenity (for use with Flux UI).
+     */
+    public static function getAmenityHeroicon(string $amenity): string
+    {
+        return match (strtolower($amenity)) {
+            // Unit amenities
+            'integrated_kitchen', 'kitchen' => 'fire',
+            'terrace', 'balcony' => 'sun',
+            'laundry_room', 'washer', 'dryer' => 'arrows-right-left',
+            'closet', 'walk_in_closet' => 'square-3-stack-3d',
+            'air_conditioning', 'ac' => 'sparkles',
+            'heating' => 'fire',
+            'dishwasher' => 'beaker',
+            'furnished', 'semi_furnished' => 'home-modern',
+            'granite_countertops' => 'cube',
+            'natural_gas' => 'fire',
+
+            // Building amenities
+            'swimming_pool', 'pool' => 'sparkles',
+            'gym' => 'heart',
+            'elevator' => 'arrows-up-down',
+            'playground' => 'face-smile',
+            'party_room', 'multipurpose_room', 'meeting_room' => 'user-group',
+            'garden', 'roof_garden' => 'sun',
+            'bbq_area', 'grill' => 'fire',
+            'pet_area' => 'heart',
+            'jacuzzi' => 'sparkles',
+            'rooftop' => 'building-office',
+            'coworking', 'business_center' => 'briefcase',
+            'bike_parking' => 'truck',
+            'common_area' => 'home',
+            'fountain' => 'sparkles',
+            'convenience_store' => 'shopping-bag',
+            'restaurant' => 'cake',
+
+            // Services
+            'security', 'security_24h', '24_hour_security' => 'shield-check',
+            'guard_house', 'security_booth' => 'shield-check',
+            'concierge' => 'bell',
+            'covered_parking', 'visitor_parking' => 'truck',
+            'parking' => 'truck',
+            'storage' => 'archive-box',
+            'gated_community' => 'lock-closed',
+            'security_cameras' => 'video-camera',
+            'maintenance' => 'wrench-screwdriver',
+            'cleaning' => 'sparkles',
+            'valet_parking' => 'key',
+            'disabled_access', 'wheelchair_access', 'accessibility_features' => 'hand-raised',
+            'package_reception' => 'inbox',
+            'internet', 'wifi' => 'wifi',
+            'cable_tv' => 'tv',
+            'intercom' => 'phone',
+            'water_heater' => 'fire',
+            'laundry_service' => 'arrows-right-left',
+            'trash_collection' => 'trash',
+            'recycling' => 'arrow-path',
+
+            // Extras
+            'pet_friendly' => 'heart',
+            'solar_panels' => 'sun',
+            'water_tank' => 'beaker',
+            'generator' => 'bolt',
+
+            default => 'check',
+        };
+    }
+
+    /**
      * Get emoji icon for a landmark type.
      */
     public static function getLandmarkIcon(string $type): string
@@ -478,6 +546,95 @@ class PropertyPresenter
             'gym', 'fitness' => '💪',
             default => '📍',
         };
+    }
+
+    /**
+     * Get Heroicon name for a landmark type (for use with Flux UI).
+     */
+    public static function getLandmarkHeroicon(string $type): string
+    {
+        return match ($type) {
+            'university' => 'academic-cap',
+            'school', 'education' => 'academic-cap',
+            'park', 'recreation' => 'sun',
+            'shopping_mall', 'mall', 'shopping' => 'shopping-bag',
+            'stadium' => 'ticket',
+            'government' => 'building-library',
+            'hospital', 'health', 'clinic' => 'heart',
+            'metro', 'transport', 'bus' => 'truck',
+            'restaurant', 'food' => 'cake',
+            'church', 'religious' => 'building-library',
+            'bank' => 'banknotes',
+            'gym', 'fitness' => 'heart',
+            'supermarket', 'grocery' => 'shopping-cart',
+            'pharmacy' => 'beaker',
+            'airport' => 'paper-airplane',
+            'beach' => 'sun',
+            'museum' => 'building-library',
+            'theater', 'cinema' => 'film',
+            default => 'map-pin',
+        };
+    }
+
+    /**
+     * Get the top building highlights - notable amenities worth featuring.
+     *
+     * @param  array<string>  $buildingAmenities
+     * @return array<string>
+     */
+    public static function getBuildingHighlights(array $buildingAmenities, int $limit = 3): array
+    {
+        // Priority order for building highlights (most impressive first)
+        $priorityAmenities = [
+            'swimming_pool', 'pool',
+            'gym',
+            'rooftop', 'roof_garden',
+            'jacuzzi',
+            'coworking', 'business_center',
+            'party_room', 'multipurpose_room',
+            'garden',
+            'elevator',
+            'playground',
+            'pet_area',
+            'bbq_area', 'grill',
+            'common_area',
+            'meeting_room',
+            'bike_parking',
+            'fountain',
+            'convenience_store',
+            'restaurant',
+        ];
+
+        $highlights = [];
+        $normalizedAmenities = array_map('strtolower', $buildingAmenities);
+
+        foreach ($priorityAmenities as $priority) {
+            if (in_array($priority, $normalizedAmenities, true)) {
+                // Find the original casing
+                $index = array_search($priority, $normalizedAmenities, true);
+                if ($index !== false) {
+                    $highlights[] = $buildingAmenities[$index];
+                }
+            }
+
+            if (count($highlights) >= $limit) {
+                break;
+            }
+        }
+
+        // If we don't have enough, add remaining amenities
+        if (count($highlights) < $limit) {
+            foreach ($buildingAmenities as $amenity) {
+                if (! in_array($amenity, $highlights, true)) {
+                    $highlights[] = $amenity;
+                }
+                if (count($highlights) >= $limit) {
+                    break;
+                }
+            }
+        }
+
+        return $highlights;
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
