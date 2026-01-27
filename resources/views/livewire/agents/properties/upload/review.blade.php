@@ -24,7 +24,7 @@
 
     {{-- Loading State with Stages --}}
     @if ($this->isExtracting)
-        <div wire:poll.1s="checkExtractionStatus" class="flex flex-col items-center justify-center py-16">
+        <div wire:key="extraction-loading" wire:poll.1s="checkExtractionStatus" class="flex flex-col items-center justify-center py-16">
             {{-- Animated Icon --}}
             <div class="relative">
                 <div class="absolute inset-0 animate-ping rounded-full bg-zinc-200 opacity-75 dark:bg-zinc-700"></div>
@@ -111,7 +111,7 @@
         </div>
     @elseif ($extractionStatus === 'failed')
         {{-- Error State --}}
-        <div class="flex flex-col items-center justify-center py-16">
+        <div wire:key="extraction-error" class="flex flex-col items-center justify-center py-16">
             <div class="rounded-full bg-red-100 p-4 dark:bg-red-900/30">
                 <flux:icon name="exclamation-triangle" class="size-8 text-red-500" />
             </div>
@@ -123,7 +123,7 @@
         </div>
     @else
         {{-- JSON-like Editor --}}
-        <div class="space-y-4">
+        <div wire:key="extraction-content" class="space-y-4">
             {{-- Property Section --}}
             <x-upload.data-section title="Propiedad" icon="home">
                 <x-upload.data-row label="tipo" required>
