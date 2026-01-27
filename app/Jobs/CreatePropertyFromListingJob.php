@@ -108,7 +108,7 @@ class CreatePropertyFromListingJob implements ShouldBeUnique, ShouldQueue
     }
 
     /**
-     * Handle job failure - reset status so it can be retried.
+     * Handle job failure after all retries exhausted.
      */
     public function failed(?Throwable $exception): void
     {
@@ -117,9 +117,10 @@ class CreatePropertyFromListingJob implements ShouldBeUnique, ShouldQueue
             'error' => $exception?->getMessage(),
         ]);
 
-        // Reset to Unique for retry
+        // Mark as Failed to prevent infinite retry loop
+        // Admin can review and manually reset to Unique if retry is desired
         Listing::where('id', $this->listingId)->update([
-            'dedup_status' => DedupStatus::Unique,
+            'dedup_status' => DedupStatus::Failed,
         ]);
     }
 }

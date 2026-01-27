@@ -119,7 +119,7 @@ class CreatePropertyFromListingsJob implements ShouldBeUnique, ShouldQueue
     }
 
     /**
-     * Handle job failure - reset status so it can be retried.
+     * Handle job failure after all retries exhausted.
      */
     public function failed(?Throwable $exception): void
     {
@@ -128,10 +128,11 @@ class CreatePropertyFromListingsJob implements ShouldBeUnique, ShouldQueue
             'error' => $exception?->getMessage(),
         ]);
 
-        // Reset to PendingAi for retry instead of PendingReview (which implies human rejection)
+        // Mark as Failed to prevent infinite retry loop
+        // Admin can review and manually reset to PendingAi if retry is desired
         ListingGroup::where('id', $this->listingGroupId)->update([
-            'status' => ListingGroupStatus::PendingAi,
-            'rejection_reason' => 'AI processing failed, will retry: '.($exception?->getMessage() ?? 'Unknown error'),
+            'status' => ListingGroupStatus::Failed,
+            'rejection_reason' => 'AI processing failed after retries: '.($exception?->getMessage() ?? 'Unknown error'),
         ]);
     }
 }

@@ -13,25 +13,7 @@
     </div>
 
     {{-- Cost Cards --}}
-    <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        {{-- Total API Spend --}}
-        <flux:card class="p-4">
-            <div class="flex items-center justify-between">
-                <div class="flex items-center gap-2">
-                    <div class="rounded-lg bg-green-100 p-2 dark:bg-green-900/30">
-                        <flux:icon name="currency-dollar" class="size-5 text-green-600 dark:text-green-400" />
-                    </div>
-                    <flux:text size="sm" class="text-zinc-500">{{ __('Total API Spend') }}</flux:text>
-                </div>
-            </div>
-            <flux:heading size="xl" class="mt-3 text-green-600 dark:text-green-400">
-                {{ $this->formatCost($this->costStats['total_cost_cents']) }}
-            </flux:heading>
-            <flux:text size="sm" class="text-zinc-500 mt-1">
-                {{ __(':count requests', ['count' => number_format($this->costStats['claude_requests'] + $this->costStats['zenrows_requests'])]) }}
-            </flux:text>
-        </flux:card>
-
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {{-- Claude AI --}}
         <flux:card class="p-4">
             <div class="flex items-center justify-between">
@@ -45,10 +27,14 @@
             <flux:heading size="xl" class="mt-3 text-purple-600 dark:text-purple-400">
                 {{ $this->formatCost($this->costStats['claude_cost_cents']) }}
             </flux:heading>
-            <div class="mt-1 flex items-center gap-3 text-sm text-zinc-500">
+            <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-zinc-500">
                 <span>{{ number_format($this->costStats['claude_requests']) }} {{ __('requests') }}</span>
                 <span class="text-zinc-300 dark:text-zinc-600">|</span>
                 <span>{{ number_format($this->costStats['total_tokens']) }} {{ __('tokens') }}</span>
+                @if ($this->costStats['claude_failed'] > 0)
+                    <span class="text-zinc-300 dark:text-zinc-600">|</span>
+                    <span class="text-red-500">{{ number_format($this->costStats['claude_failed']) }} {{ __('failed') }}</span>
+                @endif
             </div>
         </flux:card>
 
@@ -63,11 +49,15 @@
                 </div>
             </div>
             <flux:heading size="xl" class="mt-3 text-blue-600 dark:text-blue-400">
-                {{ number_format($this->costStats['zenrows_credits']) }} {{ __('credits') }}
+                ~{{ $this->formatCost($this->costStats['zenrows_cost_cents']) }}
             </flux:heading>
-            <flux:text size="sm" class="text-zinc-500 mt-1">
-                {{ number_format($this->costStats['zenrows_requests']) }} {{ __('requests') }}
-            </flux:text>
+            <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-zinc-500">
+                <span>{{ number_format($this->costStats['zenrows_requests']) }} {{ __('requests') }}</span>
+                @if ($this->costStats['zenrows_failed'] > 0)
+                    <span class="text-zinc-300 dark:text-zinc-600">|</span>
+                    <span class="text-red-500">{{ number_format($this->costStats['zenrows_failed']) }} {{ __('failed') }}</span>
+                @endif
+            </div>
         </flux:card>
     </div>
 

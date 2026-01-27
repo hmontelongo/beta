@@ -114,7 +114,7 @@ it('skips processing when group is still pending review', function () {
     expect($group->status)->toBe(ListingGroupStatus::PendingReview);
 });
 
-it('sets group to pending_ai with reason when job fails permanently', function () {
+it('sets group to failed with reason when job fails permanently', function () {
     $platform = Platform::factory()->create();
     $group = ListingGroup::factory()->processingAi()->create();
     $listing = Listing::factory()->unmatched()->create([
@@ -127,7 +127,7 @@ it('sets group to pending_ai with reason when job fails permanently', function (
     $job->failed(new \RuntimeException('API Error'));
 
     $group->refresh();
-    expect($group->status)->toBe(ListingGroupStatus::PendingAi)
+    expect($group->status)->toBe(ListingGroupStatus::Failed)
         ->and($group->rejection_reason)->toContain('API Error');
 });
 

@@ -3,6 +3,7 @@
 use App\Enums\ApiOperation;
 use App\Enums\ApiService;
 use App\Models\ApiUsageLog;
+use App\Services\AI\ClaudeCallContext;
 use App\Services\ApiUsageTracker;
 
 describe('logClaudeUsage', function () {
@@ -108,5 +109,89 @@ describe('cost calculation', function () {
         $costCents = ApiUsageLog::calculateClaudeCostCents(10000, 2000, 50000, 100000);
 
         expect($costCents)->toBe(28);
+    });
+});
+
+describe('context tracking', function () {
+    it('logs entity context for listing', function () {
+        $tracker = new ApiUsageTracker;
+        $context = ClaudeCallContext::forListing(123, 'CreatePropertyFromListingJob');
+
+        $log = $tracker->logClaudeUsage(
+            ApiOperation::PropertyCreation,
+            ['input_tokens' => 1000, 'output_tokens' => 500],
+            null,
+            $context
+        );
+
+        expect($log->entity_type)->toBe('listing')
+            ->and($log->entity_id)->toBe(123)
+            ->and($log->job_class)->toBe('CreatePropertyFromListingJob')
+            ->and($log->success)->toBeTrue()
+            ->and($log->error_type)->toBeNull();
+    });
+
+    it('logs entity context for listing group', function () {
+        $tracker = new ApiUsageTracker;
+        $context = ClaudeCallContext::forListingGroup(456, 'CreatePropertyFromListingsJob');
+
+        $log = $tracker->logClaudeUsage(
+            ApiOperation::PropertyCreation,
+            ['input_tokens' => 1000, 'output_tokens' => 500],
+            null,
+            $context
+        );
+
+        expect($log->entity_type)->toBe('listing_group')
+            ->and($log->entity_id)->toBe(456)
+            ->and($log->job_class)->toBe('CreatePropertyFromListingsJob');
+    });
+
+    it('logs error type for failed calls', function () {
+        $tracker = new ApiUsageTracker;
+        $context = ClaudeCallContext::forListing(789);
+
+        $log = $tracker->logClaudeUsage(
+            ApiOperation::PropertyCreation,
+            [], // No usage data for failed calls
+            null,
+            $context,
+            'credit_balance'
+        );
+
+        expect($log->success)->toBeFalse()
+            ->and($log->error_type)->toBe('credit_balance')
+            ->and($log->entity_id)->toBe(789);
+    });
+
+    it('logs duration in milliseconds', function () {
+        $tracker = new ApiUsageTracker;
+        $context = ClaudeCallContext::forListing(100);
+
+        $log = $tracker->logClaudeUsage(
+            ApiOperation::PropertyCreation,
+            ['input_tokens' => 1000, 'output_tokens' => 500],
+            null,
+            $context,
+            null,
+            1500 // 1.5 seconds
+        );
+
+        expect($log->duration_ms)->toBe(1500);
+    });
+
+    it('works without context for backward compatibility', function () {
+        $tracker = new ApiUsageTracker;
+
+        $log = $tracker->logClaudeUsage(
+            ApiOperation::PropertyCreation,
+            ['input_tokens' => 1000, 'output_tokens' => 500]
+        );
+
+        expect($log->entity_type)->toBeNull()
+            ->and($log->entity_id)->toBeNull()
+            ->and($log->job_class)->toBeNull()
+            ->and($log->error_type)->toBeNull()
+            ->and($log->success)->toBeTrue();
     });
 });

@@ -259,6 +259,10 @@ describe('getEmptyStructure', function () {
 describe('extract handles errors', function () {
     it('returns empty structure when AI does not return tool use', function () {
         $this->claudeClient
+            ->shouldReceive('withTracking')
+            ->andReturnSelf();
+
+        $this->claudeClient
             ->shouldReceive('message')
             ->andReturn(['content' => [['type' => 'text', 'text' => 'No tool use']]]);
 
@@ -298,6 +302,7 @@ function mockClaudeResponse(Mockery\MockInterface $mock, array $toolInput): void
         ],
     ];
 
+    $mock->shouldReceive('withTracking')->andReturnSelf();
     $mock->shouldReceive('message')->andReturn($response);
     $mock->shouldReceive('extractToolUse')
         ->with($response, 'extract_property_data')

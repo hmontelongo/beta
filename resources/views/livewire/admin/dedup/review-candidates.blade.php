@@ -208,7 +208,7 @@
 
             {{-- New Listing Cards --}}
             @foreach ($this->group->listings as $listing)
-                <flux:card>
+                <flux:card wire:key="listing-card-{{ $listing->id }}">
                     {{-- Header --}}
                     <div class="mb-4 flex items-start justify-between">
                         <div class="flex-1 min-w-0">
@@ -250,9 +250,11 @@
                                 message="{{ __('This listing will be removed from the group and re-processed separately.') }}"
                                 cancelText="{{ __('Cancel') }}"
                             >
-                                <flux:button variant="danger" wire:click="removeListingFromGroup({{ $listing->id }})">
-                                    {{ __('Remove') }}
-                                </flux:button>
+                                <flux:modal.close>
+                                    <flux:button variant="danger" wire:click="removeListingFromGroup({{ $listing->id }})">
+                                        {{ __('Remove') }}
+                                    </flux:button>
+                                </flux:modal.close>
                             </x-confirm-modal>
                         </div>
                     </div>

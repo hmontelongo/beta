@@ -5,14 +5,21 @@ namespace App\Services;
 use App\Enums\ApiOperation;
 use App\Enums\ApiService;
 use App\Models\ApiUsageLog;
+use App\Services\AI\ClaudeCallContext;
 
 class ApiUsageTracker
 {
     /**
-     * @param  array{input_tokens: int, output_tokens: int, cache_creation_input_tokens?: int, cache_read_input_tokens?: int}  $usage
+     * @param  array{input_tokens?: int, output_tokens?: int, cache_creation_input_tokens?: int, cache_read_input_tokens?: int}  $usage
      */
-    public function logClaudeUsage(ApiOperation $operation, array $usage, ?string $model = null): ApiUsageLog
-    {
+    public function logClaudeUsage(
+        ApiOperation $operation,
+        array $usage,
+        ?string $model = null,
+        ?ClaudeCallContext $context = null,
+        ?string $errorType = null,
+        ?int $durationMs = null,
+    ): ApiUsageLog {
         $inputTokens = $usage['input_tokens'] ?? 0;
         $outputTokens = $usage['output_tokens'] ?? 0;
         $cacheCreationTokens = $usage['cache_creation_input_tokens'] ?? 0;
@@ -32,6 +39,12 @@ class ApiUsageTracker
                 $cacheCreationTokens,
                 $cacheReadTokens
             ),
+            'entity_type' => $context?->entityType,
+            'entity_id' => $context?->entityId,
+            'job_class' => $context?->jobClass,
+            'error_type' => $errorType,
+            'duration_ms' => $durationMs,
+            'success' => $errorType === null,
         ]);
     }
 

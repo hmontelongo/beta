@@ -9,6 +9,7 @@ enum ListingGroupStatus: string
     case ProcessingAi = 'processing_ai';
     case Completed = 'completed';
     case Rejected = 'rejected';
+    case Failed = 'failed';
 
     public function color(): string
     {
@@ -18,6 +19,7 @@ enum ListingGroupStatus: string
             self::ProcessingAi => 'purple',
             self::Completed => 'green',
             self::Rejected => 'red',
+            self::Failed => 'red',
         };
     }
 
@@ -29,6 +31,7 @@ enum ListingGroupStatus: string
             self::ProcessingAi => 'sparkles',
             self::Completed => 'check-circle',
             self::Rejected => 'x-circle',
+            self::Failed => 'exclamation-triangle',
         };
     }
 
@@ -40,6 +43,7 @@ enum ListingGroupStatus: string
             self::ProcessingAi => 'AI Processing',
             self::Completed => 'Property Created',
             self::Rejected => 'Rejected',
+            self::Failed => 'AI Failed',
         };
     }
 
@@ -55,6 +59,6 @@ enum ListingGroupStatus: string
 
     public function isResolved(): bool
     {
-        return in_array($this, [self::Completed, self::Rejected]);
+        return in_array($this, [self::Completed, self::Rejected, self::Failed]);
     }
 }

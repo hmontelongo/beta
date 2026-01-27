@@ -29,18 +29,24 @@ class PropertyDescriptionExtractionService
      */
     public function extract(string $description): array
     {
-        $response = $this->claude->message(
-            messages: [
-                ['role' => 'user', 'content' => $this->buildUserMessage($description)],
-            ],
-            tools: [$this->getExtractionToolSchema()],
-            system: $this->getSystemPrompt()
+        // Create context for property upload extraction (no specific entity)
+        $context = new ClaudeCallContext(
+            operation: ApiOperation::PropertyCreation,
+            entityType: 'property_upload',
         );
+
+        $response = $this->claude
+            ->withTracking($this->usageTracker, $context)
+            ->message(
+                messages: [
+                    ['role' => 'user', 'content' => $this->buildUserMessage($description)],
+                ],
+                tools: [$this->getExtractionToolSchema()],
+                system: $this->getSystemPrompt()
+            );
 
         $toolResult = $this->claude->extractToolUse($response, 'extract_property_data');
         $usage = $this->claude->getUsage($response);
-
-        $this->usageTracker->logClaudeUsage(ApiOperation::PropertyCreation, $usage);
 
         if (! $toolResult) {
             Log::warning('AI did not return structured property data', [
