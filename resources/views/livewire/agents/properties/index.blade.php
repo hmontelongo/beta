@@ -639,6 +639,19 @@
     </flux:modal>
 
     {{-- Collection Panel --}}
+    <div
+        x-data="{ show: $wire.entangle('showCollectionPanel') }"
+        x-show="show"
+        x-transition:enter="transition ease-out duration-200"
+        x-transition:enter-start="opacity-0"
+        x-transition:enter-end="opacity-100"
+        x-transition:leave="transition ease-in duration-150"
+        x-transition:leave-start="opacity-100"
+        x-transition:leave-end="opacity-0"
+        x-cloak
+        class="fixed inset-0 z-40 bg-black/30 dark:bg-black/50"
+        @click="show = false"
+    ></div>
     <flux:modal wire:model="showCollectionPanel" position="right" class="w-full max-w-3xl" :dismissible="true">
         <div class="flex h-full flex-col">
             {{-- Header --}}

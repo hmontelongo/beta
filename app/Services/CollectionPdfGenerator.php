@@ -67,6 +67,9 @@ class CollectionPdfGenerator
             $browsershot->setOption('args', ['--no-sandbox', '--disable-setuid-sandbox']);
         }
 
+        // Set temp directory for HTML files (defaults to /tmp, configurable for environments that can't access it)
+        $browsershot->setTemporaryHtmlDirectory(config('browsershot.temp_path', sys_get_temp_dir()));
+
         return $browsershot->pdf();
     }
 

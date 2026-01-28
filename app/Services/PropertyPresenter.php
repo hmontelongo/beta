@@ -96,7 +96,10 @@ class PropertyPresenter
             return '+ $'.number_format($fee).'/mes';
         }
 
-        if (! isset($fee['amount']) || $fee['amount'] <= 0) {
+        $amount = $fee['amount'] ?? null;
+
+        // Handle case where amount might be nested or malformed
+        if (! is_numeric($amount) || $amount <= 0) {
             return null;
         }
 
@@ -107,7 +110,7 @@ class PropertyPresenter
             default => '',
         };
 
-        return '+ $'.number_format($fee['amount']).$period;
+        return '+ $'.number_format((float) $amount).$period;
     }
 
     /**

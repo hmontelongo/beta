@@ -13,4 +13,10 @@ return [
      * Enable no-sandbox mode for server environments (required on most Linux servers).
      */
     'no_sandbox' => env('BROWSERSHOT_NO_SANDBOX', false),
+
+    /*
+     * Temporary directory for HTML files. Some environments (like snap packages)
+     * cannot access /tmp, so use an alternative path.
+     */
+    'temp_path' => env('BROWSERSHOT_TEMP_PATH'),
 ];
