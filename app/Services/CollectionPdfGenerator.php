@@ -25,8 +25,8 @@ class CollectionPdfGenerator
 
     private function renderHtml(Collection $collection): string
     {
-        // Embed images as base64 for reliable PDF rendering
-        $properties = $this->presenter->prepareProperties($collection->properties, embedImages: true);
+        // Let Puppeteer/Chrome fetch images directly (server-side HTTP gets 403 blocked)
+        $properties = $this->presenter->prepareProperties($collection->properties, embedImages: false);
         $agent = $collection->user;
 
         return view('pdf.collection', [
